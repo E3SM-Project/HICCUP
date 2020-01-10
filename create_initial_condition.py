@@ -8,7 +8,8 @@ import os
 import subprocess as sp
 import glob
 import datetime
-# import xarray as xr
+import xarray as xr
+from . import state_adjustments
 #===============================================================================
 # Specify file names
 #===============================================================================
@@ -71,6 +72,10 @@ map_file = f'map_{src_grid}_to_{dst_grid}_aave.nc'
 # Adjust surface pressure and temperature to match new surface height
 #===============================================================================
 
+# state_adjustments.adjust_surface_state(plev, ncol, temperature,     \
+#                                        pressure_mid, pressure_int,  \
+#                                        phis_old, ps_old, ts_old,    \
+#                                        phis_new, ps_new, ts_new))
 
 #===============================================================================
 # Perform additional state variable adjustments
