@@ -87,8 +87,8 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
 
       # Calculate new surface pressure
       # beta = phis_new[i]/(rdair*Tstar)
-      beta = del_phis/(rdair*Tstar)
-      temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
+      beta = del_phis/(gravit*Tstar)
+      temp = del_phis/(rdair*Tstar)*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
       ps_new[i] = ps_old[i] * np.exp( temp )                # pg 9 eq 12
 
 #-------------------------------------------------------------------------------

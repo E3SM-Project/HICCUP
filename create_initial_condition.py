@@ -1,15 +1,15 @@
-#!/usr/bin/env python
 #===================================================================================================
-# This script automates the creation of an E3SM atmospheric initial condition 
-# file from an ERA5 reanalysis file. NCO must be installed locally and xarray 
-# must be installed in the python environment. 
+# HICCUP - Hindcast Initial Condition Creation Utility/Processor
+# This tool automates the creation of atmospheric initial condition files
+# for E3SM using a user supplied reanalysis file, such as EAR5 data. 
+# Requires NCO and xarray.
 #===================================================================================================
 import os
 import subprocess as sp
 import glob
 import datetime
 import xarray as xr
-from . import state_adjustment
+import state_adjustment
 #===============================================================================
 # Specify file names
 #===============================================================================
@@ -37,7 +37,7 @@ var_rename_dict.update({'stl1':'TS1','stl2':'TS2','stl3':'TS3','stl4':'TS4'})
 #===============================================================================
 # Make a copy of the input file and rename/subset variables
 #===============================================================================
-os.system(f'cp {input_file_name} {tmp_file_name}'
+# os.system(f'cp {input_file_name} {tmp_file_name}')
 
 # Rename the variables to match the output names
 # for key in var_rename_dict :
