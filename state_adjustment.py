@@ -11,16 +11,22 @@ rdair   = rgas/mwdair   # gas constant for dry air                ~ J/k/kg
 
 T_ref1    = 290.5       # reference temperature for sfc adjustments
 T_ref2    = 255.0       # reference temperature for sfc adjustments
+
+phis_threshold = 0.001  # threshold for determining whether to calculate new pressure
+dz_min = 150.           # min distance of first level above sfc for Tbot and Pbot [m]
 #-------------------------------------------------------------------------------
-# Adjust surface pressure and temperature
+# Adjust surface pressure
 # Algorithm based on sea-level pressure calculation
 # from section 3.1.b of NCAR NT-396 
 # "Vertical Interpolation and Truncation of Model-Coordinate Data"
 # https://opensky.ucar.edu/islandora/object/technotes%3A168
 # similar to components/cam/src/physics/cam/cpslec.F90
+# Also see: IFS Documentation Cycle CY23r4, 
+# Part VI: Technical and Computational Procedures, 
+# Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
 def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int,  \
-                             phis_old, ps_old, ts_old, phis_new, ps_new, ts_new ):
+                             phis_old, ps_old, phis_new, ps_new ):
   """ 
   Adjust the surface pressure based on new surace height assumed lapse rate 
     plev            # levels
@@ -30,21 +36,13 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
     pressure_int    pressure on level interfaces    [Pa]
     phis_old        input old surface height        [m]
     ps_old          input old surface pressure      [Pa]
-    ts_old          input old surface temperature   [K]
     phis_new        input new surface height        [m]
     ps_new          output surface pressure         [Pa]
-    ts_new          output surface temperature      [K]
   """
-  
-  phis_threshold = 0.001  # threshold for determining whether to calculate new pressure
-  dz_min = 150.           # min distance of first level above sfc for Tbot and Pbot [m]
 
   for i in range(ncol) :  
 
     del_phis = phis_old[i] - phis_new[i]
-
-    # interpolate new surface temperature value
-    ts_new[i] = ts_old[i] - lapse*(del_phis/gravit)
 
     # If difference between analysis and model phis is negligible,
     # then set model Ps = analysis
@@ -92,6 +90,30 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
       beta = del_phis/(rdair*Tstar)
       temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
       ps_new[i] = ps_old[i] * np.exp( temp )                # pg 9 eq 12
+
+#-------------------------------------------------------------------------------
+# Adjust surface temperature
+# Algorithm based on sea-level pressure calculation
+# from section 3.1.b of NCAR NT-396 
+# "Vertical Interpolation and Truncation of Model-Coordinate Data"
+# https://opensky.ucar.edu/islandora/object/technotes%3A168
+# similar to components/cam/src/physics/cam/cpslec.F90
+# Also see: IFS Documentation Cycle CY23r4, 
+# Part VI: Technical and Computational Procedures, 
+# Chapter 2 FULL-POS post-processing and interpolation
+#-------------------------------------------------------------------------------
+def adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new ):
+  """ 
+  Adjust the surface temperature based on new surace height assumed lapse rate 
+    ncol            # columns
+    ts_old          input old surface temperature   [K]
+    ts_new          output surface temperature      [K]
+  """
+  for i in range(ncol) :  
+    del_phis = phis_old[i] - phis_new[i]
+    ts_new[i] = ts_old[i] - lapse*(del_phis/gravit)
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------

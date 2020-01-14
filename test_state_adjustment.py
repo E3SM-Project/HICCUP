@@ -26,13 +26,11 @@ class standard_atmosphere:
 
 #===============================================================================
 class state_adjustment_test_case(unittest.TestCase):
-  """Tests for state_adjustment.py """
-  
+  """ Tests for state_adjustment.py """
+  #-----------------------------------------------------------------------------
   def test_adjust_surface_pressure(self):
     """ Does surface pressure interpolation give the right value? """
-
     phis_int        = np.array([ 2.5e3, 1.5e3, 0.5e3 ])   # interface altitudes to define plev
-
     phis_min        = np.min(phis_int)
     phis_new        = np.array([ phis_min-0.5e3, phis_min+0.5e3, phis_min ])
     plev            = len(phis_int)-1
@@ -56,14 +54,31 @@ class state_adjustment_test_case(unittest.TestCase):
 
     state_adjustment.adjust_surface_pressure( plev, ncol, temperature_mid,  \
                                               pressure_mid, pressure_int,   \
-                                              phis_old, ps_old, ts_old,     \
-                                              phis_new, ps_new, ts_new )
+                                              phis_old, ps_old, phis_new, ps_new )
 
     # for k in range(plev+1): print(f'  {k}  {pressure_int[0,k]:8.2f}  {phis_int[k]:8.2f} ')
     # for i in range(ncol): print(f'phis_old: {phis_old[i]:04.0f}  phis_new: {phis_new[i]:04.0f}  ps_old: {ps_old[i]:6.2f}  ps_new: {ps_new[i]:6.2f}')
     self.assertTrue( ps_new[0] >ps_old[0] )
     self.assertTrue( ps_new[1] <ps_old[1] )
     self.assertTrue( ps_new[2]==ps_old[2] )
+  #-----------------------------------------------------------------------------
+  def test_adjust_surface_temperature(self):
+    """ Does surface temperature interpolation give the right value? """
+    phis      = 0.5e3
+    phis_old  = np.array([phis]*3)
+    phis_new  = np.array([ phis-0.5e3, phis+0.5e3, phis ])
+    isa       = standard_atmosphere( phis_old )
+    ts_old    = isa.temperature
+    ncol      = len(phis_old)
+    ts_new    = np.empty(ncol)
+
+    state_adjustment.adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new )
+
+    # for i in range(ncol): print(f'phis_old: {phis_old[i]:04.0f}  phis_new: {phis_new[i]:04.0f}  ts_old: {ts_old[i]:6.2f}  ts_new: {ts_new[i]:6.2f}')
+    self.assertTrue( ts_new[0] <ts_old[0] )
+    self.assertTrue( ts_new[1] >ts_old[1] )
+    self.assertTrue( ts_new[2]==ts_old[2] )
+  #-----------------------------------------------------------------------------
 
 #===============================================================================
 if __name__ == '__main__':
