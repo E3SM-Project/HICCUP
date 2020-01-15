@@ -20,6 +20,13 @@ output_file_name = 'output.nc'
 
 tmp_file_name = 'tmp.nc'
 
+adjust_ts   = False   # Adjust surface temperature to match new surface height
+adjust_ps   = False   # Adjust surface pressure to match new surface height
+adjust_mass = False   # adjust surface pressure to retain dry mass of atmosphere
+adjust_qv   = False   # adjust qv to eliminate supersaturation
+adjust_cw   = False   # adjust cloud water to remove negative values
+adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
+
 # This dict provides a map between variable names in the input and output files
 var_rename_dict = {}
 
@@ -69,19 +76,43 @@ map_file = f'map_{src_grid}_to_{dst_grid}_aave.nc'
 #===============================================================================
 
 #===============================================================================
-# Adjust surface pressure and temperature to match new surface height
+# Perform state adjustments on interpolated data
 #===============================================================================
 
-# state_adjustment.adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new )
+exit()
 
-# state_adjustment.adjust_surface_pressure( plev, ncol, temperature_mid,  \
-#                                           pressure_mid, pressure_int,   \
-#                                           phis_old, ps_old, phis_new, ps_new )
+# Load the file into an xarray dataset
+ds = xr.open_dataset(output_file_name)
 
-#===============================================================================
-# Perform additional state variable adjustments
-#===============================================================================
+# Adjust surface temperature to match new surface height
+if adjust_ts : 
+  state_adjustment.adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new )
 
+# Adjust surface pressure to match new surface height
+if adjust_ps : 
+  state_adjustment.adjust_surface_pressure( plev, ncol, temperature_mid,  \
+                                            pressure_mid, pressure_int,   \
+                                            phis_old, ps_old, phis_new, ps_new )
+
+# adjust surface pressure to retain dry mass of atmosphere?
+# if adjust_mass : 
+#   state_adjustment.dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out )
+
+# adjust qv to eliminate supersaturation?
+if adjust_qv :
+  state_adjustment.remove_supersaturation()
+
+# adjust cloud water to remove negative values?
+if adjust_cw :
+  cld_liq = cld_liq.where(cld_liq>=0,other=0.)
+  cld_ice = cld_ice.where(cld_ice>=0,other=0.)
+
+# adjust cloud fraction to remove values outside of [0,1]
+if adjust_cf :
+  state_adjustment.adjust_cloud_fraction()
+
+# Write the dataset back to the file
+ds.to_netcdf(output_file_name)
 
 #===============================================================================
 # Clean up

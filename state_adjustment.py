@@ -8,12 +8,13 @@ avogad  = 6.02214e26    # avogadro's number                       ~ molecules/km
 mwdair  = 28.966        # molecular weight of dry air             ~ kg/kmole
 rgas    = avogad*boltz  # universal gas constant                  ~ J/k/kmole
 rdair   = rgas/mwdair   # gas constant for dry air                ~ J/k/kg
+P0      = 1e5           # reference pressure
 
 T_ref1    = 290.5       # reference temperature for sfc adjustments
 T_ref2    = 255.0       # reference temperature for sfc adjustments
 
-phis_threshold = 0.001  # threshold for determining whether to calculate new pressure
-dz_min = 150.           # min distance of first level above sfc for Tbot and Pbot [m]
+phis_threshold = 1e-3   # threshold for determining if 2 phis values are different
+dz_min = 150.           # min distance [m] from sfc to minimize effects radiation
 #-------------------------------------------------------------------------------
 # Adjust surface pressure
 # Algorithm based on sea-level pressure calculation
@@ -52,7 +53,8 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
 
     else:
 
-      # move up from surface to define level for Tbot and Pbot
+      # move up from surface to define k level for Tbot and Pbot
+      # zis calculated from the hydrostatic equation
       z = 0.
       for k in range(plev-1,0,-1) :
         hkk    = 0.5*( pressure_int[i,k+1] - pressure_int[i,k] ) / pressure_mid[i,k]
@@ -61,7 +63,7 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
         if ( z > dz_min ) : break
         z = z + z_incr
 
-      # if (k==plev) : exit(f'Error:  could not find model level above {z_min} ')
+      if (k==plev) : exit(f'ERROR: could not find model level {dz_min} m above the surface ')
 
       # Define Tbot & Pbot
       tbot  = temperature[i,k]
@@ -114,6 +116,92 @@ def adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new ):
     ts_new[i] = ts_old[i] - lapse*(del_phis/gravit)
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
+def remove_supersaturation( qv, temperature, pressure ):
+  """
+  Adjust the surface temperature based on new surace height assumed lapse rate 
+    ncol            # columns
+    qv              specific humidity
+    temperature     temperature at layer mid-points [k]
+    pressure        pressure at layer mid-points    [Pa]
+  """
+  qv_min = 1.0e-9   # minimum specific humidity value allowed
+
+  # Calculate saturation specific humidity
+  qv_sat = calculate_qv_sat(temperature,pressure/1e2)
+
+  # The following check is to avoid the generation of negative values
+  # that can occur in the upper stratosphere and mesosphere
+  qv_sat = qv_sat.where(qv_sat>=0.0,other=1.0)
+
+  # Calculate relative humidity for limiter
+  rh = qv / qv_sat
+
+  # Apply limiter conditions
+  qv.values = xr.where(rh>1.,qv_sat,qv)
+  qv.values = xr.where(rh<0.,qv_min,qv)
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def calculate_qv_sat( temperature, pressure ):
+  """ 
+  calculate saturation specific humidity [kg/kg]
+  from temperature [K] and pressure [hPa]
+  """
+  return (380./pressure) * np.exp( 17.27*(temperature-273.0)/(temperature-36.0) )
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# def dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out ):
+#   """ 
+#   NOT TESTED - THIS APPEARS TO ONLY BE FOR THE SPECTRAL DYCOR (EUL)?
+#   Adjust atmospheric mass based upon qv 
+#     plev            # levels
+#     ncol            # columns
+#     hyai            hybrid coefficient for level interfaces
+#     hybi            hybrid coefficient for level interfaces
+#     wgt             integration weights
+#     qv              specific humidity
+#     mass_ref        Dry mass of Ref. atmosphere
+#     ps_in           input surface pressure
+#     ps_out          output adjusted surface pressure
+#   """
+
+#   # Compute separate pdel's from "A" and "B" portions of 
+#   # hybrid vertical grid for later use in global integrals
+#   pdela = np.empty([ncol,plev])
+#   pdelb = np.empty([ncol,plev])
+#   for i in range(ncol):
+#     for k in range(plev):
+#       pdela[i,k] = ( hyai[k+1] - hyai[k] )*P0
+#       pdelb[i,k] = ( hybi[k+1] - hybi[k] )*ps_in[i]
+
+#   # Compute integrals of mass, moisture, and geopotential height
+#   ps_sum  = 0.
+#   for i in range(ncol): ps_sum  = ps_sum  + wgt[i]*ps_in[i]
+#   mass_init = ps_sum/ncol
+#   mass_qv1 = 0.
+#   mass_qv2 = 0.
+
+#   # Calculate global integrals needed for water vapor adjustment
+#   for k in range(plev):
+#     dotproda = 0.
+#     dotprodb = 0.
+#     for i in range(ncol):
+#       dotproda = dotproda + wgt[i]*qv[i,k]*pdela[i,k]
+#       dotprodb = dotprodb + wgt[i]*qv[i,k]*pdelb[i,k]
+#     mass_qv1 = mass_qv1 + dotproda/ncol
+#     mass_qv2 = mass_qv2 + dotprodb/ncol
+
+#   # Normalize average mass, height
+#   mass_init = mass_init*0.5/gravit
+#   mass_qv1 = mass_qv1*.5/gravit
+#   mass_qv2 = mass_qv2*.5/gravit
+
+#   # Compute and apply an initial mass fix factor 
+#   # which preserves horizontal gradients of ln(ps)
+#   mass_fix = (mass_ref + mass_qv1)/(mass_init - mass_qv2)
+
+#   for i in range(ncol): ps_out[i] = ps_in[i]*mass_fix
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
