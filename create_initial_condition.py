@@ -9,7 +9,8 @@ import subprocess as sp
 import glob
 import datetime
 import xarray as xr
-import state_adjustment
+import hiccup_data_class as hdc
+import hiccup_state_adjustment
 #===============================================================================
 # Specify file names
 #===============================================================================
@@ -27,14 +28,11 @@ adjust_qv   = False   # adjust qv to eliminate supersaturation
 adjust_cw   = False   # adjust cloud water to remove negative values
 adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
-# This dict provides a map between variable names in the input and output files
-var_rename_dict = {}
 
-# DYAMOND - hybrid coords renamed because they use a different dimension name
-var_rename_dict.update({'hyam':'ohyam','hybm':'ohybm','hyai':'ohyai','hybi':'ohybi'})
-var_rename_dict.update({'t':'T','q':'Q','u':'U','v':'V'})
-var_rename_dict.update({'clwc':'CLDLIQ','ciwc':'CLDICE','z_2':'PHIS','o3':'O3'})
-var_rename_dict.update({'stl1':'TS1','stl2':'TS2','stl3':'TS3','stl4':'TS4'})
+hiccup_data = hdc.create_hiccup_data(name='ERA5')
+print(hiccup_data)
+exit()
+
 
 #===============================================================================
 # Check that input file has required variables
