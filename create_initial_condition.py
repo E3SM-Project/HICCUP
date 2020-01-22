@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #===================================================================================================
 # HICCUP - Hindcast Initial Condition Creation Utility/Processor
 # This tool automates the creation of atmospheric initial condition files
@@ -11,9 +12,9 @@ import datetime
 import xarray as xr
 import hiccup_data_class as hdc
 import hiccup_state_adjustment
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Specify file names
-#===============================================================================
+#-------------------------------------------------------------------------------
 
 input_file_name = 'input.nc'
 
@@ -21,6 +22,7 @@ output_file_name = 'output.nc'
 
 tmp_file_name = 'tmp.nc'
 
+# Options for output state adjustment
 adjust_ts   = False   # Adjust surface temperature to match new surface height
 adjust_ps   = False   # Adjust surface pressure to match new surface height
 adjust_mass = False   # adjust surface pressure to retain dry mass of atmosphere
@@ -28,20 +30,27 @@ adjust_qv   = False   # adjust qv to eliminate supersaturation
 adjust_cw   = False   # adjust cloud water to remove negative values
 adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
+#-------------------------------------------------------------------------------
+# Check that input file has required variables
+#-------------------------------------------------------------------------------
 
+# Create data class instance to get variable name dict
 hiccup_data = hdc.create_hiccup_data(name='ERA5')
-print(hiccup_data)
+
+# load input data into xarray dataset object
+ds = xr.open_dataset(input_file_name)
+
+# Check that all the data exists in the file
+for key in hiccup_data.var_name_dict : 
+    print(f'  {key:8}  {hiccup_data.var_name_dict[key]}')
+    if key not in ds.data_vars(): 
+        raise ValueError(f'{key} is not a a variable in the dataset ({input_file_name})')
+
 exit()
 
-
-#===============================================================================
-# Check that input file has required variables
-#===============================================================================
-
-
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Make a copy of the input file and rename/subset variables
-#===============================================================================
+#-------------------------------------------------------------------------------
 # os.system(f'cp {input_file_name} {tmp_file_name}')
 
 # Rename the variables to match the output names
@@ -55,9 +64,9 @@ exit()
 # Insert new P0 variable
 # os.system(f'ncap2 -s "P0=1.0D0" {tmp_file_name} ')
 
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Horizontally regrid the data
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Create mapping file
 src_grid = '????'
 dst_grid = 'ne30np4'
@@ -65,17 +74,17 @@ map_file = f'map_{src_grid}_to_{dst_grid}_aave.nc'
 
 # os.system(f' ncks --map {map_file}  {file_in}  {file_out} ')
 
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Prepare the vertical grid file for vertical regridding
-#===============================================================================
+#-------------------------------------------------------------------------------
 
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Vertically regrid the data
-#===============================================================================
+#-------------------------------------------------------------------------------
 
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Perform state adjustments on interpolated data
-#===============================================================================
+#-------------------------------------------------------------------------------
 
 exit()
 
@@ -112,9 +121,8 @@ if adjust_cf :
 # Write the dataset back to the file
 ds.to_netcdf(output_file_name)
 
-#===============================================================================
+#-------------------------------------------------------------------------------
 # Clean up
-#===============================================================================
+#-------------------------------------------------------------------------------
 
-#===============================================================================
-#===============================================================================
+
