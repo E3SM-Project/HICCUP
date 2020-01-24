@@ -16,8 +16,8 @@ import hiccup_state_adjustment
 # Specify file names
 #-------------------------------------------------------------------------------
 
-input_file_atm = 'ERA5.HICCUP_TEST.atm.nc'
-input_file_sfc = 'ERA5.HICCUP_TEST.sfc.nc'
+input_file_atm = 'ERA5.HICCUP_TEST.atm.remap.nc'
+input_file_sfc = 'ERA5.HICCUP_TEST.sfc.remap.nc'
 
 output_file_name = 'HICCUP.output.nc'
 
