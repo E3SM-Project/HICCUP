@@ -3,9 +3,9 @@ import os
 import cdsapi
 server = cdsapi.Client()
 
-get_atm = True
+get_atm = False
 get_sfc = True
-get_lnd = True
+get_lnd = False
 
 yr_list = ['2018']
 mn_list = ['01']
@@ -18,7 +18,7 @@ lev = [ '50', '70','100','125','150','175','200','225','250','300','350'
       ,'400','450','500','550','600','650','700','750','775','800','825'
       ,'850','875','900','925','950','975','1000']
 
-output_path = os.getenv('PWD')
+output_path = os.getenv('PWD')+'/'
 
 output_file_plv = output_path+'ERA5.HICCUP_TEST.atm.nc'
 output_file_sfc = output_file_plv.replace('atm.nc','sfc.nc')
@@ -40,6 +40,9 @@ if get_atm:
                           ,'geopotential'
                           ,'u_component_of_wind'
                           ,'v_component_of_wind'
+                          ,'ozone_mass_mixing_ratio'
+                          ,'specific_cloud_ice_water_content'
+                          ,'specific_cloud_liquid_water_content'
                           ],
     }, output_file_plv)
 #-------------------------------------------------------------------------------
@@ -55,6 +58,21 @@ if get_sfc:
         'variable'      : ['surface_pressure'
                           ,'skin_temperature'
                           ,'sea_surface_temperature'
+                          ,'soil_temperature_level_1'
+                          ,'soil_temperature_level_2'
+                          ,'soil_temperature_level_3'
+                          ,'soil_temperature_level_4'
+                          ,'leaf_area_index_high_vegetation'
+                          ,'leaf_area_index_low_vegetation'
+                          ,'skin_reservoir_content'
+                          ,'snow_albedo'
+                          ,'snow_density'
+                          ,'snow_depth'
+                          ,'temperature_of_snow_layer'
+                          ,'volumetric_soil_water_layer_1'
+                          ,'volumetric_soil_water_layer_2'
+                          ,'volumetric_soil_water_layer_3'
+                          ,'volumetric_soil_water_layer_4'
                           ],
     }, output_file_sfc)
 #-------------------------------------------------------------------------------
@@ -63,12 +81,23 @@ if get_lnd:
     server.retrieve('reanalysis-era5-land',{
             'format': 'netcdf',
             'variable': [
-                'leaf_area_index_high_vegetation', 'leaf_area_index_low_vegetation', 'skin_reservoir_content',
-                'skin_temperature', 'snow_albedo', 'snow_cover',
-                'snow_density', 'snow_depth', 'snow_depth_water_equivalent',
-                'soil_temperature_level_1', 'soil_temperature_level_2', 'soil_temperature_level_3',
-                'soil_temperature_level_4', 'temperature_of_snow_layer', 'volumetric_soil_water_layer_1',
-                'volumetric_soil_water_layer_2', 'volumetric_soil_water_layer_3', 'volumetric_soil_water_layer_4',
+                'leaf_area_index_high_vegetation'
+                ,'leaf_area_index_low_vegetation'
+                ,'skin_reservoir_content'
+                ,'snow_albedo'
+                ,'snow_cover'
+                ,'snow_density'
+                ,'snow_depth'
+                ,'snow_depth_water_equivalent'
+                # ,'soil_temperature_level_1'
+                # ,'soil_temperature_level_2'
+                # ,'soil_temperature_level_3'
+                # ,'soil_temperature_level_4'
+                ,'temperature_of_snow_layer'
+                ,'volumetric_soil_water_layer_1'
+                ,'volumetric_soil_water_layer_2'
+                ,'volumetric_soil_water_layer_3'
+                ,'volumetric_soil_water_layer_4'
             ],
             'time'          : time_list,
             'day'           : dy_list,

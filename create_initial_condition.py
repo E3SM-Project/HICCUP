@@ -16,9 +16,10 @@ import hiccup_state_adjustment
 # Specify file names
 #-------------------------------------------------------------------------------
 
-input_file_name = 'input.nc'
+input_file_atm = 'ERA5.HICCUP_TEST.atm.nc'
+input_file_sfc = 'ERA5.HICCUP_TEST.sfc.nc'
 
-output_file_name = 'output.nc'
+output_file_name = 'HICCUP.output.nc'
 
 tmp_file_name = 'tmp.nc'
 
@@ -31,22 +32,27 @@ adjust_cw   = False   # adjust cloud water to remove negative values
 adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
 #-------------------------------------------------------------------------------
-# Check that input file has required variables
+# Load input data and check for required variables
 #-------------------------------------------------------------------------------
 
 # Create data class instance to get variable name dict
 hiccup_data = hdc.create_hiccup_data(name='ERA5')
 
 # load input data into xarray dataset object
-ds = xr.open_dataset(input_file_name)
+ds_atm = xr.open_dataset(input_file_atm)
+ds_sfc = xr.open_dataset(input_file_sfc)
 
-# Check that all the data exists in the file
-for key in hiccup_data.var_name_dict : 
-    print(f'  {key:8}  {hiccup_data.var_name_dict[key]}')
-    if key not in ds.data_vars(): 
-        raise ValueError(f'{key} is not a a variable in the dataset ({input_file_name})')
+# Create list of variables in the files
+atm_file_vars = []
+sfc_file_vars = []
+for k in ds_atm.variables.keys(): atm_file_vars.append(k)
+for k in ds_sfc.variables.keys(): sfc_file_vars.append(k)
 
-exit()
+# Check that all the data exists in the files
+for key in hiccup_data.atm_var_name_dict : 
+    if key not in atm_file_vars: raise ValueError(f'{key} is not in ATM dataset ({input_file_atm})')
+for key in hiccup_data.sfc_var_name_dict : 
+    if key not in sfc_file_vars: raise ValueError(f'{key} is not in SFC dataset ({input_file_sfc})')
 
 #-------------------------------------------------------------------------------
 # Make a copy of the input file and rename/subset variables
