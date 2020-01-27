@@ -35,7 +35,7 @@ if create_map:
         print('\n'+cmd+'\n')
         if execute:  subprocess.call(cmd, shell=True)
     
-    # Generate target grid file:
+    # Generate source grid file:
     cmd  = f'ncremap {alg} -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'#latlon={nlat_src},{nlon_src}'+\
            f'#lat_typ=uni#lon_typ=grn_ctr -g {src_grid_file} '
     print('\n'+cmd)

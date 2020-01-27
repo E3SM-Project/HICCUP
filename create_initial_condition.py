@@ -32,7 +32,7 @@ adjust_cw   = False   # adjust cloud water to remove negative values
 adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
 #-------------------------------------------------------------------------------
-# Load input data and check for required variables
+# Load input data 
 #-------------------------------------------------------------------------------
 
 # Create data class instance to get variable name dict
@@ -42,27 +42,38 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5')
 ds_atm = xr.open_dataset(input_file_atm)
 ds_sfc = xr.open_dataset(input_file_sfc)
 
+# print(ds_atm)
+# exit()
+
+#-------------------------------------------------------------------------------
+# Check input files for for required variables
+#-------------------------------------------------------------------------------
+
 # Create list of variables in the files
 atm_file_vars = []
 sfc_file_vars = []
-for k in ds_atm.variables.keys(): atm_file_vars.append(k)
-for k in ds_sfc.variables.keys(): sfc_file_vars.append(k)
+for key in ds_atm.variables.keys(): atm_file_vars.append(key)
+for key in ds_sfc.variables.keys(): sfc_file_vars.append(key)
 
-# Check that all the data exists in the files
+# Check that all required data exists in the atm file
 for key in hiccup_data.atm_var_name_dict : 
-    if key not in atm_file_vars: raise ValueError(f'{key} is not in ATM dataset ({input_file_atm})')
-for key in hiccup_data.sfc_var_name_dict : 
-    if key not in sfc_file_vars: raise ValueError(f'{key} is not in SFC dataset ({input_file_sfc})')
+    if hiccup_data.atm_var_name_dict[key] not in atm_file_vars: 
+        raise ValueError(f'{hiccup_data.atm_var_name_dict[key]} is not in ATM dataset ({input_file_atm})')
 
+# Check that all required data exists in the sfc file
+for key in hiccup_data.sfc_var_name_dict : 
+    if hiccup_data.sfc_var_name_dict[key] not in sfc_file_vars: 
+        raise ValueError(f'{hiccup_data.sfc_var_name_dict[key]} is not in SFC dataset ({input_file_sfc})')
+        
 #-------------------------------------------------------------------------------
 # Make a copy of the input file and rename/subset variables
 #-------------------------------------------------------------------------------
+
 # os.system(f'cp {input_file_name} {tmp_file_name}')
 
 # Rename the variables to match the output names
 # for key in var_rename_dict :
 #   os.system(f'ncrename -v {key},{var_rename_dict[key]}  {tmp_file_name} ')
-
 
 # Insert new PS variable
 # os.system(f'ncap2 -s "PS=PHIS" {tmp_file_name} ')
@@ -73,6 +84,7 @@ for key in hiccup_data.sfc_var_name_dict :
 #-------------------------------------------------------------------------------
 # Horizontally regrid the data
 #-------------------------------------------------------------------------------
+
 # Create mapping file
 src_grid = '????'
 dst_grid = 'ne30np4'

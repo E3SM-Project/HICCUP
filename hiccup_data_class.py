@@ -1,5 +1,8 @@
 # Class structure for defining parameters specific to the 
 # input data used for creating initial condition files
+# 
+# NOTE: Variable name dictionaries are defined with the key as the model's 
+# variable name and the value as the reanalysis data variable name
 #-------------------------------------------------------------------------------
 # Method for returning class object
 #-------------------------------------------------------------------------------
@@ -43,55 +46,55 @@ class ERA5(hiccup_data):
         super().__init__(name)
         
         # Atmospheric variables
-        self.atm_var_name_dict.update({'latitude':'lat'})
-        self.atm_var_name_dict.update({'longitude':'lon'})
-        self.atm_var_name_dict.update({'t':'T'})            # temperature
-        self.atm_var_name_dict.update({'q':'Q'})            # specific humidity
-        # self.atm_var_name_dict.update({'z':'Z3'})           # geopotential (not sure we need this)
-        self.atm_var_name_dict.update({'u':'U'})            # zonal wind
-        self.atm_var_name_dict.update({'v':'V'})            # meridional wind
-        self.atm_var_name_dict.update({'clwc':'CLDLIQ'})    # specific cloud liq water
-        self.atm_var_name_dict.update({'ciwc':'CLDICE'})    # specific cloud ice water
-        self.atm_var_name_dict.update({'o3':'O3'})          # ozone mass mixing ratio
+        self.atm_var_name_dict.update({'lat':'latitude'})
+        self.atm_var_name_dict.update({'lon':'longitude'})
+        self.atm_var_name_dict.update({'T':'t'})            # temperature
+        self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
+        # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
+        self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+        self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
+        self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
+        self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
+        self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
 
         # Surface variables
-        self.sfc_var_name_dict.update({'sp':'PS'})          # sfc pressure
-        self.sfc_var_name_dict.update({'skt':'TS'})         # skin temperature
-        self.sfc_var_name_dict.update({'sst':'SST'})        # sea sfc temperature
-        self.sfc_var_name_dict.update({'stl1':'TS1'})       # Soil temperature level 1
-        self.sfc_var_name_dict.update({'stl2':'TS2'})       # Soil temperature level 2
-        self.sfc_var_name_dict.update({'stl3':'TS3'})       # Soil temperature level 3
-        self.sfc_var_name_dict.update({'stl4':'TS4'})       # Soil temperature level 4
-        self.sfc_var_name_dict.update({'lai_hv':''})        # Leaf area index, high vegetation
-        self.sfc_var_name_dict.update({'lai_lv':''})        # Leaf area index, low vegetation
-        self.sfc_var_name_dict.update({'src':''})           # Skin reservoir content
-        self.sfc_var_name_dict.update({'asn':''})           # Snow albedo
-        self.sfc_var_name_dict.update({'rsn':''})           # Snow density
-        self.sfc_var_name_dict.update({'sd':''})            # Snow depth
-        self.sfc_var_name_dict.update({'tsn':''})           # Temperature of snow layer
-        self.sfc_var_name_dict.update({'swvl1':''})         # Volumetric soil water level 1
-        self.sfc_var_name_dict.update({'swvl2':''})         # Volumetric soil water level 2
-        self.sfc_var_name_dict.update({'swvl3':''})         # Volumetric soil water level 3
-        self.sfc_var_name_dict.update({'swvl4':''})         # Volumetric soil water level 4
+        self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
+        self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
+        self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
+        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        self.sfc_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
+        self.sfc_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
+        self.sfc_var_name_dict.update({'':'src'})          # Skin reservoir content 
+        self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
+        self.sfc_var_name_dict.update({'':'rsn'})          # Snow density 
+        self.sfc_var_name_dict.update({'':'sd'})           # Snow depth 
+        self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
+        self.sfc_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
+        self.sfc_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
+        self.sfc_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
+        self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
 
         # Land model variables
-        self.lnd_var_name_dict.update({'stl1':'TS1'})       # Soil temperature level 1
-        self.lnd_var_name_dict.update({'stl2':'TS2'})       # Soil temperature level 2
-        self.lnd_var_name_dict.update({'stl3':'TS3'})       # Soil temperature level 3
-        self.lnd_var_name_dict.update({'stl4':'TS4'})       # Soil temperature level 4
-        self.lnd_var_name_dict.update({'lai_hv':''})        # Leaf area index, high vegetation
-        self.lnd_var_name_dict.update({'lai_lv':''})        # Leaf area index, low vegetation
-        self.lnd_var_name_dict.update({'src':''})           # Skin reservoir content
-        self.lnd_var_name_dict.update({'asn':''})           # Snow albedo
-        self.lnd_var_name_dict.update({'snowc':''})         # Snow cover
-        self.lnd_var_name_dict.update({'rsn':''})           # Snow density
-        self.lnd_var_name_dict.update({'sde':''})           # Snow depth (liq water equivalent)
-        self.lnd_var_name_dict.update({'sd':''})            # Snow depth
-        self.lnd_var_name_dict.update({'tsn':''})           # Temperature of snow layer
-        self.lnd_var_name_dict.update({'swvl1':''})         # Volumetric soil water level 1
-        self.lnd_var_name_dict.update({'swvl2':''})         # Volumetric soil water level 2
-        self.lnd_var_name_dict.update({'swvl3':''})         # Volumetric soil water level 3
-        self.lnd_var_name_dict.update({'swvl4':''})         # Volumetric soil water level 4
+        self.lnd_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        self.lnd_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        self.lnd_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        self.lnd_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        self.lnd_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
+        self.lnd_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
+        self.lnd_var_name_dict.update({'':'src'})          # Skin reservoir content 
+        self.lnd_var_name_dict.update({'':'asn'})          # Snow albedo 
+        self.lnd_var_name_dict.update({'':'snowc'})        # Snow cover 
+        self.lnd_var_name_dict.update({'':'rsn'})          # Snow density 
+        self.lnd_var_name_dict.update({'':'sde'})          # Snow depth (liq water equivalent) 
+        self.lnd_var_name_dict.update({'':'sd'})           # Snow depth 
+        self.lnd_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
+        self.lnd_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
+        self.lnd_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
+        self.lnd_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
+        self.lnd_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
 
 
 # class DYAMOND(hiccup_data):
