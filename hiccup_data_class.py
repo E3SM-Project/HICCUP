@@ -7,6 +7,7 @@
 import xarray as xr
 import subprocess as sp
 import shutil 
+import re
 
 ncremap_alg = ' -a tempest '        # algorithm flag for ncremap
 
@@ -51,8 +52,6 @@ class hiccup_data(object):
         self.ds_atm = xr.open_dataset(self.atm_file)
         self.ds_sfc = xr.open_dataset(self.sfc_file)
 
-        
-
     def __str__(self):
         str_out = ''
         for key in self.__dict__.keys(): 
@@ -66,16 +65,32 @@ class hiccup_data(object):
                     str_out = str_out+f'  {key:15}:  {attribute}\n'
         return str_out
 
-    def create_dst_grid_file(self,grid):
-        # Generate source grid file:
-        self.grid_file = f'scrip_{self.grid}.nc'
-        cmd  = f'ncremap {ncremap_alg}' \
-              +f' -G ttl=\'Equi-Angular grid {self.nlat}x{self.nlon}\''     \
-              +f'#latlon={self.nlat},{self.nlon}'                           \
-              +f'#lat_typ=uni'                                              \
-              +f'#lon_typ=grn_ctr '                                         \
-              +f' -g {self.grid_file} '
-        sp.call(cmd, shell=True)
+    def create_dst_grid_file(self,grid_name):
+        """ Generate destination model grid file """
+        
+        if 'ne' in grid_name and 'np' in grid_name : 
+            # Spectral element grid
+            ne = re.search('ne(.*)np', grid_name).group(1)
+            self.dst_grid_file = f'exodus_ne{ne}.g'
+            cmd  = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
+            sp.call(cmd, shell=True)
+
+        elif 'ne' in grid_name and 'pg' in grid_name : 
+            # Spectral element grid with FV physics grid (ex. ne30pg2)
+            ne  = re.search('ne(.*)pg', grid_name).group(1)
+            npg = re.search('pg(.*)', grid_name).group(1)
+            # First create exodus file
+            exodus_file = f'exodus_ne{ne}.g'
+            cmd  = f'GenerateCSMesh --res {ne} --file {exodus_file}'
+            sp.call(cmd, shell=True)
+            # Next create script file for FV physgrid
+            self.dst_grid_file = f'scrip_{grid_name}.nc'
+            cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
+            sp.call(cmd, shell=True)
+
+        else:
+            raise ValueError(f'grid_name={grid_name} is not currently supported')
+
         return 
 #-------------------------------------------------------------------------------
 # Subclasses
@@ -143,14 +158,14 @@ class ERA5(hiccup_data):
         self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
 
     def create_src_grid_file(self):
-        # Generate source grid file:
-        self.grid_file = f'scrip_{self.name}_{self.nlat}x{self.nlon}.nc'
+        """ Generate source grid file """
+        self.src_grid_file = f'scrip_{self.name}_{self.nlat}x{self.nlon}.nc'
         cmd  = f'ncremap {ncremap_alg}' \
               +f' -G ttl=\'Equi-Angular grid {self.nlat}x{self.nlon}\''     \
               +f'#latlon={self.nlat},{self.nlon}'                           \
               +f'#lat_typ=uni'                                              \
               +f'#lon_typ=grn_ctr '                                         \
-              +f' -g {self.grid_file} '
+              +f' -g {self.src_grid_file} '
         sp.call(cmd, shell=True)
         return 
 #-------------------------------------------------------------------------------

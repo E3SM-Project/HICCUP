@@ -3,7 +3,7 @@
 # HICCUP - Hindcast Initial Condition Creation Utility/Processor
 # This tool automates the creation of atmospheric initial condition files
 # for E3SM using a user supplied reanalysis file, such as EAR5 data. 
-# Requires NCO and xarray.
+# Requires NCO, TempestRemap, and xarray.
 #===================================================================================================
 import os
 import subprocess as sp
@@ -20,7 +20,7 @@ input_file_atm = 'ERA5.HICCUP_TEST.atm.remap.nc'
 input_file_sfc = 'ERA5.HICCUP_TEST.sfc.remap.nc'
 
 output_file_name = 'HICCUP.output.nc'
-output_grid_name = 'ne30np4'
+output_grid_name = 'ne30pg2'
 
 tmp_file_name = 'tmp.nc'
 
@@ -85,9 +85,10 @@ for key in hiccup_data.sfc_var_name_dict :
 #-------------------------------------------------------------------------------
 
 hiccup_data.create_src_grid_file()
-hiccup_data.create_dst_grid_file(grid=output_grid_name)
+hiccup_data.create_dst_grid_file(grid_name=output_grid_name)
 
-print(hiccup_data.grid_file)
+print(hiccup_data.src_grid_file)
+print(hiccup_data.dst_grid_file)
 
 # Create mapping file
 # src_grid = '????'
