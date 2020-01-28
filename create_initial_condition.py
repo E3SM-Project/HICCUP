@@ -20,6 +20,7 @@ input_file_atm = 'ERA5.HICCUP_TEST.atm.remap.nc'
 input_file_sfc = 'ERA5.HICCUP_TEST.sfc.remap.nc'
 
 output_file_name = 'HICCUP.output.nc'
+output_grid_name = 'ne30np4'
 
 tmp_file_name = 'tmp.nc'
 
@@ -35,14 +36,12 @@ adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 # Load input data 
 #-------------------------------------------------------------------------------
 
-# Create data class instance to get variable name dict
-hiccup_data = hdc.create_hiccup_data(name='ERA5')
+# Create data class instance, which includes xarray file dataset objects 
+# and variable name dictionaries for mapping between naming conventions
+hiccup_data = hdc.create_hiccup_data(name='ERA5',atm_file=input_file_atm,sfc_file=input_file_sfc)
 
-# load input data into xarray dataset object
-ds_atm = xr.open_dataset(input_file_atm)
-ds_sfc = xr.open_dataset(input_file_sfc)
 
-# print(ds_atm)
+# print(hiccup_data.ds_atm)
 # exit()
 
 #-------------------------------------------------------------------------------
@@ -52,19 +51,19 @@ ds_sfc = xr.open_dataset(input_file_sfc)
 # Create list of variables in the files
 atm_file_vars = []
 sfc_file_vars = []
-for key in ds_atm.variables.keys(): atm_file_vars.append(key)
-for key in ds_sfc.variables.keys(): sfc_file_vars.append(key)
+for key in hiccup_data.ds_atm.variables.keys(): atm_file_vars.append(key)
+for key in hiccup_data.ds_sfc.variables.keys(): sfc_file_vars.append(key)
 
 # Check that all required data exists in the atm file
 for key in hiccup_data.atm_var_name_dict : 
     if hiccup_data.atm_var_name_dict[key] not in atm_file_vars: 
-        raise ValueError(f'{hiccup_data.atm_var_name_dict[key]} is not in ATM dataset ({input_file_atm})')
+        raise ValueError(f'{hiccup_data.atm_var_name_dict[key]} is not in ATM dataset: ({input_file_atm})')
 
 # Check that all required data exists in the sfc file
 for key in hiccup_data.sfc_var_name_dict : 
     if hiccup_data.sfc_var_name_dict[key] not in sfc_file_vars: 
-        raise ValueError(f'{hiccup_data.sfc_var_name_dict[key]} is not in SFC dataset ({input_file_sfc})')
-        
+        raise ValueError(f'{hiccup_data.sfc_var_name_dict[key]} is not in SFC dataset: ({input_file_sfc})')
+
 #-------------------------------------------------------------------------------
 # Make a copy of the input file and rename/subset variables
 #-------------------------------------------------------------------------------
@@ -85,10 +84,14 @@ for key in hiccup_data.sfc_var_name_dict :
 # Horizontally regrid the data
 #-------------------------------------------------------------------------------
 
+hiccup_data.create_src_grid_file()
+
+print(hiccup_data.grid_file)
+
 # Create mapping file
-src_grid = '????'
-dst_grid = 'ne30np4'
-map_file = f'map_{src_grid}_to_{dst_grid}_aave.nc'
+# src_grid = '????'
+# dst_grid = 'ne30np4'
+# map_file = f'map_{src_grid}_to_{dst_grid}_aave.nc'
 
 # os.system(f' ncks --map {map_file}  {file_in}  {file_out} ')
 

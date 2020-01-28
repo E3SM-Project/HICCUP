@@ -3,25 +3,37 @@
 # 
 # NOTE: Variable name dictionaries are defined with the key as the model's 
 # variable name and the value as the reanalysis data variable name
+
+import xarray as xr
+import subprocess as sp
+
+ncremap_alg = ' -a tempest '
 #-------------------------------------------------------------------------------
 # Method for returning class object
 #-------------------------------------------------------------------------------
-def create_hiccup_data(name):
+def create_hiccup_data(name,lev_type='',atm_file='',sfc_file=''):
   for subclass in hiccup_data.__subclasses__():
     if subclass.is_name_for(name):
-      return subclass(name)
+      return subclass(name,lev_type=lev_type,atm_file=atm_file,sfc_file=sfc_file)
   raise ValueError(f'{name} is not a valid HICCUP dataset name')
 #-------------------------------------------------------------------------------
 # Base Class
 #-------------------------------------------------------------------------------
 class hiccup_data(object):
 
-    def __init__(self,name,lev_type=''):
+    def __init__(self,name,lev_type='',atm_file='',sfc_file=''):
         self.name = name
         self.lev_type = lev_type
+        self.atm_file = atm_file
+        self.sfc_file = sfc_file
         self.atm_var_name_dict = {}
         self.sfc_var_name_dict = {}
         self.lnd_var_name_dict = {}
+        self.nlat = -1
+        self.nlon = -1
+
+        self.ds_atm = xr.open_dataset(self.atm_file)
+        self.ds_sfc = xr.open_dataset(self.sfc_file)
 
     def __str__(self):
         str_out = ''
@@ -42,9 +54,11 @@ class hiccup_data(object):
 class ERA5(hiccup_data):
     @classmethod
     def is_name_for(cls,name) : return name == 'ERA5'
-    def __init__(self,name):
-        super().__init__(name)
+    def __init__(self,name,lev_type='',atm_file='',sfc_file=''):
+        super().__init__(name,lev_type=lev_type,atm_file=atm_file,sfc_file=sfc_file)
         
+        self.name = 'ERA5'
+
         # Atmospheric variables
         self.atm_var_name_dict.update({'lat':'latitude'})
         self.atm_var_name_dict.update({'lon':'longitude'})
@@ -78,48 +92,38 @@ class ERA5(hiccup_data):
         self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
 
         # Land model variables
-        self.lnd_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        self.lnd_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        self.lnd_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        self.lnd_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
-        self.lnd_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
-        self.lnd_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
-        self.lnd_var_name_dict.update({'':'src'})          # Skin reservoir content 
-        self.lnd_var_name_dict.update({'':'asn'})          # Snow albedo 
-        self.lnd_var_name_dict.update({'':'snowc'})        # Snow cover 
-        self.lnd_var_name_dict.update({'':'rsn'})          # Snow density 
-        self.lnd_var_name_dict.update({'':'sde'})          # Snow depth (liq water equivalent) 
-        self.lnd_var_name_dict.update({'':'sd'})           # Snow depth 
-        self.lnd_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
-        self.lnd_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
-        self.lnd_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
-        self.lnd_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
-        self.lnd_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
+        # self.lnd_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        # self.lnd_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        # self.lnd_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        # self.lnd_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        # self.lnd_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
+        # self.lnd_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
+        # self.lnd_var_name_dict.update({'':'src'})          # Skin reservoir content 
+        # self.lnd_var_name_dict.update({'':'asn'})          # Snow albedo 
+        # self.lnd_var_name_dict.update({'':'snowc'})        # Snow cover 
+        # self.lnd_var_name_dict.update({'':'rsn'})          # Snow density 
+        # self.lnd_var_name_dict.update({'':'sde'})          # Snow depth (liq water equivalent) 
+        # self.lnd_var_name_dict.update({'':'sd'})           # Snow depth 
+        # self.lnd_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
+        # self.lnd_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
+        # self.lnd_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
+        # self.lnd_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
+        # self.lnd_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
 
+        self.nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
+        self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
 
-# class DYAMOND(hiccup_data):
-#     @classmethod
-#     def is_name_for(cls,name) : return name == 'DYAMOND'
-#     def __init__(self,name):
-#         super().__init__(name)
-#         # DYAMOND - hybrid coords renamed because they use a different dimension name
-#         self.var_name_dict.update({'hyam':'ohyam'})
-#         self.var_name_dict.update({'hybm':'ohybm'})
-#         self.var_name_dict.update({'hyai':'ohyai'})
-#         self.var_name_dict.update({'hybi':'ohybi'})
-#         self.var_name_dict.update({'t':'T'})
-#         self.var_name_dict.update({'q':'Q'})
-#         self.var_name_dict.update({'u':'U'})
-#         self.var_name_dict.update({'v':'V'})
-#         self.var_name_dict.update({'clwc':'CLDLIQ'})
-#         self.var_name_dict.update({'ciwc':'CLDICE'})
-#         self.var_name_dict.update({'z_2':'PHIS'})
-#         self.var_name_dict.update({'o3':'O3'})
-#         self.var_name_dict.update({'stl1':'TS1'})
-#         self.var_name_dict.update({'stl2':'TS2'})
-#         self.var_name_dict.update({'stl3':'TS3'})
-#         self.var_name_dict.update({'stl4':'TS4'})
-
+    def create_src_grid_file(self):
+        # Generate source grid file:
+        self.grid_file = f'scrip_{self.name}_{self.nlat}x{self.nlon}.nc'
+        cmd  = f'ncremap {ncremap_alg}' \
+              +f' -G ttl=\'Equi-Angular grid {self.nlat}x{self.nlon}\''     \
+              +f'#latlon={self.nlat},{self.nlon}'                           \
+              +f'#lat_typ=uni'                                              \
+              +f'#lon_typ=grn_ctr '                                         \
+              +f' -g {self.grid_file} '
+        sp.call(cmd, shell=True)
+        return 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
