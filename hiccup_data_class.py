@@ -9,7 +9,7 @@ import subprocess as sp
 import shutil 
 import re
 
-ncremap_alg = ' -a tempest '        # algorithm flag for ncremap
+ncremap_alg = ' --alg_typ=tempest '        # algorithm flag for ncremap
 
 #-------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -26,19 +26,23 @@ def check_requirements():
 #-------------------------------------------------------------------------------
 # Method for returning class object
 #-------------------------------------------------------------------------------
-def create_hiccup_data(name,lev_type='',atm_file='',sfc_file=''):
+def create_hiccup_data(name,atm_file,sfc_file,dst_grid_name,lev_type=''):
     """ Return HICCUP data class object """
     check_requirements()
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
-            return subclass(name,lev_type=lev_type,atm_file=atm_file,sfc_file=sfc_file)
+            return subclass(name
+                           ,atm_file=atm_file
+                           ,sfc_file=sfc_file
+                           ,dst_grid_name=dst_grid_name
+                           ,lev_type=lev_type)
     raise ValueError(f'{name} is not a valid HICCUP dataset name')
 #-------------------------------------------------------------------------------
 # Base Class
 #-------------------------------------------------------------------------------
 class hiccup_data(object):
 
-    def __init__(self,name,lev_type='',atm_file='',sfc_file=''):
+    def __init__(self,name,lev_type='',atm_file='',sfc_file='',dst_grid_name=''):
         self.name = name
         self.lev_type = lev_type
         self.atm_file = atm_file
@@ -48,10 +52,15 @@ class hiccup_data(object):
         self.lnd_var_name_dict = {}
         self.nlat = -1
         self.nlon = -1
+        self.dst_grid_name = dst_grid_name
+        self.src_grid_name = ''
+        self.src_grid_file = None
+        self.dst_grid_file = None
+        self.map_file = None
 
         self.ds_atm = xr.open_dataset(self.atm_file)
         self.ds_sfc = xr.open_dataset(self.sfc_file)
-
+    #---------------------------------------------------------------------------
     def __str__(self):
         str_out = ''
         for key in self.__dict__.keys(): 
@@ -64,42 +73,67 @@ class hiccup_data(object):
                 if attribute!='' :
                     str_out = str_out+f'  {key:15}:  {attribute}\n'
         return str_out
-
-    def create_dst_grid_file(self,grid_name):
+    #---------------------------------------------------------------------------
+    def create_dst_grid_file(self):
         """ Generate destination model grid file """
         
-        if 'ne' in grid_name and 'np' in grid_name : 
+        if 'ne' in self.dst_grid_name and 'np' in self.dst_grid_name : 
             # Spectral element grid
-            ne = re.search('ne(.*)np', grid_name).group(1)
+            ne = re.search('ne(.*)np', self.dst_grid_name).group(1)
             self.dst_grid_file = f'exodus_ne{ne}.g'
             cmd  = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
             sp.call(cmd, shell=True)
 
-        elif 'ne' in grid_name and 'pg' in grid_name : 
+        elif 'ne' in self.dst_grid_name and 'pg' in self.dst_grid_name : 
             # Spectral element grid with FV physics grid (ex. ne30pg2)
-            ne  = re.search('ne(.*)pg', grid_name).group(1)
-            npg = re.search('pg(.*)', grid_name).group(1)
+            ne  = re.search('ne(.*)pg', self.dst_grid_name).group(1)
+            npg = re.search('pg(.*)', self.dst_grid_name).group(1)
             # First create exodus file
             exodus_file = f'exodus_ne{ne}.g'
             cmd  = f'GenerateCSMesh --res {ne} --file {exodus_file}'
             sp.call(cmd, shell=True)
             # Next create script file for FV physgrid
-            self.dst_grid_file = f'scrip_{grid_name}.nc'
+            self.dst_grid_file = f'scrip_{self.dst_grid_name}.nc'
             cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
             sp.call(cmd, shell=True)
 
         else:
-            raise ValueError(f'grid_name={grid_name} is not currently supported')
+            raise ValueError(f'grid_name={self.dst_grid_name} is not currently supported')
 
         return 
+    #---------------------------------------------------------------------------
+    def create_map_file(self):
+        """ Generate mapping file aftergrid files have been created """
+        if self.src_grid_file == None : 
+            raise ValueError('src_grid_file is not defined for hiccup_data object')
+        if self.dst_grid_file == None : 
+            raise ValueError('dst_grid_file is not defined for hiccup_data object')
+        self.map_file = f'map_{self.src_grid_name}_to_{self.dst_grid_name}.nc'
+        # self.map_opts = '--in_type fv --in_np 1 --mono --out_format Classic '
+        self.map_opts = '--in_type fv --in_np 1 --mono --out_double '
+        if 'ne' in self.dst_grid_name and 'np' in self.dst_grid_name : 
+            self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
+        else:
+            self.map_opts = self.map_opts+' --out_type fv --out_np 1 --volumetric '
+        cmd = f'ncremap {ncremap_alg} '
+        cmd = cmd+f' --src_grd={self.src_grid_file}'
+        cmd = cmd+f' --dst_grd={self.dst_grid_file}'
+        cmd = cmd+f' --map_file={self.map_file}'
+        cmd = cmd+f' --wgt_opt=\'{self.map_opts}\' '
+        print(f'\n{cmd}\n')
+        sp.call(cmd, shell=True)
+        return
 #-------------------------------------------------------------------------------
 # Subclasses
 #-------------------------------------------------------------------------------
 class ERA5(hiccup_data):
     @classmethod
     def is_name_for(cls,name) : return name == 'ERA5'
-    def __init__(self,name,lev_type='',atm_file='',sfc_file=''):
-        super().__init__(name,lev_type=lev_type,atm_file=atm_file,sfc_file=sfc_file)
+    def __init__(self,name,atm_file,sfc_file,dst_grid_name,lev_type=''):
+        super().__init__(name,atm_file=atm_file
+                        ,sfc_file=sfc_file
+                        ,dst_grid_name=dst_grid_name
+                        ,lev_type=lev_type)
         
         self.name = 'ERA5'
 
@@ -156,12 +190,13 @@ class ERA5(hiccup_data):
 
         self.nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
-
+    #---------------------------------------------------------------------------
     def create_src_grid_file(self):
         """ Generate source grid file """
-        self.src_grid_file = f'scrip_{self.name}_{self.nlat}x{self.nlon}.nc'
-        cmd  = f'ncremap {ncremap_alg}' \
-              +f' -G ttl=\'Equi-Angular grid {self.nlat}x{self.nlon}\''     \
+        self.src_grid_name = f'{self.nlat}x{self.nlon}'
+        self.src_grid_file = f'scrip_{self.name}_{self.src_grid_name}.nc'
+        cmd  = f'ncremap {ncremap_alg} ' \
+              +f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\''     \
               +f'#latlon={self.nlat},{self.nlon}'                           \
               +f'#lat_typ=uni'                                              \
               +f'#lon_typ=grn_ctr '                                         \

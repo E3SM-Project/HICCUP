@@ -38,7 +38,10 @@ adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
 # Create data class instance, which includes xarray file dataset objects 
 # and variable name dictionaries for mapping between naming conventions
-hiccup_data = hdc.create_hiccup_data(name='ERA5',atm_file=input_file_atm,sfc_file=input_file_sfc)
+hiccup_data = hdc.create_hiccup_data(name='ERA5'                \
+                                    ,atm_file=input_file_atm    \
+                                    ,sfc_file=input_file_sfc    \
+                                    ,dst_grid_name=output_grid_name )
 
 
 # print(hiccup_data.ds_atm)
@@ -84,18 +87,15 @@ for key in hiccup_data.sfc_var_name_dict :
 # Horizontally regrid the data
 #-------------------------------------------------------------------------------
 
+# Create grid description files needed for the mapping file
 hiccup_data.create_src_grid_file()
-hiccup_data.create_dst_grid_file(grid_name=output_grid_name)
-
-print(hiccup_data.src_grid_file)
-print(hiccup_data.dst_grid_file)
+hiccup_data.create_dst_grid_file()
 
 # Create mapping file
-# src_grid = '????'
-# dst_grid = 'ne30np4'
-# map_file = f'map_{src_grid}_to_{dst_grid}_aave.nc'
+hiccup_data.create_map_file()
 
-# os.system(f' ncks --map {map_file}  {file_in}  {file_out} ')
+# Map the data to the new grid
+# os.system(f'ncks --map {map_file}  {in.nc}  {out.nc} ')
 
 #-------------------------------------------------------------------------------
 # Prepare the vertical grid file for vertical regridding
