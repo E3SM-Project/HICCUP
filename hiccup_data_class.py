@@ -6,16 +6,32 @@
 
 import xarray as xr
 import subprocess as sp
+import shutil 
 
-ncremap_alg = ' -a tempest '
+ncremap_alg = ' -a tempest '        # algorithm flag for ncremap
+
+#-------------------------------------------------------------------------------
+# Method for checking if required software is installed
+#-------------------------------------------------------------------------------
+def check_requirements():
+    """ Check for required system commands"""
+    cmd_list = []
+    cmd_list.append('GenerateCSMesh')
+    cmd_list.append('GenerateVolumetricMesh')
+    for cmd in cmd_list:
+        if shutil.which(cmd) is None :
+            raise OSError(f'{cmd} is not in system path')
+    return
 #-------------------------------------------------------------------------------
 # Method for returning class object
 #-------------------------------------------------------------------------------
 def create_hiccup_data(name,lev_type='',atm_file='',sfc_file=''):
-  for subclass in hiccup_data.__subclasses__():
-    if subclass.is_name_for(name):
-      return subclass(name,lev_type=lev_type,atm_file=atm_file,sfc_file=sfc_file)
-  raise ValueError(f'{name} is not a valid HICCUP dataset name')
+    """ Return HICCUP data class object """
+    check_requirements()
+    for subclass in hiccup_data.__subclasses__():
+        if subclass.is_name_for(name):
+            return subclass(name,lev_type=lev_type,atm_file=atm_file,sfc_file=sfc_file)
+    raise ValueError(f'{name} is not a valid HICCUP dataset name')
 #-------------------------------------------------------------------------------
 # Base Class
 #-------------------------------------------------------------------------------
@@ -35,6 +51,8 @@ class hiccup_data(object):
         self.ds_atm = xr.open_dataset(self.atm_file)
         self.ds_sfc = xr.open_dataset(self.sfc_file)
 
+        
+
     def __str__(self):
         str_out = ''
         for key in self.__dict__.keys(): 
@@ -48,6 +66,17 @@ class hiccup_data(object):
                     str_out = str_out+f'  {key:15}:  {attribute}\n'
         return str_out
 
+    def create_dst_grid_file(self,grid):
+        # Generate source grid file:
+        self.grid_file = f'scrip_{self.grid}.nc'
+        cmd  = f'ncremap {ncremap_alg}' \
+              +f' -G ttl=\'Equi-Angular grid {self.nlat}x{self.nlon}\''     \
+              +f'#latlon={self.nlat},{self.nlon}'                           \
+              +f'#lat_typ=uni'                                              \
+              +f'#lon_typ=grn_ctr '                                         \
+              +f' -g {self.grid_file} '
+        sp.call(cmd, shell=True)
+        return 
 #-------------------------------------------------------------------------------
 # Subclasses
 #-------------------------------------------------------------------------------

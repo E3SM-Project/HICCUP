@@ -85,6 +85,7 @@ for key in hiccup_data.sfc_var_name_dict :
 #-------------------------------------------------------------------------------
 
 hiccup_data.create_src_grid_file()
+hiccup_data.create_dst_grid_file(grid=output_grid_name)
 
 print(hiccup_data.grid_file)
 
