@@ -10,6 +10,7 @@ import shutil
 import re
 
 ncremap_alg = ' --alg_typ=tempest '        # algorithm flag for ncremap
+default_output_dir = './'
 
 #-------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -21,7 +22,8 @@ def check_dependency(cmd):
 #-------------------------------------------------------------------------------
 # Method for returning class object
 #-------------------------------------------------------------------------------
-def create_hiccup_data(name,atm_file,sfc_file,dst_grid_name,lev_type=''):
+def create_hiccup_data(name,atm_file,sfc_file,dst_grid_name,
+                       output_dir=default_output_dir,lev_type=''):
     """ Return HICCUP data class object """
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
@@ -29,6 +31,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_grid_name,lev_type=''):
                            ,atm_file=atm_file
                            ,sfc_file=sfc_file
                            ,dst_grid_name=dst_grid_name
+                           ,output_dir=output_dir
                            ,lev_type=lev_type)
     raise ValueError(f'{name} is not a valid HICCUP dataset name')
 #-------------------------------------------------------------------------------
@@ -36,7 +39,8 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_grid_name,lev_type=''):
 #-------------------------------------------------------------------------------
 class hiccup_data(object):
 
-    def __init__(self,name,lev_type='',atm_file='',sfc_file='',dst_grid_name=''):
+    def __init__(self,name,atm_file,sfc_file,dst_grid_name,
+                 output_dir=default_output_dir,lev_type=''):
         self.name = name
         self.lev_type = lev_type
         self.atm_file = atm_file
@@ -51,6 +55,11 @@ class hiccup_data(object):
         self.src_grid_file = None
         self.dst_grid_file = None
         self.map_file = None
+
+        # Make sure output directory is formatted correctly
+        if output_dir=='' : output_dir = './'
+        if not output_dir.endswith('/'): output_dir += '/'
+        self.output_dir = output_dir
 
         # Load input files into xarray datasets
         self.ds_atm = xr.open_dataset(self.atm_file)
@@ -96,7 +105,7 @@ class hiccup_data(object):
         if 'ne' in self.dst_grid_name and 'np' in self.dst_grid_name : 
             # Spectral element grid
             ne = re.search('ne(.*)np', self.dst_grid_name).group(1)
-            self.dst_grid_file = f'exodus_ne{ne}.g'
+            self.dst_grid_file = self.output_dir+f'exodus_ne{ne}.g'
             check_dependency('GenerateCSMesh')
             cmd  = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
             sp.call(cmd, shell=True)
@@ -106,12 +115,12 @@ class hiccup_data(object):
             ne  = re.search('ne(.*)pg', self.dst_grid_name).group(1)
             npg = re.search('pg(.*)', self.dst_grid_name).group(1)
             # First create exodus file
-            exodus_file = f'exodus_ne{ne}.g'
+            exodus_file = self.output_dir+f'exodus_ne{ne}.g'
             check_dependency('GenerateCSMesh')
             cmd  = f'GenerateCSMesh --res {ne} --file {exodus_file}'
             sp.call(cmd, shell=True)
             # Next create script file for FV physgrid
-            self.dst_grid_file = f'scrip_{self.dst_grid_name}.nc'
+            self.dst_grid_file = self.output_dir+f'scrip_{self.dst_grid_name}.nc'
             check_dependency('GenerateVolumetricMesh')
             cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
             sp.call(cmd, shell=True)
@@ -127,7 +136,7 @@ class hiccup_data(object):
             raise ValueError('src_grid_file is not defined for hiccup_data object')
         if self.dst_grid_file == None : 
             raise ValueError('dst_grid_file is not defined for hiccup_data object')
-        self.map_file = f'map_{self.src_grid_name}_to_{self.dst_grid_name}.nc'
+        self.map_file = self.output_dir+f'map_{self.src_grid_name}_to_{self.dst_grid_name}.nc'
         # self.map_opts = '--in_type fv --in_np 1 --mono --out_format Classic '
         self.map_opts = '--in_type fv --in_np 1 --mono --out_double '
         if 'ne' in self.dst_grid_name and 'np' in self.dst_grid_name : 
@@ -149,7 +158,8 @@ class hiccup_data(object):
 class ERA5(hiccup_data):
     @classmethod
     def is_name_for(cls,name) : return name == 'ERA5'
-    def __init__(self,name,atm_file,sfc_file,dst_grid_name,lev_type=''):
+    def __init__(self,name,atm_file,sfc_file,dst_grid_name,
+                 output_dir=default_output_dir,lev_type=''):
         super().__init__(name,atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_grid_name=dst_grid_name
@@ -214,7 +224,7 @@ class ERA5(hiccup_data):
     def create_src_grid_file(self):
         """ Generate source grid file """
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
-        self.src_grid_file = f'scrip_{self.name}_{self.src_grid_name}.nc'
+        self.src_grid_file = self.output_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
 
         check_dependency('ncremap')
         cmd  = f'ncremap {ncremap_alg} ' \
