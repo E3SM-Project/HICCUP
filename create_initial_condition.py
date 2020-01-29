@@ -57,14 +57,24 @@ hiccup_data.create_dst_grid_file()
 # Create mapping file
 hiccup_data.create_map_file()
 
-# Map the atm data to the new grid
+# regrid the atm and sfc data to temporary files
 # hiccup_data.remap_input_data()
-os.system(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={output_file_name} ')
+atm_tmp_file_name = 'tmp_atm_data.nc'
+sfc_tmp_file_name = 'tmp_sfc_data.nc'
+sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={atm_tmp_file_name} ', shell=True)
+sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.sfc_file} --out_file={sfc_tmp_file_name} ', shell=True)
 
-# Map the sfc data to the new grid (and append to output file)
+# Combine the temporary files into the final output file
+sp.call(f'ncks -A {atm_tmp_file_name} {output_file_name} ', shell=True)
+sp.call(f'ncks -A {sfc_tmp_file_name} {output_file_name} ', shell=True)
+
+# delete the temporary files
+sp.call(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ', shell=True)
 
 # Rename variables to match what the model expects
-# hiccup_data.rename_vars(output_file_name)
+hiccup_data.rename_vars(output_file_name)
+
+print(f'\noutput_file_name: {output_file_name}\n')
 
 #-------------------------------------------------------------------------------
 # Prepare the vertical grid file for vertical regridding

@@ -153,7 +153,7 @@ class hiccup_data(object):
         sp.call(cmd, shell=True)
         return
     #---------------------------------------------------------------------------
-    def rename_vars(file_name):
+    def rename_vars(self,file_name):
         """ rename variables in file according to variable name dictionaries """
 
         for key in self.atm_var_name_dict :
