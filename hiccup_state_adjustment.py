@@ -6,8 +6,10 @@ gravit  = 9.80616       # acceleration of gravity                 ~ m/s^2
 boltz   = 1.38065e-23   # boltzmann's constant                    ~ J/k/molecule
 avogad  = 6.02214e26    # avogadro's number                       ~ molecules/kmole
 mwdair  = 28.966        # molecular weight of dry air             ~ kg/kmole
-rgas    = avogad*boltz  # universal gas constant                  ~ J/k/kmole
-rdair   = rgas/mwdair   # gas constant for dry air                ~ J/k/kg
+mwvapor = 18.0          # molecular weight of dry air             ~ kg/kmole
+Rgas    = avogad*boltz  # universal gas constant                  ~ J/k/kmole
+Rdair   = Rgas/mwdair   # gas constant for dry air                ~ J/k/kg
+Rvapor  = Rgas/mwvapor
 P0      = 1e5           # reference pressure
 
 T_ref1    = 290.5       # reference temperature for sfc adjustments
@@ -58,7 +60,7 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
       z = 0.
       for k in range(plev-1,0,-1) :
         hkk    = 0.5*( pressure_int[i,k+1] - pressure_int[i,k] ) / pressure_mid[i,k]
-        z_incr = (rdair/gravit)*temperature[i,k]*hkk
+        z_incr = (Rdair/gravit)*temperature[i,k]*hkk
         z = z + z_incr
         if ( z > dz_min ) : break
         z = z + z_incr
@@ -69,7 +71,7 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
       tbot  = temperature[i,k]
       pbot  = pressure_mid[i,k]
 
-      alpha = lapse*rdair/gravit                           # pg 8 eq 6
+      alpha = lapse*Rdair/gravit                           # pg 8 eq 6
 
       # provisional extrapolated surface temperature
       Tstar = tbot + alpha*tbot*( ps_old[i]/pbot - 1.)      # pg 8 eq 5
@@ -79,7 +81,7 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
       # adjustments for very high (T_ref1) or low (T_ref2) temperatures 
       if (Tstar <= T_ref1) and (T0 > T_ref1) :
         # inhibit low pressure under elevated hot terrain
-        alpha = rdair/phis_new[i]*( T_ref1 - Tstar )        # pg 9 eq 14.1
+        alpha = Rdair/phis_new[i]*( T_ref1 - Tstar )        # pg 9 eq 14.1
       elif (Tstar > T_ref1) and (T0 > T_ref1) :
         # inhibit low pressure under elevated hot terrain
         Tstar = ( T_ref1 + Tstar )*0.5                      # pg 9 eq 14.2
@@ -88,9 +90,9 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
         Tstar = ( T_ref2 + Tstar )*0.5                      # pg 9 eq 14.3
 
       # Calculate new surface pressure
-      # beta = phis_new[i]/(rdair*Tstar)
+      # beta = phis_new[i]/(Rdair*Tstar)
       beta = del_phis/(gravit*Tstar)
-      temp = del_phis/(rdair*Tstar)*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
+      temp = del_phis/(Rdair*Tstar)*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
       ps_new[i] = ps_old[i] * np.exp( temp )                # pg 9 eq 12
 
 #-------------------------------------------------------------------------------
@@ -127,7 +129,7 @@ def remove_supersaturation( qv, temperature, pressure ):
   qv_min = 1.0e-9   # minimum specific humidity value allowed
 
   # Calculate saturation specific humidity
-  qv_sat = calculate_qv_sat(temperature,pressure/1e2)
+  qv_sat = calculate_qv_sat_liq(temperature,pressure/1e2)
 
   # The following check is to avoid the generation of negative values
   # that can occur in the upper stratosphere and mesosphere
@@ -142,13 +144,44 @@ def remove_supersaturation( qv, temperature, pressure ):
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def calculate_qv_sat( temperature, pressure ):
+def calculate_qv_sat_liq( temperature, pressure ):
   """ 
   calculate saturation specific humidity [kg/kg]
   from temperature [K] and pressure [hPa]
   """
-  return (380./pressure) * np.exp( 17.27*(temperature-273.0)/(temperature-36.0) )
 
+  # Calculate saturation vapor pressure over liquid 
+  # Bolton, D., 1980: The Computation of Equivalent Potential Temperature, MWR, 108, 1046-1053
+  # https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
+  es = 611.2 * np.exp( 17.67*(temperature-273.0)/(temperature-273.0+243.5) )
+
+  # Convert to mixing ratio
+  r_sat = es * (Rdair/Rvapor) / (pressure - es)
+
+  # Convert mixing ratio to saturation specific humidity
+  qv_sat = r_sat / ( 1 + r_sat )
+
+  return qv_sat
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def calculate_qv_sat_ice( temperature, pressure ):
+  """ 
+  calculate saturation specific humidity [kg/kg]
+  from temperature [K] and pressure [hPa]
+  """
+
+  # Calculate saturation vapor pressure over ice 
+  # Chapter 4 of WMO GUIDE TO METEOROLOGICAL INSTRUMENTS AND METHODS OF OBSERVATION
+  # https://www.wmo.int/pages/prog/www/IMOP/CIMO-Guide.html
+  ei = 6.112 * np.exp( 22.46*(temperature-273.0)/(temperature-273.0+272.62) )
+
+  # Convert to mixing ratio
+  r_sat = es * (Rdair/Rvapor) / (pressure - es)
+
+  # Convert mixing ratio to saturation specific humidity
+  qv_sat = r_sat / ( 1 + r_sat )
+
+  return qv_sat
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 # def dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out ):

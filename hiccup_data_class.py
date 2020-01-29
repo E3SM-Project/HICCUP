@@ -23,7 +23,6 @@ def check_dependency(cmd):
 #-------------------------------------------------------------------------------
 def create_hiccup_data(name,atm_file,sfc_file,dst_grid_name,lev_type=''):
     """ Return HICCUP data class object """
-    check_requirements()
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
             return subclass(name
