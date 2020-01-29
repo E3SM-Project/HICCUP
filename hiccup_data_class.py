@@ -152,6 +152,19 @@ class hiccup_data(object):
         print(f'\n{cmd}\n')
         sp.call(cmd, shell=True)
         return
+    #---------------------------------------------------------------------------
+    def rename_vars(file_name):
+        """ rename variables in file according to variable name dictionaries """
+
+        for key in self.atm_var_name_dict :
+            cmd = f'ncrename -v {key},{self.atm_var_name_dict[key]} {file_name}'
+            sp.call(cmd, shell=True)
+
+        for key in self.sfc_var_name_dict :
+            cmd = f'ncrename -v {key},{self.sfc_var_name_dict[key]} {file_name}'
+            sp.call(cmd, shell=True)
+
+        return
 #-------------------------------------------------------------------------------
 # Subclasses
 #-------------------------------------------------------------------------------

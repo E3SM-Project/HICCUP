@@ -19,7 +19,7 @@ import hiccup_state_adjustment
 input_file_atm = 'ERA5.HICCUP_TEST.atm.remap.nc'
 input_file_sfc = 'ERA5.HICCUP_TEST.sfc.remap.nc'
 
-output_file_name = 'HICCUP.output.nc'
+output_file_name = 'HICCUP_TEST.output.nc'
 output_grid_name = 'ne30pg2'
 
 tmp_file_name = 'tmp.nc'
@@ -57,8 +57,14 @@ hiccup_data.create_dst_grid_file()
 # Create mapping file
 hiccup_data.create_map_file()
 
-# Map the data to the new grid
-# os.system(f'ncks --map {map_file}  {in.nc}  {out.nc} ')
+# Map the atm data to the new grid
+# hiccup_data.remap_input_data()
+os.system(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={output_file_name} ')
+
+# Map the sfc data to the new grid (and append to output file)
+
+# Rename variables to match what the model expects
+# hiccup_data.rename_vars(output_file_name)
 
 #-------------------------------------------------------------------------------
 # Prepare the vertical grid file for vertical regridding
