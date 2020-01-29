@@ -14,14 +14,9 @@ ncremap_alg = ' --alg_typ=tempest '        # algorithm flag for ncremap
 #-------------------------------------------------------------------------------
 # Method for checking if required software is installed
 #-------------------------------------------------------------------------------
-def check_requirements():
+def check_dependency(cmd):
     """ Check for required system commands"""
-    cmd_list = []
-    cmd_list.append('GenerateCSMesh')
-    cmd_list.append('GenerateVolumetricMesh')
-    for cmd in cmd_list:
-        if shutil.which(cmd) is None :
-            raise OSError(f'{cmd} is not in system path')
+    if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
     return
 #-------------------------------------------------------------------------------
 # Method for returning class object
@@ -58,6 +53,7 @@ class hiccup_data(object):
         self.dst_grid_file = None
         self.map_file = None
 
+        # Load input files into xarray datasets
         self.ds_atm = xr.open_dataset(self.atm_file)
         self.ds_sfc = xr.open_dataset(self.sfc_file)
     #---------------------------------------------------------------------------
@@ -102,6 +98,7 @@ class hiccup_data(object):
             # Spectral element grid
             ne = re.search('ne(.*)np', self.dst_grid_name).group(1)
             self.dst_grid_file = f'exodus_ne{ne}.g'
+            check_dependency('GenerateCSMesh')
             cmd  = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
             sp.call(cmd, shell=True)
 
@@ -111,10 +108,12 @@ class hiccup_data(object):
             npg = re.search('pg(.*)', self.dst_grid_name).group(1)
             # First create exodus file
             exodus_file = f'exodus_ne{ne}.g'
+            check_dependency('GenerateCSMesh')
             cmd  = f'GenerateCSMesh --res {ne} --file {exodus_file}'
             sp.call(cmd, shell=True)
             # Next create script file for FV physgrid
             self.dst_grid_file = f'scrip_{self.dst_grid_name}.nc'
+            check_dependency('GenerateVolumetricMesh')
             cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
             sp.call(cmd, shell=True)
 
@@ -136,6 +135,7 @@ class hiccup_data(object):
             self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
         else:
             self.map_opts = self.map_opts+' --out_type fv --out_np 1 --volumetric '
+        check_dependency('ncremap')
         cmd = f'ncremap {ncremap_alg} '
         cmd = cmd+f' --src_grd={self.src_grid_file}'
         cmd = cmd+f' --dst_grd={self.dst_grid_file}'
@@ -216,6 +216,8 @@ class ERA5(hiccup_data):
         """ Generate source grid file """
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
         self.src_grid_file = f'scrip_{self.name}_{self.src_grid_name}.nc'
+
+        check_dependency('ncremap')
         cmd  = f'ncremap {ncremap_alg} ' \
               +f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\''     \
               +f'#latlon={self.nlat},{self.nlon}'                           \
