@@ -43,45 +43,8 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'                \
                                     ,sfc_file=input_file_sfc    \
                                     ,dst_grid_name=output_grid_name )
 
-
-# print(hiccup_data.ds_atm)
-# exit()
-
-#-------------------------------------------------------------------------------
 # Check input files for for required variables
-#-------------------------------------------------------------------------------
-
-# Create list of variables in the files
-atm_file_vars = []
-sfc_file_vars = []
-for key in hiccup_data.ds_atm.variables.keys(): atm_file_vars.append(key)
-for key in hiccup_data.ds_sfc.variables.keys(): sfc_file_vars.append(key)
-
-# Check that all required data exists in the atm file
-for key in hiccup_data.atm_var_name_dict : 
-    if hiccup_data.atm_var_name_dict[key] not in atm_file_vars: 
-        raise ValueError(f'{hiccup_data.atm_var_name_dict[key]} is not in ATM dataset: ({input_file_atm})')
-
-# Check that all required data exists in the sfc file
-for key in hiccup_data.sfc_var_name_dict : 
-    if hiccup_data.sfc_var_name_dict[key] not in sfc_file_vars: 
-        raise ValueError(f'{hiccup_data.sfc_var_name_dict[key]} is not in SFC dataset: ({input_file_sfc})')
-
-#-------------------------------------------------------------------------------
-# Make a copy of the input file and rename/subset variables
-#-------------------------------------------------------------------------------
-
-# os.system(f'cp {input_file_name} {tmp_file_name}')
-
-# Rename the variables to match the output names
-# for key in var_rename_dict :
-#   os.system(f'ncrename -v {key},{var_rename_dict[key]}  {tmp_file_name} ')
-
-# Insert new PS variable
-# os.system(f'ncap2 -s "PS=PHIS" {tmp_file_name} ')
-
-# Insert new P0 variable
-# os.system(f'ncap2 -s "P0=1.0D0" {tmp_file_name} ')
+hiccup_data.check_file_vars()
 
 #-------------------------------------------------------------------------------
 # Horizontally regrid the data
