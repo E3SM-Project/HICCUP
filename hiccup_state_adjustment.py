@@ -150,13 +150,13 @@ def calculate_qv_sat_liq( temperature, pressure ):
   from temperature [K] and pressure [hPa]
   """
 
-  # Calculate saturation vapor pressure over liquid 
+  # Calculate saturation vapor pressure [hPa] over liquid 
   # Bolton, D., 1980: The Computation of Equivalent Potential Temperature, MWR, 108, 1046-1053
   # https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
-  es = 611.2 * np.exp( 17.67*(temperature-273.0)/(temperature-273.0+243.5) )
+  es = 6.112 * np.exp( 17.67*(temperature-273.0)/(temperature-273.0+243.5) ) 
 
   # Convert to mixing ratio
-  r_sat = es * (Rdair/Rvapor) / (pressure - es)
+  r_sat = (Rdair/Rvapor) * es / (pressure - es)
 
   # Convert mixing ratio to saturation specific humidity
   qv_sat = r_sat / ( 1 + r_sat )
@@ -176,7 +176,7 @@ def calculate_qv_sat_ice( temperature, pressure ):
   ei = 6.112 * np.exp( 22.46*(temperature-273.0)/(temperature-273.0+272.62) )
 
   # Convert to mixing ratio
-  r_sat = es * (Rdair/Rvapor) / (pressure - es)
+  r_sat = (Rdair/Rvapor) * ei / (pressure - ei)
 
   # Convert mixing ratio to saturation specific humidity
   qv_sat = r_sat / ( 1 + r_sat )

@@ -84,7 +84,7 @@ class state_adjustment_test_case(unittest.TestCase):
     """ do negative values get limited correctly? """
     temperature_in = 300
     pressure_in    = 1010e2
-    qv_sat = hiccup_state_adjustment.calculate_qv_sat_liq(temperature_in,pressure_in/1e2)
+    qv_sat = hiccup_state_adjustment.calculate_qv_sat_ice(temperature_in,pressure_in/1e2)
     qv = xr.DataArray(np.array([ 1.1*qv_sat , 1.0*qv_sat , 0.9*qv_sat ]))
     ncol = len(qv.values)
     temperature = xr.DataArray([temperature_in]*ncol)
