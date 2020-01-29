@@ -75,19 +75,24 @@ class hiccup_data(object):
         return str_out
     #---------------------------------------------------------------------------
     def check_file_vars(self):
+        """ Check that required variables are in the input files """
+
         # Create list of variables in the files
         atm_file_vars = []
         sfc_file_vars = []
         for key in self.ds_atm.variables.keys(): atm_file_vars.append(key)
         for key in self.ds_sfc.variables.keys(): sfc_file_vars.append(key)
+
         # Check that all required data exists in the atm file
         for key in self.atm_var_name_dict : 
             if self.atm_var_name_dict[key] not in atm_file_vars: 
                 raise ValueError(f'{self.atm_var_name_dict[key]} is not in ATM dataset: ({self.atm_file})')
+
         # Check that all required data exists in the sfc file
         for key in self.sfc_var_name_dict : 
             if self.sfc_var_name_dict[key] not in sfc_file_vars: 
                 raise ValueError(f'{self.sfc_var_name_dict[key]} is not in SFC dataset: ({self.sfc_file})')
+
         return
     #---------------------------------------------------------------------------
     def create_dst_grid_file(self):
