@@ -32,6 +32,8 @@ adjust_qv   = False   # adjust qv to eliminate supersaturation
 adjust_cw   = False   # adjust cloud water to remove negative values
 adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
+verbose = True
+
 #-------------------------------------------------------------------------------
 # Load input data 
 #-------------------------------------------------------------------------------
@@ -51,27 +53,34 @@ hiccup_data.check_file_vars()
 #-------------------------------------------------------------------------------
 
 # Create grid description files needed for the mapping file
+if verbose : print('Generating src grid file...')
 hiccup_data.create_src_grid_file()
+if verbose : print('Generating dst grid file...')
 hiccup_data.create_dst_grid_file()
 
 # Create mapping file
+if verbose : print('Generating mapping file...')
 hiccup_data.create_map_file()
 
 # regrid the atm and sfc data to temporary files
 # hiccup_data.remap_input_data()
+if verbose : print('Mapping the data to temporary files...')
 atm_tmp_file_name = 'tmp_atm_data.nc'
 sfc_tmp_file_name = 'tmp_sfc_data.nc'
 sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={atm_tmp_file_name} ', shell=True)
 sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.sfc_file} --out_file={sfc_tmp_file_name} ', shell=True)
 
+if verbose : print('Combining the temporary files into the final output file...')
+# Remove output file if it already exists
+sp.call(f'rm {output_file_name} ', shell=True)
 # Combine the temporary files into the final output file
 sp.call(f'ncks -A {atm_tmp_file_name} {output_file_name} ', shell=True)
 sp.call(f'ncks -A {sfc_tmp_file_name} {output_file_name} ', shell=True)
-
 # delete the temporary files
 sp.call(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ', shell=True)
 
 # Rename variables to match what the model expects
+if verbose : print('Renaming variables to match model variable names...')
 hiccup_data.rename_vars(output_file_name)
 
 print(f'\noutput_file_name: {output_file_name}\n')

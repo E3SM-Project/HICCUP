@@ -9,8 +9,9 @@ import subprocess as sp
 import shutil 
 import re
 
-ncremap_alg = ' --alg_typ=tempest '        # algorithm flag for ncremap
-default_output_dir = './'
+default_output_dir  = './'
+ncremap_alg         = ' --alg_typ=tempest '        # algorithm flag for ncremap
+tempest_log_file    = 'TempestRemap.log'
 
 #-------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -99,15 +100,16 @@ class hiccup_data(object):
 
         return
     #---------------------------------------------------------------------------
-    def create_dst_grid_file(self):
+    def create_dst_grid_file(self,verbose=False):
         """ Generate destination model grid file """
-        
         if 'ne' in self.dst_grid_name and 'np' in self.dst_grid_name : 
             # Spectral element grid
             ne = re.search('ne(.*)np', self.dst_grid_name).group(1)
             self.dst_grid_file = self.output_dir+f'exodus_ne{ne}.g'
             check_dependency('GenerateCSMesh')
             cmd  = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
+            if not verbose : cmd = f'{cmd} > {tempest_log_file}'
+            print(f'\n  {cmd}\n')
             sp.call(cmd, shell=True)
 
         elif 'ne' in self.dst_grid_name and 'pg' in self.dst_grid_name : 
@@ -118,12 +120,16 @@ class hiccup_data(object):
             exodus_file = self.output_dir+f'exodus_ne{ne}.g'
             check_dependency('GenerateCSMesh')
             cmd  = f'GenerateCSMesh --res {ne} --file {exodus_file}'
+            if not verbose : cmd = f'{cmd} > {tempest_log_file}'
+            print(f'\n  {cmd}\n')
             sp.call(cmd, shell=True)
             # Next create script file for FV physgrid
             self.dst_grid_file = self.output_dir+f'scrip_{self.dst_grid_name}.nc'
             check_dependency('GenerateVolumetricMesh')
             cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
-            sp.call(cmd, shell=True)
+            if not verbose : cmd = f'{cmd} > {tempest_log_file}'
+            print(f'  {cmd}\n')
+            sp.call(cmd, shell=True)            
 
         else:
             raise ValueError(f'grid_name={self.dst_grid_name} is not currently supported')
@@ -149,20 +155,31 @@ class hiccup_data(object):
         cmd = cmd+f' --dst_grd={self.dst_grid_file}'
         cmd = cmd+f' --map_file={self.map_file}'
         cmd = cmd+f' --wgt_opt=\'{self.map_opts}\' '
-        print(f'\n{cmd}\n')
+        print(f'\n  {cmd}\n')
         sp.call(cmd, shell=True)
         return
     #---------------------------------------------------------------------------
     def rename_vars(self,file_name):
         """ rename variables in file according to variable name dictionaries """
 
-        for key in self.atm_var_name_dict :
-            cmd = f'ncrename -v {key},{self.atm_var_name_dict[key]} {file_name}'
+        def rename_proc(key,var_name_dict):
+            # Skip over entries that are blank
+            if key == '' : return
+            if var_name_dict[key] == '' : return
+            # set up the ncrename command
+            cmd = f'ncrename --variable {var_name_dict[key]},{key} {file_name}'
+            # coords are often already renamed by the remapping step, 
+            # so make them optional by adding a preceeding dot
+            if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
+            # print the command and execute
+            print(f'  {cmd}')
             sp.call(cmd, shell=True)
 
-        for key in self.sfc_var_name_dict :
-            cmd = f'ncrename -v {key},{self.sfc_var_name_dict[key]} {file_name}'
-            sp.call(cmd, shell=True)
+        print('\n Renaming ATM vars... \n')
+        for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
+
+        print('\n Renaming SFC vars... \n')
+        for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
 
         return
 #-------------------------------------------------------------------------------
@@ -239,6 +256,9 @@ class ERA5(hiccup_data):
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
         self.src_grid_file = self.output_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
 
+        # Remove the file here to prevent the warning message when ncremap overwrites it
+        sp.call(f'rm {self.src_grid_file} ', shell=True)
+
         check_dependency('ncremap')
         cmd  = f'ncremap {ncremap_alg} ' \
               +f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\''     \
@@ -246,6 +266,7 @@ class ERA5(hiccup_data):
               +f'#lat_typ=uni'                                              \
               +f'#lon_typ=grn_ctr '                                         \
               +f' -g {self.src_grid_file} '
+        print(f'\n  {cmd}\n')
         sp.call(cmd, shell=True)
         return 
 #-------------------------------------------------------------------------------
