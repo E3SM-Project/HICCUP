@@ -81,17 +81,18 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( ts_new[2]==ts_old[2] )
   #-----------------------------------------------------------------------------
   def test_remove_supersaturation(self):
-    """ do negative values get limited correctly? """
+    """ do supersaturated values get limited correctly? """
     temperature_in = 300
     pressure_in    = 1010e2
-    qv_sat = hiccup_state_adjustment.calculate_qv_sat_ice(temperature_in,pressure_in/1e2)
+    qv_sat = hiccup_state_adjustment.calculate_qv_sat_liq(temperature_in,pressure_in/1e2)
     qv = xr.DataArray(np.array([ 1.1*qv_sat , 1.0*qv_sat , 0.9*qv_sat ]))
     ncol = len(qv.values)
     temperature = xr.DataArray([temperature_in]*ncol)
     pressure    = xr.DataArray([pressure_in]   *ncol)
     hiccup_state_adjustment.remove_supersaturation( qv, temperature, pressure )
     rh_out = qv/qv_sat
-    self.assertTrue( np.all( rh_out.values==np.array([1.0, 1.0, 0.9]) ) )
+    expected_answer = np.array([1.0, 1.0, 0.9])
+    self.assertTrue( np.all( np.abs(rh_out.values-expected_answer)<1e-10 ) )
   #-----------------------------------------------------------------------------
   # def test_dry_mass_fixer(self):
   #   """ """

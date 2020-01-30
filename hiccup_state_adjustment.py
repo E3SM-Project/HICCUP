@@ -159,7 +159,7 @@ def calculate_qv_sat_liq( temperature, pressure ):
   r_sat = (Rdair/Rvapor) * es / (pressure - es)
 
   # Convert mixing ratio to saturation specific humidity
-  qv_sat = r_sat / ( 1 + r_sat )
+  qv_sat = r_sat / ( 1.0 + r_sat )
 
   return qv_sat
 #-------------------------------------------------------------------------------
