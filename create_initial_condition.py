@@ -53,10 +53,8 @@ hiccup_data.check_file_vars()
 #-------------------------------------------------------------------------------
 
 # Create grid description files needed for the mapping file
-if verbose : print('Generating src grid file...')
-hiccup_data.create_src_grid_file()
-if verbose : print('Generating dst grid file...')
-hiccup_data.create_dst_grid_file()
+if verbose : print('Generating src grid file...'); hiccup_data.create_src_grid_file()
+if verbose : print('Generating dst grid file...'); hiccup_data.create_dst_grid_file()
 
 # Create mapping file
 if verbose : print('Generating mapping file...')
@@ -102,7 +100,7 @@ hiccup_data.rename_vars(output_file_name)
 # Perform state adjustments on interpolated data
 #-------------------------------------------------------------------------------
 
-if any([ adjust_ts, adjust_ps, adjust_massadjust_qv, adjust_cw, adjust_cf ]) :
+if any([ adjust_ts, adjust_ps, adjust_mass, adjust_qv, adjust_cw, adjust_cf ]) :
 
     # Load the file into an xarray dataset
     ds = xr.open_dataset(output_file_name)
