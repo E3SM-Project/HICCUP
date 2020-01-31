@@ -72,12 +72,14 @@ sfc_tmp_file_name = 'tmp_sfc_data.nc'
 sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={atm_tmp_file_name} ', shell=True)
 sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.sfc_file} --out_file={sfc_tmp_file_name} ', shell=True)
 
-if verbose : print('Combining the temporary files into the final output file...')
 # Remove output file if it already exists
 sp.call(f'rm {output_file_name} ', shell=True)
+
+if verbose : print('Combining the temporary files into the final output file...')
 # Combine the temporary files into the final output file
 sp.call(f'ncks -A {atm_tmp_file_name} {output_file_name} ', shell=True)
 sp.call(f'ncks -A {sfc_tmp_file_name} {output_file_name} ', shell=True)
+
 # delete the temporary files
 sp.call(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ', shell=True)
 
@@ -132,12 +134,8 @@ if any([ adjust_ts, adjust_ps, adjust_mass, adjust_qv, adjust_cw, adjust_cf ]) :
     if adjust_cf :
       state_adjustment.adjust_cloud_fraction()
 
-    # Write the dataset back to the file
+    # Write the adjusted dataset back to the file
     ds.to_netcdf(output_file_name)
-
-#-------------------------------------------------------------------------------
-# Clean up
-#-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Print final output file name
