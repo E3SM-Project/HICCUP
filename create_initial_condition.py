@@ -24,6 +24,8 @@ output_grid_name = 'ne30pg2'
 
 tmp_file_name = 'tmp.nc'
 
+vert_grid_name = 'L72'
+
 # Options for output state adjustment
 adjust_ts   = False   # Adjust surface temperature to match new surface height
 adjust_ps   = False   # Adjust surface pressure to match new surface height
@@ -90,13 +92,42 @@ sp.call(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ', shell=True)
 if verbose : print('Renaming variables to match model variable names...')
 hiccup_data.rename_vars(output_file_name)
 
-#-------------------------------------------------------------------------------
-# Prepare the vertical grid file for vertical regridding
-#-------------------------------------------------------------------------------
+# Also add P0 variable
+sp.call(f'ncap2 -O -s \'P0=100000.\' {output_file_name} {output_file_name}', shell=True)
+sp.call(f'ncatted -O -a long_name,P0,a,c,\"reference pressure\" {output_file_name} {output_file_name}', shell=True)
+sp.call(f'ncatted -O -a units,P0,a,c,\"Pa\" {output_file_name} {output_file_name}', shell=True)
+
+sp.call(f'ncrename --variable level,plev {output_file_name}', shell=True)
 
 #-------------------------------------------------------------------------------
-# Vertically regrid the data
+# Vertically remap the data
 #-------------------------------------------------------------------------------
+
+# To create the vertical coordinate file it is easiest to 
+# extract from a pre-existing model data file as follows:
+# 1. ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
+# 2. < edit the file to remove extra header info - but keep the general CDL format >
+# 3. ncgen vert_coord.txt -o vert_coord.nc
+
+tmp_vert_file_name = f'vert_coord_{vert_grid_name}.nc'
+
+# Define list of variables that will be vertical remapped
+# vert_remap_var_list = 'T,Q,U,V,P0,PS,PHIS,CLDLIQ,CLDICE,O3,date,datesec,hyam,hybm,hyai,hybi,lev,ilev'
+# vert_remap_var_list = 'T,Q,U,V,P0,PS,CLDLIQ,CLDICE,O3'
+vert_remap_var_list = 'T'
+
+vert_output_file = output_file_name.replace('.nc',f'.{vert_grid_name}.nc')
+
+# Perform the vertical remapping
+cmd = f'ncremap --vrt_fl={tmp_vert_file_name} -v {vert_remap_var_list} {output_file_name} {vert_output_file}'
+print(f'\n  {cmd}\n')
+sp.call(cmd, shell=True)
+
+# Delete the temporary files
+# sp.call(f'rm {tmp_vert_file_text} {tmp_vert_file_name}', shell=True)
+
+print(f'\n{vert_output_file}\n')
+exit()
 
 #-------------------------------------------------------------------------------
 # Perform state adjustments on interpolated data
