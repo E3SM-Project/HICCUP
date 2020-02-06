@@ -97,7 +97,9 @@ sp.call(f'ncap2 -O -s \'P0=100000.\' {output_file_name} {output_file_name}', she
 sp.call(f'ncatted -O -a long_name,P0,a,c,\"reference pressure\" {output_file_name} {output_file_name}', shell=True)
 sp.call(f'ncatted -O -a units,P0,a,c,\"Pa\" {output_file_name} {output_file_name}', shell=True)
 
-sp.call(f'ncrename --variable level,plev {output_file_name}', shell=True)
+# Rename pressure variable and change type to double (needed for vertical remap)
+sp.call(f'ncrename -d level,plev -v level,plev {output_file_name}', shell=True)
+sp.call(f'ncap2 -s \'plev=plev.convert(NC_DOUBLE)\' {output_file_name} {output_file_name}', shell=True)
 
 #-------------------------------------------------------------------------------
 # Vertically remap the data
