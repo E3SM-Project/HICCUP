@@ -71,8 +71,16 @@ hiccup_data.create_map_file()
 if verbose : print('Mapping the data to temporary files...')
 atm_tmp_file_name = 'tmp_atm_data.nc'
 sfc_tmp_file_name = 'tmp_sfc_data.nc'
-sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={atm_tmp_file_name} ', shell=True)
-sp.call(f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.sfc_file} --out_file={sfc_tmp_file_name} ', shell=True)
+
+var_list = ','.join(hiccup_data.atm_var_name_dict.values())
+cmd = f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={atm_tmp_file_name} --var_lst={var_list} '
+print(f'\n  {cmd}\n')
+sp.call(cmd, shell=True)
+
+var_list = ','.join(hiccup_data.sfc_var_name_dict.values())
+cmd = f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.sfc_file} --out_file={sfc_tmp_file_name} --var_lst={var_list} '
+print(f'\n  {cmd}\n')
+sp.call(cmd, shell=True)
 
 # Remove output file if it already exists
 sp.call(f'rm {output_file_name} ', shell=True)
@@ -98,8 +106,27 @@ sp.call(f'ncatted -O -a long_name,P0,a,c,\"reference pressure\" {output_file_nam
 sp.call(f'ncatted -O -a units,P0,a,c,\"Pa\" {output_file_name} {output_file_name}', shell=True)
 
 # Rename pressure variable and change type to double (needed for vertical remap)
-sp.call(f'ncrename -d level,plev -v level,plev {output_file_name}', shell=True)
-sp.call(f'ncap2 -s \'plev=plev.convert(NC_DOUBLE)\' {output_file_name} {output_file_name}', shell=True)
+new_lev_name = 'plev'
+sp.call(f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {output_file_name}', shell=True)
+sp.call(f'ncap2 -O -s \'{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)\' {output_file_name} {output_file_name}', shell=True)
+
+# Remove lat/lon vertices variables
+sp.call(f'ncks -C -O  -x -v lat_vertices,lon_vertices {output_file_name} {output_file_name}',shell=True)
+
+
+# Clean up up the global file attributes
+if verbose : print('\nCleaning up excessive global attributes...')
+gbl_att_list = ['history_of_appended_files','nco_openmp_thread_number','input_file','map_file'
+               ,'remap_version','remap_hostname','remap_command','remap_script','NCO','history']
+for att in gbl_att_list:
+  cmd = f'ncatted -O -a {att},global,d,, {output_file_name} {output_file_name}'
+  if verbose : print(f'  {cmd}')
+  sp.call(cmd, shell=True)
+
+# cmd = f'ncatted -O -a history,global,m,, {output_file_name} {output_file_name}'
+# print(f'\n  {cmd}\n')
+# sp.call(cmd, shell=True)
+
 
 #-------------------------------------------------------------------------------
 # Vertically remap the data
@@ -122,7 +149,7 @@ vert_output_file = output_file_name.replace('.nc',f'.{vert_grid_name}.nc')
 
 # Perform the vertical remapping
 cmd = f'ncremap --vrt_fl={tmp_vert_file_name} -v {vert_remap_var_list} {output_file_name} {vert_output_file}'
-print(f'\n  {cmd}\n')
+if verbose : print(f'\n  {cmd}\n')
 sp.call(cmd, shell=True)
 
 # Delete the temporary files
