@@ -173,7 +173,7 @@ class hiccup_data(object):
 
         return
     #---------------------------------------------------------------------------
-    def rename_vars(self,file_name):
+    def rename_vars(self,file_name,verbose=False):
         """ rename variables in file according to variable name dictionaries """
 
         def rename_proc(key,var_name_dict):
@@ -189,10 +189,12 @@ class hiccup_data(object):
             print(f'  {cmd}')
             sp.call(cmd, shell=True)
 
-        print('\n Renaming ATM vars... \n')
+        if verbose : print('Renaming variables to match model variable names...')
+        
+        if verbose : print('\n Renaming ATM vars... \n')
         for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
 
-        print('\n Renaming SFC vars... \n')
+        if verbose : print('\n Renaming SFC vars... \n')
         for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
 
         return

@@ -59,8 +59,7 @@ hiccup_data.remap_horizontal(output_file_name=output_file_name,verbose=verbose)
 # Rename variables to match what the model expects
 #-------------------------------------------------------------------------------
 
-if verbose : print('Renaming variables to match model variable names...')
-hiccup_data.rename_vars(output_file_name)
+hiccup_data.rename_vars(output_file_name,verbose=verbose)
 
 # Also add P0 variable
 sp.call(f'ncap2   -O -s \'P0=100000.\' {output_file_name} ', shell=True)
