@@ -104,6 +104,9 @@ class hiccup_data(object):
     #---------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=False):
         """ Generate destination model grid file """
+        
+        if verbose : print('Generating dst grid file...')
+        
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
             # Spectral element grid with physics on GLL nodes
@@ -145,6 +148,8 @@ class hiccup_data(object):
     #---------------------------------------------------------------------------
     def create_map_file(self,verbose=False):
         """ Generate mapping file aftergrid files have been created """
+
+        if verbose : print('Generating mapping file...')
 
         # Check that grid file fields are not empty
         if self.src_grid_file == None : 
@@ -190,7 +195,7 @@ class hiccup_data(object):
             sp.call(cmd, shell=True)
 
         if verbose : print('Renaming variables to match model variable names...')
-        
+
         if verbose : print('\n Renaming ATM vars... \n')
         for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
 
@@ -300,6 +305,9 @@ class ERA5(hiccup_data):
     #---------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=False):
         """ Generate source grid file """
+        
+        if verbose : print('Generating src grid file...')
+
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
         self.src_grid_file = self.output_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
 

@@ -41,25 +41,24 @@ hiccup_data.check_file_vars()
 #-------------------------------------------------------------------------------
 
 # Create grid description files needed for the mapping file
-if verbose : print('Generating src grid file...'); hiccup_data.create_src_grid_file(verbose=verbose)
-if verbose : print('Generating dst grid file...'); hiccup_data.create_dst_grid_file(verbose=verbose)
+hiccup_data.create_src_grid_file(verbose=verbose)
+hiccup_data.create_dst_grid_file(verbose=verbose)
 
 # Create mapping file
-if verbose : print('Generating mapping file...')
 hiccup_data.create_map_file(verbose=verbose)
 
 #-------------------------------------------------------------------------------
-# Horizontally regrid the data
+# Remap the data
 #-------------------------------------------------------------------------------
 
-# regrid the atm and sfc data to temporary files
+# Horizontally regrid the data
 hiccup_data.remap_horizontal(output_file_name=output_file_name,verbose=verbose)
 
-#-------------------------------------------------------------------------------
 # Rename variables to match what the model expects
-#-------------------------------------------------------------------------------
-
 hiccup_data.rename_vars(output_file_name,verbose=verbose)
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # Also add P0 variable
 sp.call(f'ncap2   -O -s \'P0=100000.\' {output_file_name} ', shell=True)
