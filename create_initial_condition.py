@@ -12,19 +12,6 @@ import datetime
 import xarray as xr
 import hiccup_data_class as hdc
 import hiccup_state_adjustment
-#-------------------------------------------------------------------------------
-# Specify file names
-#-------------------------------------------------------------------------------
-
-input_file_atm = 'ERA5.HICCUP_TEST.atm.remap.nc'
-input_file_sfc = 'ERA5.HICCUP_TEST.sfc.remap.nc'
-
-output_file_name = 'HICCUP_TEST.output.nc'
-output_grid_name = 'ne30pg2'
-
-tmp_file_name = 'tmp.nc'
-
-vert_grid_name = 'L72'
 
 # Options for output state adjustment
 adjust_ts   = False   # Adjust surface temperature to match new surface height
@@ -36,16 +23,15 @@ adjust_cf   = False   # adjust cloud fraction to remove values outside of [0,1]
 
 verbose = True
 
-#-------------------------------------------------------------------------------
-# Load input data 
-#-------------------------------------------------------------------------------
+output_file_name = 'HICCUP_TEST.output.nc'
 
 # Create data class instance, which includes xarray file dataset objects 
 # and variable name dictionaries for mapping between naming conventions
 hiccup_data = hdc.create_hiccup_data(name='ERA5'                \
-                                    ,atm_file=input_file_atm    \
-                                    ,sfc_file=input_file_sfc    \
-                                    ,dst_grid_name=output_grid_name )
+                                    ,atm_file='ERA5.HICCUP_TEST.atm.remap.nc'  \
+                                    ,sfc_file='ERA5.HICCUP_TEST.sfc.remap.nc'  \
+                                    ,dst_horz_grid='ne30pg2' \
+                                    ,dst_vert_grid='L72')
 
 # Check input files for for required variables
 hiccup_data.check_file_vars()
@@ -55,43 +41,19 @@ hiccup_data.check_file_vars()
 #-------------------------------------------------------------------------------
 
 # Create grid description files needed for the mapping file
-if verbose : print('Generating src grid file...'); hiccup_data.create_src_grid_file()
-if verbose : print('Generating dst grid file...'); hiccup_data.create_dst_grid_file()
+if verbose : print('Generating src grid file...'); hiccup_data.create_src_grid_file(verbose=verbose)
+if verbose : print('Generating dst grid file...'); hiccup_data.create_dst_grid_file(verbose=verbose)
 
 # Create mapping file
 if verbose : print('Generating mapping file...')
-hiccup_data.create_map_file()
+hiccup_data.create_map_file(verbose=verbose)
 
 #-------------------------------------------------------------------------------
 # Horizontally regrid the data
 #-------------------------------------------------------------------------------
 
 # regrid the atm and sfc data to temporary files
-# hiccup_data.remap_input_data()
-if verbose : print('Mapping the data to temporary files...')
-atm_tmp_file_name = 'tmp_atm_data.nc'
-sfc_tmp_file_name = 'tmp_sfc_data.nc'
-
-var_list = ','.join(hiccup_data.atm_var_name_dict.values())
-cmd = f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.atm_file} --out_file={atm_tmp_file_name} --var_lst={var_list} '
-print(f'\n  {cmd}\n')
-sp.call(cmd, shell=True)
-
-var_list = ','.join(hiccup_data.sfc_var_name_dict.values())
-cmd = f'ncremap --map_file={hiccup_data.map_file} --in_file={hiccup_data.sfc_file} --out_file={sfc_tmp_file_name} --var_lst={var_list} '
-print(f'\n  {cmd}\n')
-sp.call(cmd, shell=True)
-
-# Remove output file if it already exists
-sp.call(f'rm {output_file_name} ', shell=True)
-
-if verbose : print('Combining the temporary files into the final output file...')
-# Combine the temporary files into the final output file
-sp.call(f'ncks -A {atm_tmp_file_name} {output_file_name} ', shell=True)
-sp.call(f'ncks -A {sfc_tmp_file_name} {output_file_name} ', shell=True)
-
-# delete the temporary files
-sp.call(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ', shell=True)
+hiccup_data.remap_horizontal(output_file_name=output_file_name,verbose=verbose)
 
 #-------------------------------------------------------------------------------
 # Rename variables to match what the model expects
@@ -101,9 +63,9 @@ if verbose : print('Renaming variables to match model variable names...')
 hiccup_data.rename_vars(output_file_name)
 
 # Also add P0 variable
-sp.call(f'ncap2 -O -s \'P0=100000.\' {output_file_name} {output_file_name}', shell=True)
-sp.call(f'ncatted -O -a long_name,P0,a,c,\"reference pressure\" {output_file_name} {output_file_name}', shell=True)
-sp.call(f'ncatted -O -a units,P0,a,c,\"Pa\" {output_file_name} {output_file_name}', shell=True)
+sp.call(f'ncap2   -O -s \'P0=100000.\' {output_file_name} ', shell=True)
+sp.call(f'ncatted -O -a long_name,P0,a,c,\"reference pressure\" {output_file_name} ', shell=True)
+sp.call(f'ncatted -O -a units,P0,a,c,\"Pa\" {output_file_name} ', shell=True)
 
 # Rename pressure variable and change type to double (needed for vertical remap)
 new_lev_name = 'plev'
@@ -138,14 +100,14 @@ for att in gbl_att_list:
 # 2. < edit the file to remove extra header info - but keep the general CDL format >
 # 3. ncgen vert_coord.txt -o vert_coord.nc
 
-tmp_vert_file_name = f'vert_coord_{vert_grid_name}.nc'
+tmp_vert_file_name = f'vert_coord_{hiccup_data.dst_vert_grid}.nc'
 
 # Define list of variables that will be vertical remapped
 # vert_remap_var_list = 'T,Q,U,V,P0,PS,PHIS,CLDLIQ,CLDICE,O3,date,datesec,hyam,hybm,hyai,hybi,lev,ilev'
 # vert_remap_var_list = 'T,Q,U,V,P0,PS,CLDLIQ,CLDICE,O3'
 vert_remap_var_list = 'T'
 
-vert_output_file = output_file_name.replace('.nc',f'.{vert_grid_name}.nc')
+vert_output_file = output_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
 
 # Perform the vertical remapping
 cmd = f'ncremap --vrt_fl={tmp_vert_file_name} -v {vert_remap_var_list} {output_file_name} {vert_output_file}'
