@@ -106,7 +106,7 @@ class hiccup_data(object):
         """ Generate destination model grid file """
         
         if verbose : print('Generating dst grid file...')
-        
+
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
             # Spectral element grid with physics on GLL nodes
@@ -318,11 +318,12 @@ class ERA5(hiccup_data):
 
         check_dependency('ncremap')
         cmd  = f'ncremap {ncremap_alg} ' \
-              +f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\''     \
-              +f'#latlon={self.nlat},{self.nlon}'                           \
-              +f'#lat_typ=uni'                                              \
-              +f'#lon_typ=grn_ctr '                                         \
-              +f' -g {self.src_grid_file} '
+        cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
+        cmd += f'#latlon={self.nlat},{self.nlon}'                    
+        cmd +=  '#lat_typ=uni'                                       
+        cmd +=  '#lat_drc=s2n'                                       
+        cmd +=  '#lon_typ=grn_ctr '                                  
+        cmd += f' -g {self.src_grid_file} '
         if verbose: print(f'\n  {cmd}\n')
         sp.call(cmd, shell=True)
         return 

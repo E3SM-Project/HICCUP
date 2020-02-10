@@ -27,9 +27,9 @@ output_file_name = 'HICCUP_TEST.output.nc'
 
 # Create data class instance, which includes xarray file dataset objects 
 # and variable name dictionaries for mapping between naming conventions
-hiccup_data = hdc.create_hiccup_data(name='ERA5'                \
-                                    ,atm_file='ERA5.HICCUP_TEST.atm.remap.nc'  \
-                                    ,sfc_file='ERA5.HICCUP_TEST.sfc.remap.nc'  \
+hiccup_data = hdc.create_hiccup_data(name='ERA5' \
+                                    ,atm_file='ERA5.HICCUP_TEST.atm.remap.nc' \
+                                    ,sfc_file='ERA5.HICCUP_TEST.sfc.remap.nc' \
                                     ,dst_horz_grid='ne30pg2' \
                                     ,dst_vert_grid='L72')
 
@@ -60,7 +60,7 @@ hiccup_data.rename_vars(output_file_name,verbose=verbose)
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-# Also add P0 variable
+# add P0 variable
 sp.call(f'ncap2   -O -s \'P0=100000.\' {output_file_name} ', shell=True)
 sp.call(f'ncatted -O -a long_name,P0,a,c,\"reference pressure\" {output_file_name} ', shell=True)
 sp.call(f'ncatted -O -a units,P0,a,c,\"Pa\" {output_file_name} ', shell=True)
