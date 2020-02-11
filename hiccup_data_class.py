@@ -317,7 +317,7 @@ class ERA5(hiccup_data):
         sp.call(cmd, shell=True)
 
         check_dependency('ncremap')
-        cmd  = f'ncremap {ncremap_alg} ' \
+        cmd  = f'ncremap {ncremap_alg} ' 
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
         cmd += f'#latlon={self.nlat},{self.nlon}'                    
         cmd +=  '#lat_typ=uni'                                       
