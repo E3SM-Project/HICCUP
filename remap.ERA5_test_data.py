@@ -5,9 +5,9 @@ import subprocess
 pwd = os.getenv('PWD')
 
 # The user might need to "unpack" the data if downloaded directly from CDS
-# example: ncpdq -U ERA5.HICCUP_TEST.sfc.nc ERA5.HICCUP_TEST.sfc.upack.nc
+# example: ncpdq -U HICCUP_TEST.ERA5.sfc.nc ERA5.HICCUP_TEST.sfc.upack.nc
 
-src_file_name = 'ERA5.HICCUP_TEST.atm.upack.nc'
+src_file_name = 'HICCUP_TEST.ERA5.sfc.upack.nc'
 dst_file_name = src_file_name.replace('.upack.nc','.remap.nc')
 
 nlat_src,nlon_src = 721,1440
@@ -23,7 +23,7 @@ alg = '-a tempest'
 clean       = True
 execute     = True
 
-create_map  = False
+create_map  = True
 regrid_data = True
 
 #-------------------------------------------------------------------------------
@@ -37,13 +37,13 @@ if create_map:
     
     # Generate source grid file:
     cmd  = f'ncremap {alg} -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'#latlon={nlat_src},{nlon_src}'+\
-           f'#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g {src_grid_file} '
+           f'#lat_typ=uni#lat_drc=n2s#lon_typ=grn_ctr -g {src_grid_file} '
     print('\n'+cmd)
     if execute:  subprocess.call(cmd, shell=True)
     
     # Generate target grid file:
     cmd  = f'ncremap {alg} -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'#latlon={nlat_dst},{nlon_dst}'+\
-           f'#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g {dst_grid_file} '
+           f'#lat_typ=uni#lat_drc=n2s#lon_typ=grn_ctr -g {dst_grid_file} '
     print('\n'+cmd)
     if execute:  subprocess.call(cmd, shell=True)
     
