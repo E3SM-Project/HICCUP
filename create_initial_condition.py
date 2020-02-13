@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# ===================================================================================================
+# ==================================================================================================
 # HICCUP - Hindcast Initial Condition Creation Utility/Processor
 # This tool automates the creation of atmospheric initial condition files
 # for E3SM using a user supplied reanalysis file, such as EAR5 data.
 # Requires NCO, TempestRemap, and xarray.
-# ===================================================================================================
+# ==================================================================================================
 import os
 import subprocess as sp
 import glob
@@ -34,9 +34,9 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5', atm_file='HICCUP_TEST.ERA5.atm
 # Check input files for for required variables
 hiccup_data.check_file_vars()   # cjones note: let's fold this into the create_hiccup_data() call
 
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Create grid and mapping files
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 # Create grid description files needed for the mapping file
 hiccup_data.create_src_grid_file(verbose=verbose)
@@ -45,9 +45,9 @@ hiccup_data.create_dst_grid_file(verbose=verbose)
 # Create mapping file
 hiccup_data.create_map_file(verbose=verbose)
 
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Remap the data
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 # Horizontally regrid the data
 hiccup_data.remap_horizontal(output_file_name=output_file_name, verbose=verbose)
@@ -55,8 +55,8 @@ hiccup_data.remap_horizontal(output_file_name=output_file_name, verbose=verbose)
 # Rename variables to match what the model expects
 hiccup_data.rename_vars(output_file_name, verbose=verbose)
 
-# -------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 # add P0 variable
 sp.call(f"ncap2 -O -s 'P0=100000.' {output_file_name}".split())
@@ -88,9 +88,9 @@ for att in global_att_list:
 # sp.call(cmd, shell=True)
 
 
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Vertically remap the data
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 # To create the vertical coordinate file it is easiest to
 # extract from a pre-existing model data file as follows:
@@ -119,9 +119,9 @@ sp.call(cmd.split())
 print(f'\n{vert_output_file}\n')
 exit()
 
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Perform state adjustments on interpolated data
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 if any([adjust_ts, adjust_ps, adjust_mass, adjust_qv, adjust_cw, adjust_cf]):
 
@@ -159,11 +159,11 @@ if any([adjust_ts, adjust_ps, adjust_mass, adjust_qv, adjust_cw, adjust_cf]):
     # Write the adjusted dataset back to the file
     ds.to_netcdf(output_file_name)
 
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Print final output file name
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 print(f'\noutput_file_name: {output_file_name}\n')
 
-# -------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
