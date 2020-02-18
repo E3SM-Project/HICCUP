@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+TempestRemap.log
+exodus_*
+scrip_*
+map_*
