@@ -13,16 +13,16 @@ default_output_dir  = './'
 ncremap_alg         = ' --alg_typ=tempest '        # algorithm flag for ncremap
 tempest_log_file    = 'TempestRemap.log'
 
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Method for checking if required software is installed
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 def check_dependency(cmd):
     """ Check for required system commands"""
     if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
     return
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Method for returning class object
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                        output_dir=default_output_dir,lev_type=''):
     """ Return HICCUP data class object """
@@ -36,9 +36,9 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                            ,output_dir=output_dir
                            ,lev_type=lev_type)
     raise ValueError(f'{name} is not a valid HICCUP dataset name')
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Base Class
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class hiccup_data(object):
 
     def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
@@ -67,7 +67,7 @@ class hiccup_data(object):
         # Load input files into xarray datasets
         self.ds_atm = xr.open_dataset(self.atm_file)
         self.ds_sfc = xr.open_dataset(self.sfc_file)
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def __str__(self):
         str_out = ''
         for key in self.__dict__.keys(): 
@@ -80,7 +80,7 @@ class hiccup_data(object):
                 if attribute!='' :
                     str_out = str_out+f'  {key:15}:  {attribute}\n'
         return str_out
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def check_file_vars(self):
         """ Check that required variables are in the input files """
 
@@ -101,7 +101,7 @@ class hiccup_data(object):
                 raise ValueError(f'{self.sfc_var_name_dict[key]} is not in SFC dataset: ({self.sfc_file})')
 
         return
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=False):
         """ Generate destination model grid file """
         
@@ -145,7 +145,7 @@ class hiccup_data(object):
             raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
 
         return 
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def create_map_file(self,verbose=False):
         """ Generate mapping file aftergrid files have been created """
 
@@ -177,7 +177,7 @@ class hiccup_data(object):
         sp.call(cmd, shell=True)
 
         return
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def rename_vars(self,file_name,verbose=False):
         """ rename variables in file according to variable name dictionaries """
 
@@ -203,7 +203,7 @@ class hiccup_data(object):
         for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
 
         return
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=False):
         """  horizontally remap data and combine into single file """
 
@@ -252,9 +252,9 @@ class hiccup_data(object):
         sp.call(cmd, shell=True)
 
         return
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Subclasses
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class ERA5(hiccup_data):
     @classmethod
     def is_name_for(cls,name) : return name == 'ERA5'
@@ -302,7 +302,7 @@ class ERA5(hiccup_data):
 
         self.nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=False):
         """ Generate source grid file """
         
@@ -327,7 +327,7 @@ class ERA5(hiccup_data):
         if verbose: print(f'\n  {cmd}\n')
         sp.call(cmd, shell=True)
         return 
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 

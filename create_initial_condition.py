@@ -27,9 +27,11 @@ output_file_name = 'HICCUP_TEST.output.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions
-hiccup_data = hdc.create_hiccup_data(name='ERA5', atm_file='HICCUP_TEST.ERA5.atm.remap.nc',
-                                     sfc_file='HICCUP_TEST.ERA5.sfc.remap.nc',
-                                     dst_horz_grid='ne30pg2', dst_vert_grid='L72')
+hiccup_data = hdc.create_hiccup_data(name='ERA5', \
+                                     atm_file='HICCUP_TEST.ERA5.atm.remap.nc', \
+                                     sfc_file='HICCUP_TEST.ERA5.sfc.remap.nc', \
+                                     dst_horz_grid='ne30pg2', \
+                                     dst_vert_grid='L72')
 
 # Check input files for for required variables
 hiccup_data.check_file_vars()   # cjones note: let's fold this into the create_hiccup_data() call
