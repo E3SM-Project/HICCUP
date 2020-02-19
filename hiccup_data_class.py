@@ -13,6 +13,8 @@ default_output_dir  = './'
 ncremap_alg         = ' --alg_typ=tempest '        # algorithm flag for ncremap
 tempest_log_file    = 'TempestRemap.log'
 
+hiccup_verbose = False
+
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
 # ------------------------------------------------------------------------------
@@ -24,8 +26,9 @@ def check_dependency(cmd):
 # Method for returning class object
 # ------------------------------------------------------------------------------
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
-                       output_dir=default_output_dir,lev_type=''):
+                       output_dir=default_output_dir,lev_type='',verbose=False):
     """ Return HICCUP data class object """
+    hiccup_verbose = verbose
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
             return subclass(name
@@ -40,10 +43,9 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
 # Base Class
 # ------------------------------------------------------------------------------
 class hiccup_data(object):
-
-    def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
+    """ Base class for HICCUP data object """
+    def __init__(self,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,lev_type=''):
-        self.name = name
         self.lev_type = lev_type
         self.atm_file = atm_file
         self.sfc_file = sfc_file
@@ -102,7 +104,7 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def create_dst_grid_file(self,verbose=False):
+    def create_dst_grid_file(self,verbose=hiccup_verbose):
         """ Generate destination model grid file """
         
         if verbose : print('Generating dst grid file...')
@@ -146,7 +148,7 @@ class hiccup_data(object):
 
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=False):
+    def create_map_file(self,verbose=hiccup_verbose):
         """ Generate mapping file aftergrid files have been created """
 
         if verbose : print('Generating mapping file...')
@@ -178,7 +180,7 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def rename_vars(self,file_name,verbose=False):
+    def rename_vars(self,file_name,verbose=hiccup_verbose):
         """ rename variables in file according to variable name dictionaries """
 
         def rename_proc(key,var_name_dict):
@@ -204,7 +206,7 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def remap_horizontal(self,output_file_name,verbose=False):
+    def remap_horizontal(self,output_file_name,verbose=hiccup_verbose):
         """  horizontally remap data and combine into single file """
 
         if verbose : print('Mapping the data to temporary files...')
@@ -260,7 +262,7 @@ class ERA5(hiccup_data):
     def is_name_for(cls,name) : return name == 'ERA5'
     def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,lev_type=''):
-        super().__init__(name,atm_file=atm_file
+        super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
                         ,dst_vert_grid=dst_vert_grid
@@ -303,7 +305,7 @@ class ERA5(hiccup_data):
         self.nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
     # --------------------------------------------------------------------------
-    def create_src_grid_file(self,verbose=False):
+    def create_src_grid_file(self,verbose=hiccup_verbose):
         """ Generate source grid file """
         
         if verbose : print('Generating src grid file...')

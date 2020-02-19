@@ -13,6 +13,8 @@ import xarray as xr
 import hiccup_data_class as hdc
 import hiccup_state_adjustment
 
+verbose = True
+
 # Options for output state adjustment
 adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
 adjust_sfc_pres = False     # Adjust surface pressure to match new surface height
@@ -21,17 +23,16 @@ adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmo
 adjust_cld_wtr  = False     # adjust cloud water to remove negative values
 adjust_cld_frac = False     # adjust cloud fraction to remove values outside of [0,1]
 
-verbose = True
-
 output_file_name = 'HICCUP_TEST.output.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions
-hiccup_data = hdc.create_hiccup_data(name='ERA5', \
-                                     atm_file='HICCUP_TEST.ERA5.atm.remap.nc', \
-                                     sfc_file='HICCUP_TEST.ERA5.sfc.remap.nc', \
-                                     dst_horz_grid='ne30pg2', \
-                                     dst_vert_grid='L72')
+hiccup_data = hdc.create_hiccup_data(name='ERA5'
+                                    ,atm_file='HICCUP_TEST.ERA5.atm.remap.nc'
+                                    ,sfc_file='HICCUP_TEST.ERA5.sfc.remap.nc'
+                                    ,dst_horz_grid='ne30pg2'
+                                    ,dst_vert_grid='L72'
+                                    ,verbose=verbose)
 
 # Check input files for for required variables
 hiccup_data.check_file_vars()   # cjones note: let's fold this into the create_hiccup_data() call
@@ -41,21 +42,21 @@ hiccup_data.check_file_vars()   # cjones note: let's fold this into the create_h
 # ------------------------------------------------------------------------------
 
 # Create grid description files needed for the mapping file
-hiccup_data.create_src_grid_file(verbose=verbose)
-hiccup_data.create_dst_grid_file(verbose=verbose)
+hiccup_data.create_src_grid_file()
+hiccup_data.create_dst_grid_file()
 
 # Create mapping file
-hiccup_data.create_map_file(verbose=verbose)
+hiccup_data.create_map_file()
 
 # ------------------------------------------------------------------------------
 # Remap the data
 # ------------------------------------------------------------------------------
 
 # Horizontally regrid the data
-hiccup_data.remap_horizontal(output_file_name=output_file_name, verbose=verbose)
+hiccup_data.remap_horizontal(output_file_name=output_file_name, )
 
 # Rename variables to match what the model expects
-hiccup_data.rename_vars(output_file_name, verbose=verbose)
+hiccup_data.rename_vars(output_file_name, )
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
