@@ -17,7 +17,7 @@ verbose = True
 
 recreate_map_file = False
 
-# Options for output state adjustment
+# Adjustment options
 adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
 adjust_sfc_pres = False     # Adjust surface pressure to match new surface height
 adjust_supersat = False     # adjust qv to eliminate supersaturation
@@ -68,44 +68,10 @@ hiccup_data.rename_vars(file_name=output_file_name)
 # add P0 variable
 hiccup_data.add_reference_pressure(file_name=output_file_name)
 
+# Clean up the global attributes of the file
+hiccup_data.clean_global_attributes(file_name=output_file_name)
+
 exit()
-
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-
-# Rename pressure variable
-new_lev_name = 'plev'
-cmd = f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {output_file_name}'
-if verbose : print(f'  {cmd}')
-sp.call(cmd.split())
-
-# change pressure variable type to double (needed for vertical remap)
-cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {output_file_name} {output_file_name}"
-if verbose : print(f'  {cmd}')
-sp.call(cmd.split())
-
-# Remove lat/lon vertices variables
-cmd = f'ncks -C -O  -x -v lat_vertices,lon_vertices {output_file_name} {output_file_name}'
-if verbose : print(f'  {cmd}')
-sp.call(cmd.split())
-
-# Clean up up the global file attributes
-if verbose: print('\nCleaning up excessive global attributes...')
-global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
-                   'input_file', 'map_file', 'remap_version', 'remap_hostname', 
-                   'remap_command', 'remap_script', 'NCO' ]
-for att in global_att_list:
-    cmd = f'ncatted -O -a {att},global,d,, {output_file_name} {output_file_name}'
-    if verbose : print(f'  {cmd}')
-    sp.call(cmd.split())
-
-cmd = f'ncatted -O -a history,global,d,,\'Created file\' {output_file_name} {output_file_name}'
-if verbose : print(f'  {cmd}')
-sp.call(cmd.split())
-
-# cmd = f'ncatted -O -a history,global,m,, {output_file_name} {output_file_name}'
-# print(f'\n  {cmd}\n')
-# sp.call(cmd, shell=True)
 
 
 # ------------------------------------------------------------------------------

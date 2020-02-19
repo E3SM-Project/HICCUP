@@ -39,6 +39,7 @@ def run_cmd(cmd,verbose=None,prefix='\n  ',suffix='',use_color=True,shell=False)
         sp.call(cmd,shell=True)
     else:
         sp.call(cmd.split())
+    return
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
 # ------------------------------------------------------------------------------
@@ -206,23 +207,27 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming variables to match model variable names...')
 
+        check_dependency('ncrename')
+
         def rename_proc(key,var_name_dict):
             # Skip over entries that are blank
             if key == '' : return
             if var_name_dict[key] == '' : return
             # set up the ncrename command
-            cmd = f'ncrename --variable {var_name_dict[key]},{key} {file_name}'
+            cmd = f'ncrename --hst --variable {var_name_dict[key]},{key} {file_name}'
             # coords are often already renamed by the remapping step, 
             # so make them optional by adding a preceeding dot
             if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
             # print the command and execute
-            run_cmd(cmd,verbose)
+            run_cmd(cmd,verbose,prefix='  ',suffix='')
 
         if verbose : print('\n Renaming ATM vars... \n')
         for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
 
         if verbose : print('\n Renaming SFC vars... \n')
         for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
+
+        self.rename_vars_special(file_name,verbose)
 
         return
     # --------------------------------------------------------------------------
@@ -233,14 +238,21 @@ class hiccup_data(object):
 
         import os 
 
+        check_dependency('ncap2')
+
         # Add the variable
-        run_cmd(f'ncap2 -A -s \'P0=100000.\' {file_name} {file_name}',verbose,shell=True)
+        run_cmd(f'ncap2 --hst -A -s \'P0=100000.\' {file_name} {file_name}',
+                verbose,prefix='  ',suffix='',shell=True)
+
+        check_dependency('ncatted')
 
         # add long_name attribute
-        run_cmd(f'ncatted -a long_name,P0,a,c,\'reference pressure\' {file_name}',verbose,shell=True)
+        run_cmd(f'ncatted --hst -a long_name,P0,a,c,\'reference pressure\' {file_name}',
+                verbose,prefix='  ',suffix='',shell=True)
         
         # add units attribute
-        run_cmd(f'ncatted -A -a units,P0,a,c,\'Pa\' {file_name}',verbose,shell=True)
+        run_cmd(f'ncatted --hst -A -a units,P0,a,c,\'Pa\' {file_name}',
+                verbose,prefix='  ',suffix='',shell=True)
 
         return
     # --------------------------------------------------------------------------
@@ -256,6 +268,8 @@ class hiccup_data(object):
         # Define temporary files that will be deleted at the end
         atm_tmp_file_name = './tmp_atm_data.nc'
         sfc_tmp_file_name = './tmp_sfc_data.nc'
+
+        check_dependency('ncremap')
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
@@ -278,14 +292,19 @@ class hiccup_data(object):
 
         if verbose : print('\nCombining temporary remapped files...')
 
+        check_dependency('ncks')
+
         # Add atmosphere temporary file data into the final output file
-        run_cmd(f'ncks -A {atm_tmp_file_name} {file_name} ',verbose)
+        run_cmd(f'ncks -A {atm_tmp_file_name} {file_name} ',
+                verbose,prefix='  ',suffix='')
 
         # Add surface temporary file data into the final output file
-        run_cmd(f'ncks -A {sfc_tmp_file_name} {file_name} ',verbose)
+        run_cmd(f'ncks -A {sfc_tmp_file_name} {file_name} ',
+                verbose,prefix='  ',suffix='')
 
         # delete the temporary files
-        run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',verbose)
+        run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',
+                verbose,prefix='  ',suffix='')
 
         return
 # ------------------------------------------------------------------------------
@@ -345,7 +364,6 @@ class ERA5(hiccup_data):
     def create_src_grid_file(self,verbose=None):
         """ Generate source grid file """
         if verbose is None : verbose = hiccup_verbose
-
         if verbose : print('\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
@@ -361,6 +379,44 @@ class ERA5(hiccup_data):
         cmd += f' -g {self.src_grid_file} '
         run_cmd(cmd,verbose)
         return 
+    # --------------------------------------------------------------------------
+    def rename_vars_special(self,file_name,verbose=None):
+        """ rename file vars specific to this subclass """
+        if verbose is None : verbose = hiccup_verbose
+        
+        new_lev_name = 'plev'
+
+        # Rename pressure variable (needed for vertical remap)
+        cmd = f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {file_name}'
+        run_cmd(cmd,verbose)
+
+        # change pressure variable type to double (needed for vertical remap)
+        cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {file_name} {file_name}"
+        run_cmd(cmd,verbose)
+
+        # Remove lat/lon vertices variables since they are not needed
+        cmd = f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}'
+        run_cmd(cmd,verbose)
+
+        return
+    # --------------------------------------------------------------------------
+    def clean_global_attributes(self,file_name,verbose=None):
+        """ remove messy global attributes of the file """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print('\nCleaning up excessive global attributes...')
+        
+        global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
+                           'input_file', 'map_file', 'remap_version', 'remap_hostname', 
+                           'remap_command', 'remap_script', 'NCO' ]
+        
+        # Remove the attributes listed in global_att_list
+        for att in global_att_list:
+            run_cmd(f'ncatted -O -a {att},global,d,, {file_name} {file_name}',
+                    verbose,prefix='  ',suffix='')
+
+        # Also reset the history attribute
+        run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
+                verbose,prefix='  ',suffix='')
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 
