@@ -14,12 +14,12 @@ import hiccup_data_class as hdc
 import hiccup_state_adjustment
 
 # Options for output state adjustment
-adjust_ts = False    # Adjust surface temperature to match new surface height
-adjust_ps = False    # Adjust surface pressure to match new surface height
-adjust_mass = False  # adjust surface pressure to retain dry mass of atmosphere
-adjust_qv = False    # adjust qv to eliminate supersaturation
-adjust_cw = False    # adjust cloud water to remove negative values
-adjust_cf = False    # adjust cloud fraction to remove values outside of [0,1]
+adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
+adjust_sfc_pres = False     # Adjust surface pressure to match new surface height
+adjust_supersat = False     # adjust qv to eliminate supersaturation
+adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmosphere
+adjust_cld_wtr  = False     # adjust cloud water to remove negative values
+adjust_cld_frac = False     # adjust cloud fraction to remove values outside of [0,1]
 
 verbose = True
 
@@ -125,37 +125,37 @@ exit()
 # Perform state adjustments on interpolated data
 # ------------------------------------------------------------------------------
 
-if any([adjust_ts, adjust_ps, adjust_mass, adjust_qv, adjust_cw, adjust_cf]):
+if any([adjust_sfc_temp, adjust_sfc_pres, adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
 
     # Load the file into an xarray dataset
     ds = xr.open_dataset(output_file_name)
 
     # Adjust surface temperature to match new surface height
-    if adjust_ts:
+    if adjust_sfc_temp:
         state_adjustment.adjust_surface_temperature(
             ncol, phis_old, ts_old, phis_new, ts_new)
 
     # Adjust surface pressure to match new surface height
-    if adjust_ps:
+    if adjust_sfc_pres:
         state_adjustment.adjust_surface_pressure(plev, ncol, temperature_mid,
                                                  pressure_mid, pressure_int,
                                                  phis_old, ps_old, phis_new, ps_new)
 
-    # adjust surface pressure to retain dry mass of atmosphere?
-    # if adjust_mass :
+    # adjust surface pressure to retain dry mass of atmosphere
+    # if adjust_glb_mass :
     #   state_adjustment.dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out )
 
-    # adjust qv to eliminate supersaturation?
-    if adjust_qv:
+    # adjust water vapor to eliminate supersaturation
+    if adjust_supersat:
         state_adjustment.remove_supersaturation()
 
     # adjust cloud water to remove negative values?
-    if adjust_cw:
+    if adjust_cld_wtr:
         cld_liq = cld_liq.where(cld_liq >= 0, other=0.)
         cld_ice = cld_ice.where(cld_ice >= 0, other=0.)
 
     # adjust cloud fraction to remove values outside of [0,1]
-    if adjust_cf:
+    if adjust_cld_frac:
         state_adjustment.adjust_cloud_fraction()
 
     # Write the adjusted dataset back to the file
