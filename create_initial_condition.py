@@ -53,7 +53,7 @@ hiccup_data.create_map_file()
 # ------------------------------------------------------------------------------
 
 # Horizontally regrid the data
-hiccup_data.remap_horizontal(output_file_name=output_file_name, )
+hiccup_data.remap_horizontal(output_file_name=output_file_name)
 
 # Rename variables to match what the model expects
 hiccup_data.rename_vars(output_file_name, )
@@ -62,14 +62,14 @@ hiccup_data.rename_vars(output_file_name, )
 # ------------------------------------------------------------------------------
 
 # add P0 variable
-sp.call(f"ncap2 -O -s 'P0=100000.' {output_file_name}".split())
+sp.call(f"ncap2 -O -s --no_tmp_fl 'P0=100000.' {output_file_name}".split())
 sp.call(f'ncatted -O -a long_name,P0,a,c,"reference pressure" {output_file_name}'.split())
 sp.call(f'ncatted -O -a units,P0,a,c,"Pa" {output_file_name}'.split())
 
 # Rename pressure variable and change type to double (needed for vertical remap)
 new_lev_name = 'plev'
 sp.call(f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {output_file_name}'.split())
-sp.call(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {output_file_name} {output_file_name}".split())
+sp.call(f"ncap2 -O -s --no_tmp_fl '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {output_file_name} {output_file_name}".split())
 
 # Remove lat/lon vertices variables
 sp.call(f'ncks -C -O  -x -v lat_vertices,lon_vertices {output_file_name} {output_file_name}'.split())
@@ -133,14 +133,15 @@ if any([adjust_sfc_temp, adjust_sfc_pres, adjust_glb_mass, adjust_supersat, adju
 
     # Adjust surface temperature to match new surface height
     if adjust_sfc_temp:
-        state_adjustment.adjust_surface_temperature(
-            ncol, phis_old, ts_old, phis_new, ts_new)
+        state_adjustment.adjust_surface_temperature(ncol, phis_old, ts_old, 
+                                                    phis_new, ts_new)
 
     # Adjust surface pressure to match new surface height
     if adjust_sfc_pres:
         state_adjustment.adjust_surface_pressure(plev, ncol, temperature_mid,
                                                  pressure_mid, pressure_int,
-                                                 phis_old, ps_old, phis_new, ps_new)
+                                                 phis_old, ps_old, 
+                                                 phis_new, ps_new)
 
     # adjust surface pressure to retain dry mass of atmosphere
     # if adjust_glb_mass :
