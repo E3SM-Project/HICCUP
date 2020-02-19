@@ -15,6 +15,8 @@ import hiccup_state_adjustment
 
 verbose = True
 
+recreate_map_file = False
+
 # Options for output state adjustment
 adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
 adjust_sfc_pres = False     # Adjust surface pressure to match new surface height
@@ -40,51 +42,66 @@ hiccup_data.check_file_vars()   # cjones note: let's fold this into the create_h
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 # ------------------------------------------------------------------------------
+if recreate_map_file :
 
-# Create grid description files needed for the mapping file
-hiccup_data.create_src_grid_file()
-hiccup_data.create_dst_grid_file()
+    # Create grid description files needed for the mapping file
+    hiccup_data.create_src_grid_file()
+    hiccup_data.create_dst_grid_file()
 
-# Create mapping file
-hiccup_data.create_map_file()
+    # Create mapping file
+    hiccup_data.create_map_file()
+
+else:
+
+    hiccup_data.map_file = hiccup_data.output_dir+f'map_{hiccup_data.src_grid_name}_to_{hiccup_data.dst_horz_grid}.nc'
 
 # ------------------------------------------------------------------------------
 # Remap the data
 # ------------------------------------------------------------------------------
 
 # Horizontally regrid the data
-hiccup_data.remap_horizontal(output_file_name=output_file_name)
+hiccup_data.remap_horizontal(file_name=output_file_name)
 
 # Rename variables to match what the model expects
-hiccup_data.rename_vars(output_file_name, )
-
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
+hiccup_data.rename_vars(file_name=output_file_name)
 
 # add P0 variable
-sp.call(f"ncap2 -O -s --no_tmp_fl 'P0=100000.' {output_file_name}".split())
-sp.call(f'ncatted -O -a long_name,P0,a,c,"reference pressure" {output_file_name}'.split())
-sp.call(f'ncatted -O -a units,P0,a,c,"Pa" {output_file_name}'.split())
+hiccup_data.add_reference_pressure(file_name=output_file_name)
 
-# Rename pressure variable and change type to double (needed for vertical remap)
+exit()
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+# Rename pressure variable
 new_lev_name = 'plev'
-sp.call(f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {output_file_name}'.split())
-sp.call(f"ncap2 -O -s --no_tmp_fl '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {output_file_name} {output_file_name}".split())
+cmd = f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {output_file_name}'
+if verbose : print(f'  {cmd}')
+sp.call(cmd.split())
+
+# change pressure variable type to double (needed for vertical remap)
+cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {output_file_name} {output_file_name}"
+if verbose : print(f'  {cmd}')
+sp.call(cmd.split())
 
 # Remove lat/lon vertices variables
-sp.call(f'ncks -C -O  -x -v lat_vertices,lon_vertices {output_file_name} {output_file_name}'.split())
+cmd = f'ncks -C -O  -x -v lat_vertices,lon_vertices {output_file_name} {output_file_name}'
+if verbose : print(f'  {cmd}')
+sp.call(cmd.split())
 
 # Clean up up the global file attributes
-if verbose:
-    print('\nCleaning up excessive global attributes...')
-global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 'input_file',
-                   'map_file', 'remap_version', 'remap_hostname', 'remap_command', 'remap_script',
-                   'NCO', 'history']
+if verbose: print('\nCleaning up excessive global attributes...')
+global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
+                   'input_file', 'map_file', 'remap_version', 'remap_hostname', 
+                   'remap_command', 'remap_script', 'NCO' ]
 for att in global_att_list:
     cmd = f'ncatted -O -a {att},global,d,, {output_file_name} {output_file_name}'
-    if verbose:
-        print(f'  {cmd}')
+    if verbose : print(f'  {cmd}')
     sp.call(cmd.split())
+
+cmd = f'ncatted -O -a history,global,d,,\'Created file\' {output_file_name} {output_file_name}'
+if verbose : print(f'  {cmd}')
+sp.call(cmd.split())
 
 # cmd = f'ncatted -O -a history,global,m,, {output_file_name} {output_file_name}'
 # print(f'\n  {cmd}\n')
@@ -112,8 +129,7 @@ vert_output_file = output_file_name.replace('.nc', f'.{hiccup_data.dst_vert_grid
 
 # Perform the vertical remapping
 cmd = f'ncremap --vrt_fl={tmp_vert_file_name} -v {vert_remap_var_list} {output_file_name} {vert_output_file}'
-if verbose:
-    print(f'\n  {cmd}\n')
+if verbose : print(f'\n  {cmd}\n')
 sp.call(cmd.split())
 
 # Delete the temporary files

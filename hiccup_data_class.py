@@ -15,6 +15,30 @@ tempest_log_file    = 'TempestRemap.log'
 
 hiccup_verbose = False
 
+# Set up terminal colors
+class tcolor:
+    ENDC     = '\033[0m'
+    BLACK    = '\033[30m'
+    RED      = '\033[31m'
+    GREEN    = '\033[32m'
+    YELLOW   = '\033[33m'
+    BLUE     = '\033[34m'
+    MAGENTA  = '\033[35m'
+    CYAN     = '\033[36m'
+    WHITE    = '\033[37m'
+
+# ------------------------------------------------------------------------------
+# Common method for printing and running commands
+# ------------------------------------------------------------------------------
+def run_cmd(cmd,verbose=None,prefix='\n  ',suffix='',use_color=True,shell=False):
+    if verbose is None : verbose = hiccup_verbose
+    msg = f'{prefix}{cmd}{suffix}'
+    if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
+    if verbose : print(msg)
+    if shell:
+        sp.call(cmd,shell=True)
+    else:
+        sp.call(cmd.split())
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
 # ------------------------------------------------------------------------------
@@ -28,6 +52,7 @@ def check_dependency(cmd):
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                        output_dir=default_output_dir,lev_type='',verbose=False):
     """ Return HICCUP data class object """
+    global hiccup_verbose
     hiccup_verbose = verbose
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
@@ -104,10 +129,10 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def create_dst_grid_file(self,verbose=hiccup_verbose):
+    def create_dst_grid_file(self,verbose=None):
         """ Generate destination model grid file """
-        
-        if verbose : print('Generating dst grid file...')
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nGenerating dst grid file...')
 
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
@@ -118,8 +143,7 @@ class hiccup_data(object):
             check_dependency('GenerateCSMesh')
             cmd = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
             cmd += f' >> {tempest_log_file}'
-            if verbose: print(f'\n  {cmd}\n')
-            sp.call(cmd, shell=True)
+            run_cmd(cmd,verbose)
 
         elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid : 
             
@@ -132,26 +156,24 @@ class hiccup_data(object):
             check_dependency('GenerateCSMesh')
             cmd = f'GenerateCSMesh --res {ne} --file {exodus_file}'
             cmd += f' >> {tempest_log_file}'
-            if verbose: print(f'\n  {cmd}\n')
-            sp.call(cmd, shell=True)
+            run_cmd(cmd,verbose)
             
             # Next create the scrip file for the FV physgrid
             self.dst_grid_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
             check_dependency('GenerateVolumetricMesh')
             cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
             cmd += f' >> {tempest_log_file}'
-            if verbose: print(f'\n  {cmd}\n')
-            sp.call(cmd, shell=True)            
+            run_cmd(cmd,verbose)
 
         else:
             raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
 
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=hiccup_verbose):
+    def create_map_file(self,verbose=None):
         """ Generate mapping file aftergrid files have been created """
-
-        if verbose : print('Generating mapping file...')
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nGenerating mapping file...')
 
         # Check that grid file fields are not empty
         if self.src_grid_file == None : 
@@ -175,13 +197,14 @@ class hiccup_data(object):
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
         cmd += f' --wgt_opt=\'{self.map_opts}\' '
-        if verbose: print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(cmd,verbose)
 
         return
     # --------------------------------------------------------------------------
-    def rename_vars(self,file_name,verbose=hiccup_verbose):
+    def rename_vars(self,file_name,verbose=None):
         """ rename variables in file according to variable name dictionaries """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nRenaming variables to match model variable names...')
 
         def rename_proc(key,var_name_dict):
             # Skip over entries that are blank
@@ -193,10 +216,7 @@ class hiccup_data(object):
             # so make them optional by adding a preceeding dot
             if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
             # print the command and execute
-            print(f'  {cmd}')
-            sp.call(cmd, shell=True)
-
-        if verbose : print('Renaming variables to match model variable names...')
+            run_cmd(cmd,verbose)
 
         if verbose : print('\n Renaming ATM vars... \n')
         for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
@@ -206,10 +226,32 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def remap_horizontal(self,output_file_name,verbose=hiccup_verbose):
-        """  horizontally remap data and combine into single file """
+    def add_reference_pressure(self,file_name,verbose=None):
+        """ add P0 variable """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nAdding reference pressure (P0)...')
 
-        if verbose : print('Mapping the data to temporary files...')
+        import os 
+
+        # Add the variable
+        run_cmd(f'ncap2 -A -s \'P0=100000.\' {file_name} {file_name}',verbose,shell=True)
+
+        # add long_name attribute
+        run_cmd(f'ncatted -a long_name,P0,a,c,\'reference pressure\' {file_name}',verbose,shell=True)
+        
+        # add units attribute
+        run_cmd(f'ncatted -A -a units,P0,a,c,\'Pa\' {file_name}',verbose,shell=True)
+
+        return
+    # --------------------------------------------------------------------------
+    def remap_horizontal(self,file_name,verbose=None):
+        """  horizontally remap data and combine into single file """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nMapping the data to temporary files...')
+
+        if self.map_file is None: raise ValueError('map_file cannot be None!')
+        if self.atm_file is None: raise ValueError('atm_file cannot be None!')
+        if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
         # Define temporary files that will be deleted at the end
         atm_tmp_file_name = './tmp_atm_data.nc'
@@ -221,8 +263,7 @@ class hiccup_data(object):
         cmd += f' --in_file={self.atm_file} '
         cmd += f' --out_file={atm_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
-        if verbose : print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(cmd,verbose)
 
         # Horzontally remap surface data
         var_list = ','.join(self.sfc_var_name_dict.values())
@@ -230,28 +271,21 @@ class hiccup_data(object):
         cmd += f' --in_file={self.sfc_file} '
         cmd += f' --out_file={sfc_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
-        if verbose : print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
-        sp.call(f'rm {output_file_name} ', shell=True)
+        run_cmd(f'rm {file_name} ',verbose)
 
-        if verbose : print('Combining temporary remapped files...')
+        if verbose : print('\nCombining temporary remapped files...')
 
         # Add atmosphere temporary file data into the final output file
-        cmd = f'ncks -A {atm_tmp_file_name} {output_file_name} '
-        if verbose : print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(f'ncks -A {atm_tmp_file_name} {file_name} ',verbose)
 
         # Add surface temporary file data into the final output file
-        cmd = f'ncks -A {sfc_tmp_file_name} {output_file_name} '
-        if verbose : print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(f'ncks -A {sfc_tmp_file_name} {file_name} ',verbose)
 
         # delete the temporary files
-        cmd = f'rm {sfc_tmp_file_name} {atm_tmp_file_name} '
-        if verbose : print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',verbose)
 
         return
 # ------------------------------------------------------------------------------
@@ -304,19 +338,18 @@ class ERA5(hiccup_data):
 
         self.nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
-    # --------------------------------------------------------------------------
-    def create_src_grid_file(self,verbose=hiccup_verbose):
-        """ Generate source grid file """
-        
-        if verbose : print('Generating src grid file...')
 
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
         self.src_grid_file = self.output_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
+    # --------------------------------------------------------------------------
+    def create_src_grid_file(self,verbose=None):
+        """ Generate source grid file """
+        if verbose is None : verbose = hiccup_verbose
+
+        if verbose : print('\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
-        cmd = f'rm {self.src_grid_file} '
-        if verbose: print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(f'rm {self.src_grid_file} ',verbose)
 
         check_dependency('ncremap')
         cmd  = f'ncremap {ncremap_alg} ' 
@@ -326,8 +359,7 @@ class ERA5(hiccup_data):
         cmd +=  '#lat_drc=s2n'                                       
         cmd +=  '#lon_typ=grn_ctr '                                  
         cmd += f' -g {self.src_grid_file} '
-        if verbose: print(f'\n  {cmd}\n')
-        sp.call(cmd, shell=True)
+        run_cmd(cmd,verbose)
         return 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
