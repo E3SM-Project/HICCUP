@@ -5,8 +5,8 @@ import ngl
 
 def main(fig_file='sanity_check',fig_type='x11'):
 
-   # var = ['PS','T','Q']
-   var = ['PS']
+   var = ['PS','T','Q']
+   # var = ['PS']
 
    ds = xr.open_dataset('HICCUP_TEST.output.nc' )
    scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')

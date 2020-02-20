@@ -342,7 +342,7 @@ class hiccup_data(object):
         cmd+= f' --var_lst={vert_remap_var_list}'
         cmd+= f' --in_fl={input_file_name}'
         cmd+= f' --out_fl={output_file_name}'
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
 
         return
 # ------------------------------------------------------------------------------
@@ -438,10 +438,14 @@ class ERA5(hiccup_data):
         # Reset the level variable name 
         self.lev_name = new_lev_name
 
-        # change pressure variable type to double (needed for vertical remap)
+        # change pressure variable type to double and units to Pascals (needed for vertical remap)
         check_dependency('ncap2')
-        cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {file_name} {file_name}"
+        cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}"
         run_cmd(cmd,verbose,shell=True)
+
+        # change units attribute
+        run_cmd(f"ncatted --hst -A -a units,{new_lev_name},a,c,'Pa' {file_name}",
+                verbose,prefix='  ',suffix='',shell=True)
 
         # Remove lat/lon vertices variables since they are not needed
         check_dependency('ncks')
