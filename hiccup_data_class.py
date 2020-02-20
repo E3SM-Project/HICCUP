@@ -144,7 +144,7 @@ class hiccup_data(object):
             check_dependency('GenerateCSMesh')
             cmd = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
             cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose)
+            run_cmd(cmd,verbose,shell=True)
 
         elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid : 
             
@@ -157,14 +157,26 @@ class hiccup_data(object):
             check_dependency('GenerateCSMesh')
             cmd = f'GenerateCSMesh --res {ne} --file {exodus_file}'
             cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose)
+            run_cmd(cmd,verbose,shell=True)
             
-            # Next create the scrip file for the FV physgrid
-            self.dst_grid_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
+            # Next switch to volumetric mesh that matches the physgrid
+            self.dst_grid_file = self.output_dir+f'exodus_{self.dst_horz_grid}.nc'
             check_dependency('GenerateVolumetricMesh')
-            cmd = f'GenerateVolumetricMesh --in {exodus_file} --out {self.dst_grid_file} --np {npg} --uniform'
+            cmd = 'GenerateVolumetricMesh'
+            cmd += f' --in {exodus_file} '
+            cmd += f' --out {self.dst_grid_file} '
+            cmd += f' --np {npg} --uniform'
             cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose)
+            run_cmd(cmd,verbose,shell=True)
+
+            # Create scrip file while we're at it
+            check_dependency('ConvertExodusToSCRIP')
+            scrip_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
+            cmd = 'ConvertExodusToSCRIP'
+            cmd += f' --in {self.dst_grid_file} '
+            cmd += f' --out {scrip_file} '
+            cmd += f' >> {tempest_log_file}'
+            run_cmd(cmd,verbose,shell=True)
 
         else:
             raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
@@ -256,10 +268,10 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def remap_horizontal(self,file_name,verbose=None):
-        """  horizontally remap data and combine into single file """
+    def remap_horizontal(self,output_file_name,verbose=None):
+        """  Horizontally remap data and combine into single file """
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nMapping the data to temporary files...')
+        if verbose : print('\nHorizontally remapping the data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -288,23 +300,50 @@ class hiccup_data(object):
         run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
-        run_cmd(f'rm {file_name} ',verbose)
+        run_cmd(f'rm {output_file_name} ',verbose)
 
         if verbose : print('\nCombining temporary remapped files...')
 
         check_dependency('ncks')
 
         # Add atmosphere temporary file data into the final output file
-        run_cmd(f'ncks -A {atm_tmp_file_name} {file_name} ',
+        run_cmd(f'ncks -A {atm_tmp_file_name} {output_file_name} ',
                 verbose,prefix='  ',suffix='')
 
         # Add surface temporary file data into the final output file
-        run_cmd(f'ncks -A {sfc_tmp_file_name} {file_name} ',
+        run_cmd(f'ncks -A {sfc_tmp_file_name} {output_file_name} ',
                 verbose,prefix='  ',suffix='')
 
         # delete the temporary files
         run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',
                 verbose,prefix='  ',suffix='')
+
+        return
+    # --------------------------------------------------------------------------
+    def remap_vertical(self,input_file_name,output_file_name,
+                       vert_file_name,vert_remap_var_list=None,
+                       verbose=None):
+        """  Vertically remap data and combine into single file """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nVertically remapping the data...')
+
+        # Build variable list from the input file if not supplied
+        if vert_remap_var_list is None :
+            vert_remap_var_list = []
+            ds = xr.open_dataset(input_file_name)
+            for key in ds.variables.keys(): 
+                # if self.lev_name in ds[key].dims and key is not self.lev_name :
+                if self.lev_name in ds[key].dims and key!=self.lev_name :
+                    vert_remap_var_list.append(key)
+        vert_remap_var_list = ','.join(vert_remap_var_list)
+
+        # Perform the vertical remapping
+        cmd = 'ncremap'
+        cmd+= f' --vrt_fl={vert_file_name}'
+        cmd+= f' --var_lst={vert_remap_var_list}'
+        cmd+= f' --in_fl={input_file_name}'
+        cmd+= f' --out_fl={output_file_name}'
+        run_cmd(cmd,verbose)
 
         return
 # ------------------------------------------------------------------------------
@@ -322,14 +361,15 @@ class ERA5(hiccup_data):
                         ,lev_type=lev_type)
         
         self.name = 'ERA5'
+        self.lev_name = 'level'
 
         # Atmospheric variables
         self.atm_var_name_dict.update({'lat':'latitude'})
         self.atm_var_name_dict.update({'lon':'longitude'})
         self.atm_var_name_dict.update({'T':'t'})            # temperature
-        # self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
+        self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
         # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
-        # self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+        self.atm_var_name_dict.update({'U':'u'})            # zonal wind
         # self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
         # self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
         # self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
@@ -337,7 +377,7 @@ class ERA5(hiccup_data):
 
         # Surface variables
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
-        # self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
+        self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
         # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
         # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
         # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
@@ -387,8 +427,11 @@ class ERA5(hiccup_data):
         new_lev_name = 'plev'
 
         # Rename pressure variable (needed for vertical remap)
-        cmd = f'ncrename -d level,{new_lev_name} -v level,{new_lev_name} {file_name}'
+        cmd = f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}'
         run_cmd(cmd,verbose)
+
+        # Reset the level variable name 
+        self.lev_name = new_lev_name
 
         # change pressure variable type to double (needed for vertical remap)
         cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {file_name} {file_name}"

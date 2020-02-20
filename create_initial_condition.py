@@ -15,7 +15,7 @@ import hiccup_state_adjustment
 
 verbose = True
 
-recreate_map_file = False
+recreate_map_file = True
 
 # Adjustment options
 adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
@@ -60,7 +60,7 @@ else:
 # ------------------------------------------------------------------------------
 
 # Horizontally regrid the data
-hiccup_data.remap_horizontal(file_name=output_file_name)
+hiccup_data.remap_horizontal(output_file_name=output_file_name)
 
 # Rename variables to match what the model expects
 hiccup_data.rename_vars(file_name=output_file_name)
@@ -70,9 +70,6 @@ hiccup_data.add_reference_pressure(file_name=output_file_name)
 
 # Clean up the global attributes of the file
 hiccup_data.clean_global_attributes(file_name=output_file_name)
-
-exit()
-
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
@@ -84,24 +81,16 @@ exit()
 # 2. < edit the file to remove extra header info - but keep the general CDL format >
 # 3. ncgen vert_coord.txt -o vert_coord.nc
 
-tmp_vert_file_name = f'vert_coord_{hiccup_data.dst_vert_grid}.nc'
-
 # Define list of variables that will be vertical remapped
 # vert_remap_var_list = 'T,Q,U,V,P0,PS,PHIS,CLDLIQ,CLDICE,O3,date,datesec,hyam,hybm,hyai,hybi,lev,ilev'
-# vert_remap_var_list = 'T,Q,U,V,P0,PS,CLDLIQ,CLDICE,O3'
-vert_remap_var_list = 'T'
+vert_remap_var_list = 'T,Q,U,V,P0,PS,CLDLIQ,CLDICE,O3'
+# vert_remap_var_list = 'T'
 
-vert_output_file = output_file_name.replace('.nc', f'.{hiccup_data.dst_vert_grid}.nc')
+hiccup_data.remap_vertical(input_file_name=output_file_name
+                          ,output_file_name=output_file_name
+                          ,vert_file_name=f'vert_coord_{hiccup_data.dst_vert_grid}.nc')
 
-# Perform the vertical remapping
-cmd = f'ncremap --vrt_fl={tmp_vert_file_name} -v {vert_remap_var_list} {output_file_name} {vert_output_file}'
-if verbose : print(f'\n  {cmd}\n')
-sp.call(cmd.split())
-
-# Delete the temporary files
-# sp.call(f'rm {tmp_vert_file_text} {tmp_vert_file_name}', shell=True)
-
-print(f'\n{vert_output_file}\n')
+print(f'\n{output_file_name}\n')
 exit()
 
 # ------------------------------------------------------------------------------
