@@ -1,0 +1,121 @@
+import xarray as xr
+import numpy as np
+import ngl
+
+# def main_small():
+
+#    var_name = 'Q'
+
+#    ds = xr.open_dataset( 'HICCUP_TEST.output.nc' )
+#    scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
+
+#    wks = ngl.open_wks('x11','sanity_check')
+#    res = ngl.Resources()
+#    res.cnFillOn         = True
+#    res.cnLinesOn        = False
+#    res.cnFillPalette    = "MPL_viridis"
+#    res.cnFillMode       = 'CellFill'
+#    res.sfXArray         = scrip_ds['grid_center_lon'].values
+#    res.sfYArray         = scrip_ds['grid_center_lat'].values
+#    res.sfXCellBounds    = scrip_ds['grid_corner_lon'].values
+#    res.sfYCellBounds    = scrip_ds['grid_corner_lat'].values
+
+#    data = ds[var_name].isel(time=0)
+#    if 'lev' in data.dims: data = data.isel(lev=5)
+
+#    plot = ngl.contour_map(wks,data.values,res) 
+#    ngl.end()
+
+def main(fig_file='sanity_check',fig_type='x11'):
+
+   # var = ['PS','T','Q']
+   var = ['PS']
+
+   ds = xr.open_dataset('HICCUP_TEST.output.nc' )
+   scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
+
+   plot = []
+   wks = ngl.open_wks(fig_type,fig_file)
+   res = get_resources()
+   res.cnFillMode    = 'CellFill'
+   res.sfXCellBounds = scrip_ds['grid_corner_lon'].values
+   res.sfYCellBounds = scrip_ds['grid_corner_lat'].values
+
+   for v in range(len(var)):
+      data = ds[var[v]].isel(time=0)
+      if 'lev' in data.dims: data = data.isel(lev=5)
+
+      plot.append( ngl.contour_map(wks,data.values,res) )
+      set_subtitles(wks, plot[len(plot)-1], '', '', var[v], font_height=0.01)
+
+   ngl.panel(wks,plot[0:len(plot)],[len(plot),1],False)
+   ngl.end()
+
+   ### trim white space from image using imagemagik
+   if fig_type == 'png' :
+      os.system(f'convert -trim +repage {fig_file}.png {fig_file}.png')
+      print(f'\n{fig_file}.png\n')
+
+#---------------------------------------------------------------------------------------------------
+# define function to add subtitles to the top of plot
+#---------------------------------------------------------------------------------------------------
+def set_subtitles(wks, plot, left_string='', center_string='', right_string='', font_height=0.01):
+   ttres         = ngl.Resources()
+   ttres.nglDraw = False
+
+   ### Use plot extent to call ngl.text(), otherwise you will see this error: 
+   ### GKS ERROR NUMBER   51 ISSUED FROM SUBROUTINE GSVP  : --RECTANGLE DEFINITION IS INVALID
+   strx = ngl.get_float(plot,'trXMinF')
+   stry = ngl.get_float(plot,'trYMinF')
+   ttres.txFontHeightF = font_height
+
+   ### Set annotation resources to describe how close text is to be attached to plot
+   amres = ngl.Resources()
+   if not hasattr(ttres,'amOrthogonalPosF'):
+      amres.amOrthogonalPosF = -0.52   # Top of plot plus a little extra to stay off the border
+   else:
+      amres.amOrthogonalPosF = ttres.amOrthogonalPosF
+
+   # Add left string
+   amres.amJust,amres.amParallelPosF = 'BottomLeft', -0.5   # Left-justified
+   tx_id_l   = ngl.text(wks, plot, left_string, strx, stry, ttres)
+   anno_id_l = ngl.add_annotation(plot, tx_id_l, amres)
+   # Add center string
+   amres.amJust,amres.amParallelPosF = 'BottomCenter', 0.0   # Centered
+   tx_id_c   = ngl.text(wks, plot, center_string, strx, stry, ttres)
+   anno_id_c = ngl.add_annotation(plot, tx_id_c, amres)
+   # Add right string
+   amres.amJust,amres.amParallelPosF = 'BottomRight', 0.5   # Right-justified
+   tx_id_r   = ngl.text(wks, plot, right_string, strx, stry, ttres)
+   anno_id_r = ngl.add_annotation(plot, tx_id_r, amres)
+
+   return
+#---------------------------------------------------------------------------------------------------
+# Define function for setting the plot resources
+#---------------------------------------------------------------------------------------------------
+def get_resources():
+   res = ngl.Resources()
+   res.nglDraw                      = False
+   res.nglFrame                     = False
+   res.tmXTOn                       = False
+   res.tmXBMajorOutwardLengthF      = 0.
+   res.tmXBMinorOutwardLengthF      = 0.
+   res.tmYLMajorOutwardLengthF      = 0.
+   res.tmYLMinorOutwardLengthF      = 0.
+   res.tmYLLabelFontHeightF         = 0.015
+   res.tmXBLabelFontHeightF         = 0.015
+   res.tiXAxisFontHeightF           = 0.015
+   res.tiYAxisFontHeightF           = 0.015
+   res.tmXBMinorOn                  = False
+   res.tmYLMinorOn                  = False
+   res.cnFillPalette                = "ncl_default"
+   res.cnFillOn                     = True
+   res.cnLinesOn                    = False
+   res.cnLineLabelsOn               = False
+   res.cnInfoLabelOn                = False
+   res.lbOrientation                = "Horizontal"
+   res.lbLabelFontHeightF           = 0.008
+   return res
+#---------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
+if __name__ == '__main__': main()
