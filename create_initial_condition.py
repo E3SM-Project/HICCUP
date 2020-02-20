@@ -5,7 +5,8 @@
 # for E3SM using a user supplied reanalysis file, such as EAR5 data.
 # Requires NCO, TempestRemap, and xarray.
 # 
-# NOTE: The current E3SM vertical grid was created through an iterative process 
+# NOTE ABOUT VERTICAL GRID FILES: 
+# The current E3SM vertical grid was created through an iterative process 
 # involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
 # and Po-Lun Ma who did not document the process, so there is no recipe to 
 # recreate the grid from scratch. To create the vertical coordinate file it is 
@@ -19,12 +20,12 @@
 # 
 # ==================================================================================================
 import os
-import subprocess as sp
 import glob
 import datetime
 import xarray as xr
+import subprocess as sp
 import hiccup_data_class as hdc
-import hiccup_state_adjustment
+import hiccup_state_adjustment as hsa
 
 verbose = True
 
@@ -103,30 +104,30 @@ sp.call(f'mv {vert_tmp_file_name} {output_file_name} '.split())
 # Perform state adjustments on interpolated data
 # ------------------------------------------------------------------------------
 
-if any([adjust_sfc_temp, adjust_sfc_pres, adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
+if any([adjust_sfc_temp, adjust_sfc_pres, adjust_glb_mass, 
+        adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
 
     # Load the file into an xarray dataset
     ds = xr.open_dataset(output_file_name)
 
     # Adjust surface temperature to match new surface height
     if adjust_sfc_temp:
-        state_adjustment.adjust_surface_temperature(ncol, phis_old, ts_old, 
-                                                    phis_new, ts_new)
+        hsa.adjust_surface_temperature(ncol, phis_old, ts_old, phis_new, ts_new)
 
     # Adjust surface pressure to match new surface height
     if adjust_sfc_pres:
-        state_adjustment.adjust_surface_pressure(plev, ncol, temperature_mid,
-                                                 pressure_mid, pressure_int,
-                                                 phis_old, ps_old, 
-                                                 phis_new, ps_new)
+        hsa.adjust_surface_pressure(plev, ncol, temperature_mid,
+                                    pressure_mid, pressure_int,
+                                    phis_old, ps_old, 
+                                    phis_new, ps_new)
 
     # adjust surface pressure to retain dry mass of atmosphere
     # if adjust_glb_mass :
-    #   state_adjustment.dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out )
+    #   hsa.dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out )
 
     # adjust water vapor to eliminate supersaturation
     if adjust_supersat:
-        state_adjustment.remove_supersaturation()
+        hsa.remove_supersaturation()
 
     # adjust cloud water to remove negative values?
     if adjust_cld_wtr:
@@ -135,7 +136,7 @@ if any([adjust_sfc_temp, adjust_sfc_pres, adjust_glb_mass, adjust_supersat, adju
 
     # adjust cloud fraction to remove values outside of [0,1]
     if adjust_cld_frac:
-        state_adjustment.adjust_cloud_fraction()
+        hsa.adjust_cloud_fraction()
 
     # Write the adjusted dataset back to the file
     ds.to_netcdf(output_file_name)
