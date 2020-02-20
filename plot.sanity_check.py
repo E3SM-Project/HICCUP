@@ -10,7 +10,7 @@ def main(fig_file='sanity_check',fig_type='png'):
 
    klev = -5
 
-   ds = xr.open_dataset('HICCUP_TEST.output.L72.nc' )
+   ds = xr.open_dataset('HICCUP_TEST.output.nc' )
    scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
 
    plot = []

@@ -7,9 +7,9 @@
 # 
 # NOTE: The current E3SM vertical grid was created through an iterative process 
 # involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
-# and Po-Lun Ma who did not document the process, so their no recipe to recreate 
-# the grid from scratch. To create the vertical coordinate file it is easiest to 
-# extract it from a pre-existing model data file as follows:
+# and Po-Lun Ma who did not document the process, so there is no recipe to 
+# recreate the grid from scratch. To create the vertical coordinate file it is 
+# easiest to extract it from a pre-existing model data file as follows:
 #   1. Dump the vertical grid data into a text file using ncdump:
 #      ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
 #   2. manually edit the file to remove extra header info,
@@ -91,13 +91,13 @@ hiccup_data.clean_global_attributes(file_name=output_file_name)
 # vert_remap_var_list = 'T,Q,U,V,P0,PS,CLDLIQ,CLDICE,O3'
 # vert_remap_var_list = 'T'
 
-output_file_name2 = output_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
+vert_tmp_file_name = output_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
 
 hiccup_data.remap_vertical(input_file_name=output_file_name
-                          ,output_file_name=output_file_name2
+                          ,output_file_name=vert_tmp_file_name
                           ,vert_file_name=f'vert_coord_{hiccup_data.dst_vert_grid}.nc')
 
-exit(f'\n{output_file_name2}\n')
+sp.call(f'mv {vert_tmp_file_name} {output_file_name} '.split())
 
 # ------------------------------------------------------------------------------
 # Perform state adjustments on interpolated data
