@@ -15,7 +15,7 @@ import hiccup_state_adjustment
 
 verbose = True
 
-recreate_map_file = True
+recreate_map_file = False
 
 # Adjustment options
 adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
@@ -51,10 +51,6 @@ if recreate_map_file :
     # Create mapping file
     hiccup_data.create_map_file()
 
-else:
-
-    hiccup_data.map_file = hiccup_data.output_dir+f'map_{hiccup_data.src_grid_name}_to_{hiccup_data.dst_horz_grid}.nc'
-
 # ------------------------------------------------------------------------------
 # Remap the data
 # ------------------------------------------------------------------------------
@@ -70,6 +66,9 @@ hiccup_data.add_reference_pressure(file_name=output_file_name)
 
 # Clean up the global attributes of the file
 hiccup_data.clean_global_attributes(file_name=output_file_name)
+
+print(f'\n{output_file_name}\n')
+exit()
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data

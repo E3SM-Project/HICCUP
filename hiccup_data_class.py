@@ -36,9 +36,9 @@ def run_cmd(cmd,verbose=None,prefix='\n  ',suffix='',use_color=True,shell=False)
     if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
     if verbose : print(msg)
     if shell:
-        sp.call(cmd,shell=True)
+        sp.check_call(cmd,shell=True)
     else:
-        sp.call(cmd.split())
+        sp.check_call(cmd.split())
     return
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -169,14 +169,14 @@ class hiccup_data(object):
             cmd += f' >> {tempest_log_file}'
             run_cmd(cmd,verbose,shell=True)
 
-            # Create scrip file while we're at it
-            check_dependency('ConvertExodusToSCRIP')
-            scrip_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
-            cmd = 'ConvertExodusToSCRIP'
-            cmd += f' --in {self.dst_grid_file} '
-            cmd += f' --out {scrip_file} '
-            cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose,shell=True)
+            # # Create scrip file while we're at it (can be slow)
+            # check_dependency('ConvertExodusToSCRIP')
+            # scrip_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
+            # cmd = 'ConvertExodusToSCRIP'
+            # cmd += f' --in {self.dst_grid_file} '
+            # cmd += f' --out {scrip_file} '
+            # cmd += f' >> {tempest_log_file}'
+            # run_cmd(cmd,verbose,shell=True)
 
         else:
             raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
@@ -194,8 +194,7 @@ class hiccup_data(object):
         if self.dst_grid_file == None : 
             raise ValueError('dst_grid_file is not defined for hiccup_data object')
 
-        # Set the map file name and options
-        self.map_file = self.output_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
+        # Set the map options
         self.map_opts = '--in_type fv --in_np 1 --mono --out_double '
 
         # speciic special options depending on target atmos grid
@@ -210,7 +209,7 @@ class hiccup_data(object):
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
         cmd += f' --wgt_opt=\'{self.map_opts}\' '
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
 
         return
     # --------------------------------------------------------------------------
@@ -253,17 +252,17 @@ class hiccup_data(object):
         check_dependency('ncap2')
 
         # Add the variable
-        run_cmd(f'ncap2 --hst -A -s \'P0=100000.\' {file_name} {file_name}',
+        run_cmd(f"ncap2 --create_ram --no_tmp_fl --hst -A -s 'P0=100000.' {file_name} {file_name}",
                 verbose,prefix='  ',suffix='',shell=True)
 
         check_dependency('ncatted')
 
         # add long_name attribute
-        run_cmd(f'ncatted --hst -a long_name,P0,a,c,\'reference pressure\' {file_name}',
+        run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' {file_name}",
                 verbose,prefix='  ',suffix='',shell=True)
         
         # add units attribute
-        run_cmd(f'ncatted --hst -A -a units,P0,a,c,\'Pa\' {file_name}',
+        run_cmd(f"ncatted --hst -A -a units,P0,a,c,'Pa' {file_name}",
                 verbose,prefix='  ',suffix='',shell=True)
 
         return
@@ -400,6 +399,9 @@ class ERA5(hiccup_data):
 
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
         self.src_grid_file = self.output_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
+
+        self.map_file = self.output_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
+
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):
         """ Generate source grid file """
@@ -411,13 +413,15 @@ class ERA5(hiccup_data):
 
         check_dependency('ncremap')
         cmd  = f'ncremap {ncremap_alg} ' 
+        cmd += f' --tmp_dir=./tmp'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
         cmd += f'#latlon={self.nlat},{self.nlon}'                    
-        cmd +=  '#lat_typ=uni'                                       
-        cmd +=  '#lat_drc=s2n'                                       
-        cmd +=  '#lon_typ=grn_ctr '                                  
+        cmd +=  '#lat_typ=uni'
+        cmd +=  '#lat_drc=n2s'
+        # cmd +=  '#lat_drc=s2n'
+        cmd +=  '#lon_typ=grn_ctr '
         cmd += f' -g {self.src_grid_file} '
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
         return 
     # --------------------------------------------------------------------------
     def rename_vars_special(self,file_name,verbose=None):
@@ -427,6 +431,7 @@ class ERA5(hiccup_data):
         new_lev_name = 'plev'
 
         # Rename pressure variable (needed for vertical remap)
+        check_dependency('ncrename')
         cmd = f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}'
         run_cmd(cmd,verbose)
 
@@ -434,12 +439,14 @@ class ERA5(hiccup_data):
         self.lev_name = new_lev_name
 
         # change pressure variable type to double (needed for vertical remap)
+        check_dependency('ncap2')
         cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)' {file_name} {file_name}"
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
 
         # Remove lat/lon vertices variables since they are not needed
+        check_dependency('ncks')
         cmd = f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}'
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
 
         return
     # --------------------------------------------------------------------------

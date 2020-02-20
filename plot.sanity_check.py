@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import xarray as xr
 import numpy as np
 import ngl
@@ -19,7 +20,12 @@ def main(fig_file='sanity_check',fig_type='x11'):
 
    for v in range(len(var)):
       data = ds[var[v]].isel(time=0)
-      if 'lev' in data.dims: data = data.isel(lev=5)
+      if 'lev' in data.dims: data = data.isel(lev=-5)
+
+      print(f'var: {var[v]}')
+      print(f'  min : {data.min().values} ')
+      print(f'  avg : {data.mean().values} ')
+      print(f'  max : {data.max().values} ')
 
       plot.append( ngl.contour_map(wks,data.values,res) )
       set_subtitles(wks, plot[len(plot)-1], '', '', var[v], font_height=0.01)
@@ -45,12 +51,10 @@ def set_subtitles(wks, plot, left_string='', center_string='', right_string='', 
    stry = ngl.get_float(plot,'trYMinF')
    ttres.txFontHeightF = font_height
 
-   ### Set annotation resources to describe how close text is to be attached to plot
+   # Set annotation resources to describe how close text is to be attached to plot
    amres = ngl.Resources()
-   if not hasattr(ttres,'amOrthogonalPosF'):
-      amres.amOrthogonalPosF = -0.52   # Top of plot plus a little extra to stay off the border
-   else:
-      amres.amOrthogonalPosF = ttres.amOrthogonalPosF
+   amres.amOrthogonalPosF = -0.52   # Top of plot plus a little extra to stay off the border
+   if hasattr(ttres,'amOrthogonalPosF'): amres.amOrthogonalPosF = ttres.amOrthogonalPosF   
 
    # Add left string
    amres.amJust,amres.amParallelPosF = 'BottomLeft', -0.5   # Left-justified
@@ -84,7 +88,7 @@ def get_resources():
    res.tiYAxisFontHeightF       = 0.015
    res.tmXBMinorOn              = False
    res.tmYLMinorOn              = False
-   res.cnFillPalette            = "MPL_veridis"
+   res.cnFillPalette            = "MPL_viridis"
    res.cnFillOn                 = True
    res.cnLinesOn                = False
    res.cnLineLabelsOn           = False
