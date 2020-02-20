@@ -2,13 +2,15 @@
 import xarray as xr
 import numpy as np
 import ngl
+import os
 
-def main(fig_file='sanity_check',fig_type='x11'):
+def main(fig_file='sanity_check',fig_type='png'):
 
-   var = ['PS','T','Q']
-   # var = ['PS']
+   var = ['PS','T','Q','U']
 
-   ds = xr.open_dataset('HICCUP_TEST.output.nc' )
+   klev = -5
+
+   ds = xr.open_dataset('HICCUP_TEST.output.L72.nc' )
    scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
 
    plot = []
@@ -20,17 +22,28 @@ def main(fig_file='sanity_check',fig_type='x11'):
 
    for v in range(len(var)):
       data = ds[var[v]].isel(time=0)
-      if 'lev' in data.dims: data = data.isel(lev=-5)
+      if 'lev' in data.dims: 
+         data = data.isel(lev=klev)
+         plev = ds['lev'].isel(lev=klev).values
+         lev_str = f'{plev:6.2f} hPa'
+      else:
+         lev_str = ''
 
-      print(f'var: {var[v]}')
+      print(f'\nvar: {var[v]}')
       print(f'  min : {data.min().values} ')
       print(f'  avg : {data.mean().values} ')
       print(f'  max : {data.max().values} ')
 
       plot.append( ngl.contour_map(wks,data.values,res) )
-      set_subtitles(wks, plot[len(plot)-1], '', '', var[v], font_height=0.01)
+      set_subtitles(wks, plot[len(plot)-1], data.attrs['long_name'], '', lev_str )
 
-   ngl.panel(wks,plot[0:len(plot)],[len(plot),1],False)
+   if len(plot)<4 :
+      layout = [len(plot),1]
+   else:
+      pdim = np.ceil(len(plot)/2)
+      layout = [pdim,pdim]
+
+   ngl.panel(wks,plot,layout,False)
    ngl.end()
 
    ### trim white space from image using imagemagik
@@ -41,7 +54,7 @@ def main(fig_file='sanity_check',fig_type='x11'):
 #---------------------------------------------------------------------------------------------------
 # define function to add subtitles to the top of plot
 #---------------------------------------------------------------------------------------------------
-def set_subtitles(wks, plot, left_string='', center_string='', right_string='', font_height=0.01):
+def set_subtitles(wks, plot, left_string='', center_string='', right_string='', font_height=0.015):
    ttres         = ngl.Resources()
    ttres.nglDraw = False
 
@@ -94,7 +107,7 @@ def get_resources():
    res.cnLineLabelsOn           = False
    res.cnInfoLabelOn            = False
    res.lbOrientation            = "Horizontal"
-   res.lbLabelFontHeightF       = 0.008
+   res.lbLabelFontHeightF       = 0.015
    res.mpGridAndLimbOn          = False
    res.mpCenterLonF             = 180
    res.mpLimitMode              = "LatLon" 

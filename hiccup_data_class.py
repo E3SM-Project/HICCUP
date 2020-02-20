@@ -432,16 +432,16 @@ class ERA5(hiccup_data):
 
         # Rename pressure variable (needed for vertical remap)
         check_dependency('ncrename')
-        cmd = f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}'
-        run_cmd(cmd,verbose)
+        run_cmd(f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}',
+            verbose,shell=True)
 
         # Reset the level variable name 
         self.lev_name = new_lev_name
 
         # change pressure variable type to double and units to Pascals (needed for vertical remap)
         check_dependency('ncap2')
-        cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}"
-        run_cmd(cmd,verbose,shell=True)
+        run_cmd(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}",
+                verbose,prefix='  ',suffix='',shell=True)
 
         # change units attribute
         run_cmd(f"ncatted --hst -A -a units,{new_lev_name},a,c,'Pa' {file_name}",
@@ -449,8 +449,8 @@ class ERA5(hiccup_data):
 
         # Remove lat/lon vertices variables since they are not needed
         check_dependency('ncks')
-        cmd = f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}'
-        run_cmd(cmd,verbose,shell=True)
+        run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
+            verbose,shell=True)
 
         return
     # --------------------------------------------------------------------------
