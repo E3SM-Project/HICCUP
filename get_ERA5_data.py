@@ -3,8 +3,8 @@ import os
 import cdsapi
 server = cdsapi.Client()
 
-get_atm = True
-get_sfc = False
+get_atm = False
+get_sfc = True
 get_lnd = False
 
 yr_list = ['2018']
@@ -26,7 +26,7 @@ lev = [ '50','100','150','200','300','400','500','600'
 
 output_path = os.getenv('PWD')+'/'
 
-output_file_plv = output_path+'ERA5.HICCUP_TEST.atm.nc'
+output_file_plv = output_path+'HICCUP_TEST.ERA5.atm.nc'
 output_file_sfc = output_file_plv.replace('atm.nc','sfc.nc')
 output_file_lnd = output_file_plv.replace('atm.nc','lnd.nc')
 
@@ -79,6 +79,7 @@ if get_sfc:
                           ,'volumetric_soil_water_layer_2'
                           ,'volumetric_soil_water_layer_3'
                           ,'volumetric_soil_water_layer_4'
+                          ,'orography'
                           ],
     }, output_file_sfc)
 #-------------------------------------------------------------------------------

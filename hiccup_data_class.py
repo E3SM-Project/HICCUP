@@ -377,6 +377,7 @@ class ERA5(hiccup_data):
         # Surface variables
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
+        self.sfc_var_name_dict.update({'PHIS':'z'})        # skin temperature 
         # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
         # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
         # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 

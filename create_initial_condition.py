@@ -32,8 +32,8 @@ verbose = True
 recreate_map_file = False
 
 # Adjustment options
-adjust_sfc_temp = False     # Adjust surface temperature to match new surface height
-adjust_sfc_pres = False     # Adjust surface pressure to match new surface height
+adjust_sfc_temp = True     # Adjust surface temperature to match new surface height
+adjust_sfc_pres = True     # Adjust surface pressure to match new surface height
 adjust_supersat = False     # adjust qv to eliminate supersaturation
 adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmosphere
 adjust_cld_wtr  = False     # adjust cloud water to remove negative values
@@ -84,6 +84,32 @@ hiccup_data.clean_global_attributes(file_name=output_file_name)
 # exit(f'\n{output_file_name}\n')
 
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+if any([adjust_sfc_temp, adjust_sfc_pres]):
+
+    # Load the file into an xarray dataset
+    ds = xr.open_dataset(output_file_name)
+
+    print(ds)
+    exit()
+
+    # Adjust surface temperature to match new surface height
+    if adjust_sfc_temp:
+        hsa.adjust_surface_temperature(ncol, phis_old, ts_old, phis_new, ts_new)
+
+    # Adjust surface pressure to match new surface height
+    if adjust_sfc_pres:
+        hsa.adjust_surface_pressure(plev, ncol, temperature_mid,
+                                    pressure_mid, pressure_int,
+                                    phis_old, ps_old, 
+                                    phis_new, ps_new)
+
+    # Write the adjusted dataset back to the file
+    ds.to_netcdf(output_file_name)
+
+exit(f'\n{output_file_name}\n')
+
+# ------------------------------------------------------------------------------
 # Vertically remap the data
 # ------------------------------------------------------------------------------
 
@@ -104,22 +130,10 @@ sp.call(f'mv {vert_tmp_file_name} {output_file_name} '.split())
 # Perform state adjustments on interpolated data
 # ------------------------------------------------------------------------------
 
-if any([adjust_sfc_temp, adjust_sfc_pres, adjust_glb_mass, 
-        adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
+if any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
 
     # Load the file into an xarray dataset
     ds = xr.open_dataset(output_file_name)
-
-    # Adjust surface temperature to match new surface height
-    if adjust_sfc_temp:
-        hsa.adjust_surface_temperature(ncol, phis_old, ts_old, phis_new, ts_new)
-
-    # Adjust surface pressure to match new surface height
-    if adjust_sfc_pres:
-        hsa.adjust_surface_pressure(plev, ncol, temperature_mid,
-                                    pressure_mid, pressure_int,
-                                    phis_old, ps_old, 
-                                    phis_new, ps_new)
 
     # adjust surface pressure to retain dry mass of atmosphere
     # if adjust_glb_mass :
