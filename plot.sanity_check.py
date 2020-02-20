@@ -2,30 +2,6 @@ import xarray as xr
 import numpy as np
 import ngl
 
-# def main_small():
-
-#    var_name = 'Q'
-
-#    ds = xr.open_dataset( 'HICCUP_TEST.output.nc' )
-#    scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
-
-#    wks = ngl.open_wks('x11','sanity_check')
-#    res = ngl.Resources()
-#    res.cnFillOn         = True
-#    res.cnLinesOn        = False
-#    res.cnFillPalette    = "MPL_viridis"
-#    res.cnFillMode       = 'CellFill'
-#    res.sfXArray         = scrip_ds['grid_center_lon'].values
-#    res.sfYArray         = scrip_ds['grid_center_lat'].values
-#    res.sfXCellBounds    = scrip_ds['grid_corner_lon'].values
-#    res.sfYCellBounds    = scrip_ds['grid_corner_lat'].values
-
-#    data = ds[var_name].isel(time=0)
-#    if 'lev' in data.dims: data = data.isel(lev=5)
-
-#    plot = ngl.contour_map(wks,data.values,res) 
-#    ngl.end()
-
 def main(fig_file='sanity_check',fig_type='x11'):
 
    # var = ['PS','T','Q']
@@ -95,26 +71,29 @@ def set_subtitles(wks, plot, left_string='', center_string='', right_string='', 
 #---------------------------------------------------------------------------------------------------
 def get_resources():
    res = ngl.Resources()
-   res.nglDraw                      = False
-   res.nglFrame                     = False
-   res.tmXTOn                       = False
-   res.tmXBMajorOutwardLengthF      = 0.
-   res.tmXBMinorOutwardLengthF      = 0.
-   res.tmYLMajorOutwardLengthF      = 0.
-   res.tmYLMinorOutwardLengthF      = 0.
-   res.tmYLLabelFontHeightF         = 0.015
-   res.tmXBLabelFontHeightF         = 0.015
-   res.tiXAxisFontHeightF           = 0.015
-   res.tiYAxisFontHeightF           = 0.015
-   res.tmXBMinorOn                  = False
-   res.tmYLMinorOn                  = False
-   res.cnFillPalette                = "ncl_default"
-   res.cnFillOn                     = True
-   res.cnLinesOn                    = False
-   res.cnLineLabelsOn               = False
-   res.cnInfoLabelOn                = False
-   res.lbOrientation                = "Horizontal"
-   res.lbLabelFontHeightF           = 0.008
+   res.nglDraw                  = False
+   res.nglFrame                 = False
+   res.tmXTOn                   = False
+   res.tmXBMajorOutwardLengthF  = 0.
+   res.tmXBMinorOutwardLengthF  = 0.
+   res.tmYLMajorOutwardLengthF  = 0.
+   res.tmYLMinorOutwardLengthF  = 0.
+   res.tmYLLabelFontHeightF     = 0.015
+   res.tmXBLabelFontHeightF     = 0.015
+   res.tiXAxisFontHeightF       = 0.015
+   res.tiYAxisFontHeightF       = 0.015
+   res.tmXBMinorOn              = False
+   res.tmYLMinorOn              = False
+   res.cnFillPalette            = "MPL_veridis"
+   res.cnFillOn                 = True
+   res.cnLinesOn                = False
+   res.cnLineLabelsOn           = False
+   res.cnInfoLabelOn            = False
+   res.lbOrientation            = "Horizontal"
+   res.lbLabelFontHeightF       = 0.008
+   res.mpGridAndLimbOn          = False
+   res.mpCenterLonF             = 180
+   res.mpLimitMode              = "LatLon" 
    return res
 #---------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------------
