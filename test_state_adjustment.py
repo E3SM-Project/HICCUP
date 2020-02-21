@@ -70,10 +70,17 @@ class state_adjustment_test_case(unittest.TestCase):
     phis_new  = np.array([ phis-0.5e3, phis+0.5e3, phis ])
     isa       = standard_atmosphere( phis_old )
     ts_old    = isa.temperature
-    ncol      = len(phis_old)
-    ts_new    = np.empty(ncol)
+    # ncol      = len(phis_old)
+    # ts_new    = np.empty(ncol)
 
-    hsa.adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new )
+    ds_data = xr.Dataset({'PHIS':(['ncol'],phis_old)
+                         ,'TS'  :(['ncol'],ts_old)})
+    ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
+
+    # hsa.adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new )
+    hsa.adjust_surface_temperature( ds_data, ds_topo )
+
+    ts_new = ds_data['TS'].values
 
     # for i in range(ncol): print(f'phis_old: {phis_old[i]:04.0f}  phis_new: {phis_new[i]:04.0f}  ts_old: {ts_old[i]:6.2f}  ts_new: {ts_new[i]:6.2f}')
     self.assertTrue( ts_new[0] <ts_old[0] )

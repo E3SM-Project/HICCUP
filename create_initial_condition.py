@@ -3,7 +3,7 @@
 # HICCUP - Hindcast Initial Condition Creation Utility/Processor
 # This tool automates the creation of atmospheric initial condition files
 # for E3SM using a user supplied reanalysis file, such as EAR5 data.
-# Requires NCO, TempestRemap, and xarray.
+# Requires NCO, TempestRemap, numpy, and xarray.
 # 
 # NOTE ABOUT VERTICAL GRID FILES: 
 # The current E3SM vertical grid was created through an iterative process 
@@ -30,6 +30,7 @@ import hiccup_state_adjustment as hsa
 verbose = True
 
 recreate_map_file = False
+remap_data_horz   = False
 
 # Adjustment options
 adjust_sfc_temp = True     # Adjust surface temperature to match new surface height
@@ -40,6 +41,9 @@ adjust_cld_wtr  = False     # adjust cloud water to remove negative values
 adjust_cld_frac = False     # adjust cloud fraction to remove values outside of [0,1]
 
 output_file_name = 'HICCUP_TEST.output.nc'
+
+topo_file_name  = '/project/projectdirs/acme/inputdata/atm/cam/topo/'
+topo_file_name += 'USGS-gtopo30_ne30pg2_16xdel2-PFC-consistentSGH.c20190417.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions
@@ -69,17 +73,19 @@ if recreate_map_file :
 # Horizontally remap the data
 # ------------------------------------------------------------------------------
 
-# Horizontally regrid the data
-hiccup_data.remap_horizontal(output_file_name=output_file_name)
+if False :
 
-# Rename variables to match what the model expects
-hiccup_data.rename_vars(file_name=output_file_name)
+  # Horizontally regrid the data
+  hiccup_data.remap_horizontal(output_file_name=output_file_name)
 
-# add P0 variable
-hiccup_data.add_reference_pressure(file_name=output_file_name)
+  # Rename variables to match what the model expects
+  hiccup_data.rename_vars(file_name=output_file_name)
 
-# Clean up the global attributes of the file
-hiccup_data.clean_global_attributes(file_name=output_file_name)
+  # add P0 variable
+  hiccup_data.add_reference_pressure(file_name=output_file_name)
+
+  # Clean up the global attributes of the file
+  hiccup_data.clean_global_attributes(file_name=output_file_name)
 
 # exit(f'\n{output_file_name}\n')
 
@@ -88,14 +94,13 @@ hiccup_data.clean_global_attributes(file_name=output_file_name)
 if any([adjust_sfc_temp, adjust_sfc_pres]):
 
     # Load the file into an xarray dataset
-    ds = xr.open_dataset(output_file_name)
-
-    print(ds)
-    exit()
+    ds_data = xr.open_dataset(output_file_name)
+    ds_topo = xr.open_dataset(topo_file_name)
 
     # Adjust surface temperature to match new surface height
-    if adjust_sfc_temp:
-        hsa.adjust_surface_temperature(ncol, phis_old, ts_old, phis_new, ts_new)
+    if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
+
+    exit()
 
     # Adjust surface pressure to match new surface height
     if adjust_sfc_pres:

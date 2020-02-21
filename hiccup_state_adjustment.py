@@ -18,6 +18,30 @@ T_ref2    = 255.0       # reference temperature for sfc adjustments
 phis_threshold = 1e-3   # threshold for determining if 2 phis values are different
 dz_min = 150.           # min distance [m] from sfc to minimize effects radiation
 #-------------------------------------------------------------------------------
+# Simple routine for chcecking variable values - useful for debugging
+#-------------------------------------------------------------------------------
+def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  '):
+  """ 
+  Simple routine for printing various statistics or properites of a variable.
+  The characters of the "stat" string variable are used to specify the order 
+  and type of quantities to calculate
+    n   minimum value
+    a   average across all dimensions
+    x   maximum value
+    s   standard deviation
+    h   shape
+  """
+  if fmt=='f' : fmt = '%f'
+  if fmt=='e' : fmt = '%e'
+  if unit!='' : unit = '['+str(unit)+']'
+  print(indent+name+" "+unit)
+  for c in list(stat):
+      if c=='n' : print(indent+'min: '+fmt%x.min() )
+      if c=='a' : print(indent+'avg: '+fmt%x.mean())
+      if c=='x' : print(indent+'max: '+fmt%x.max() )
+      if c=='s' : print(indent+'std: '+fmt%x.std() )
+      if c=='h' : print(indent+'shp: '+str(x.shape) )
+#-------------------------------------------------------------------------------
 # Adjust surface pressure
 # Algorithm based on sea-level pressure calculation
 # from section 3.1.b of NCAR NT-396 
@@ -106,16 +130,39 @@ def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int
 # Part VI: Technical and Computational Procedures, 
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
-def adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new ):
+def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
   """ 
-  Adjust the surface temperature based on new surace height assumed lapse rate 
-    ncol            # columns
-    ts_old          input old surface temperature   [K]
-    ts_new          output surface temperature      [K]
+  Adjust the surface temperature based on surace height difference 
+  and assumed standard atmosphere lapse rate 
+    ds        xarray dataset containing surface temperature and 
+              surface geopotential on model grid 
+    ds_topo   xarray dataset containing smoothed model topography 
+              (i.e. target topo)
   """
-  for i in range(ncol) :  
-    del_phis = phis_old[i] - phis_new[i]
-    ts_new[i] = ts_old[i] - lapse*(del_phis/gravit)
+  
+  # Check for required variables in input datasets
+  if 'TS'   not in ds_data.variables : 
+    raise KeyError('sfc temperature (TS) variable is missing from ds_data')
+  if 'PHIS' not in ds_data.variables : 
+    raise KeyError('sfc geopotential (PHIS) variable is missing from ds_data')
+  if 'PHIS' not in ds_topo.variables : 
+    raise KeyError('sfc geopotential (PHIS) variable is missing from ds_topo')
+
+  # Allow for debugging print statements
+  if debug :
+    print('Before Adjustment:')
+    print_stat(ds_data['PHIS'],name='PHIS (old)')
+    print_stat(ds_topo['PHIS'],name='PHIS (new)')
+    print_stat(ds_data['TS'],name='TS (old)')
+
+  ds_data['TS'] = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse/gravit
+
+  if debug :
+    print('After Adjustment:')
+    print_stat(ds_data['TS'],name='TS (new)')
+
+  return 
+
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 def remove_supersaturation( qv, temperature, pressure ):
