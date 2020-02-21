@@ -35,6 +35,7 @@ class state_adjustment_test_case(unittest.TestCase):
     phis_min        = np.min(phis_int)
     phis_new        = np.array([ phis_min-0.5e3, phis_min+0.5e3, phis_min ])
     plev            = len(phis_int)-1
+    ilev            = plev+1
     ncol            = len(phis_new)
     isa_int         = standard_atmosphere( phis_int )
     temperature_mid = np.empty((ncol,plev))  
@@ -50,12 +51,26 @@ class state_adjustment_test_case(unittest.TestCase):
     ps_old        = np.array(pressure_int[:,-1])
     ts_old        = np.array(temperature_int[:,-1])
     phis_old      = np.array([phis_min]*ncol)
-    ps_new        = np.empty(ncol)
-    ts_new        = np.empty(ncol)
 
-    hsa.adjust_surface_pressure( plev, ncol, temperature_mid,  \
-                                 pressure_mid, pressure_int,   \
-                                 phis_old, ps_old, phis_new, ps_new )
+    # Convert into dataset - then add dummy time dimension 
+    # use .copy() to avoid creating a read-only dataset
+    ds_data = xr.Dataset({'PHIS':xr.DataArray(phis_old,dims=['ncol'])
+                         ,'PS'  :xr.DataArray(ps_old,dims=['ncol'])
+                         ,'TS'  :xr.DataArray(ts_old,dims=['ncol'])
+                         ,'T'   :xr.DataArray(temperature_mid,dims=['ncol','lev'])
+                         ,'plev':xr.DataArray(pressure_mid,dims=['ncol','lev'])
+                         # ,'Pint':xr.DataArray(pressure_int,dims=['ncol','lev'])
+                         }
+                         ,coords={'ncol':np.arange(ncol)
+                                 ,'lev':np.arange(plev)
+                                 ,'ilev':np.arange(ilev)}
+                        ).expand_dims(time=1,axis=0).copy(deep=True)
+    ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
+
+    hsa.adjust_surface_pressure( ds_data, ds_topo )
+
+    # Get the adjusted surface pressure for value checking
+    ps_new = ds_data['PS'].isel(time=0).values
 
     # for k in range(plev+1): print(f'  {k}  {pressure_int[0,k]:8.2f}  {phis_int[k]:8.2f} ')
     # for i in range(ncol): print(f'phis_old: {phis_old[i]:04.0f}  phis_new: {phis_new[i]:04.0f}  ps_old: {ps_old[i]:6.2f}  ps_new: {ps_new[i]:6.2f}')
@@ -70,14 +85,11 @@ class state_adjustment_test_case(unittest.TestCase):
     phis_new  = np.array([ phis-0.5e3, phis+0.5e3, phis ])
     isa       = standard_atmosphere( phis_old )
     ts_old    = isa.temperature
-    # ncol      = len(phis_old)
-    # ts_new    = np.empty(ncol)
 
     ds_data = xr.Dataset({'PHIS':(['ncol'],phis_old)
                          ,'TS'  :(['ncol'],ts_old)})
     ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
 
-    # hsa.adjust_surface_temperature( ncol, phis_old, ts_old, phis_new, ts_new )
     hsa.adjust_surface_temperature( ds_data, ds_topo )
 
     ts_new = ds_data['TS'].values

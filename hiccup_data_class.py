@@ -4,6 +4,7 @@
 # NOTE: Variable name dictionaries are defined with the key as the model's 
 # variable name and the value as the reanalysis data variable name
 
+import numpy as np
 import xarray as xr
 import subprocess as sp
 import shutil 
@@ -14,6 +15,9 @@ ncremap_alg         = ' --alg_typ=tempest '        # algorithm flag for ncremap
 tempest_log_file    = 'TempestRemap.log'
 
 hiccup_verbose = False
+
+# Set numpy to ignore overflow errors
+np.seterr(over='ignore')
 
 # Set up terminal colors
 class tcolor:
@@ -284,7 +288,8 @@ class hiccup_data(object):
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
-        cmd =  f'ncremap --map_file={self.map_file} '
+        cmd =  f'ncremap {ncremap_alg} '
+        cmd += f' --map_file={self.map_file} '
         cmd += f' --in_file={self.atm_file} '
         cmd += f' --out_file={atm_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
@@ -292,7 +297,8 @@ class hiccup_data(object):
 
         # Horzontally remap surface data
         var_list = ','.join(self.sfc_var_name_dict.values())
-        cmd =  f'ncremap --map_file={self.map_file} '
+        cmd =  f'ncremap {ncremap_alg} '
+        cmd += f' --map_file={self.map_file} '
         cmd += f' --in_file={self.sfc_file} '
         cmd += f' --out_file={sfc_tmp_file_name} '
         cmd += f' --var_lst={var_list} '

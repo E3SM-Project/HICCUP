@@ -52,72 +52,102 @@ def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  '):
 # Part VI: Technical and Computational Procedures, 
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
-def adjust_surface_pressure( plev, ncol, temperature, pressure_mid, pressure_int,  \
-                             phis_old, ps_old, phis_new, ps_new ):
+def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
+                             lev_coord_name='lev', debug=False ):
   """ 
-  Adjust the surface pressure based on new surace height assumed lapse rate 
-    plev            # levels
-    ncol            # columns
-    temperature     temperature on level centers    [K]
-    pressure_mid    pressure on level centers       [Pa]
-    pressure_int    pressure on level interfaces    [Pa]
-    phis_old        input old surface height        [m]
-    ps_old          input old surface pressure      [Pa]
-    phis_new        input new surface height        [m]
-    ps_new          output surface pressure         [Pa]
+  Adjust the surface pressure based on surace height difference 
+  and assumed standard atmosphere lapse rate. Input datasets must
+  include the following variables:
+    time                  time coordinate
+    ncol                  column index coordinate
+    <lev_coord_name>      vertical level coordinate
+    PS                    input old surface pressure      [Pa]
+    PHIS                  input surface geopotential      [m]
+    T                     temperature on level centers    [K]
+    <pressure_var_name>   pressure on level centers       [Pa]
+  the target surface geopotential (PHIS) must also be included in ds_topo
   """
 
-  for i in range(ncol) :  
+  # Check for required variables in input datasets
+  for var in ['time','ncol',lev_coord_name] :
+    if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')
+  for var in ['PHIS','PS','T',pressure_var_name] :
+    if var not in ds_data.variables : raise KeyError(f'{var} is missing from ds_data')
+  if 'PHIS' not in ds_topo.variables : raise KeyError('PHIS is missing from ds_data')
 
-    del_phis = phis_old[i] - phis_new[i]
+  if debug :
+    # Debugging print statements
+    print('Before Adjustment:')
+    print_stat(ds_data['PS'],name='PS (old)')
 
-    # If difference between analysis and model phis is negligible,
-    # then set model Ps = analysis
-    if(np.abs(del_phis) <= phis_threshold) :
+  nlev = len(ds_data[lev_coord_name])
 
-      ps_new[i] = ps_old[i]
+  # Loop over all time and columns to make adjustment
+  for t in range(len(ds_data['time'])) :
+    for i in range(len(ds_data['ncol'])) :
 
-    else:
+      del_phis = ds_data['PHIS'].isel(ncol=i) - ds_topo['PHIS'].isel(ncol=i)
 
-      # move up from surface to define k level for Tbot and Pbot
-      # zis calculated from the hydrostatic equation
-      z = 0.
-      for k in range(plev-1,0,-1) :
-        hkk    = 0.5*( pressure_int[i,k+1] - pressure_int[i,k] ) / pressure_mid[i,k]
-        z_incr = (Rdair/gravit)*temperature[i,k]*hkk
-        z = z + z_incr
-        if ( z > dz_min ) : break
-        z = z + z_incr
+      # Only update PHIS if phis difference is not negligible
+      if(np.abs(del_phis) > phis_threshold) :
 
-      if (k==plev) : exit(f'ERROR: could not find model level {dz_min} m above the surface ')
+        # grab pressure and temperature of current column to make code more readable
+        pressure = ds_data[pressure_var_name]
+        if 'time' in pressure.dims : pressure = pressure.isel(time=t)
+        if 'ncol' in pressure.dims : pressure = pressure.isel(ncol=i)
+        temperature = ds_data['T'].isel(time=t,ncol=i)
 
-      # Define Tbot & Pbot
-      tbot  = temperature[i,k]
-      pbot  = pressure_mid[i,k]
+        # move up from surface to define k level for Tbot and Pbot
+        # z is calculated from the hydrostatic equation
+        z = 0.
+        first = True
+        for k in range(nlev-1,0,-1) :
+          if first :
+            # For first level use surface pressure to get dp
+            dp = ds_data['PS'].isel(time=t,ncol=i) - pressure[k]
+            first = False
+          else:
+            dp = pressure[k+1] - pressure[k]
+          rho = pressure[k] / (Rdair*temperature[k])
+          dz = dp/(rho/gravit)
+          z = z + dz
+          if ( z > dz_min ) : break
 
-      alpha = lapse*Rdair/gravit                           # pg 8 eq 6
+        if (k==nlev) : exit(f'ERROR: could not find model level {dz_min} m above the surface ')
 
-      # provisional extrapolated surface temperature
-      Tstar = tbot + alpha*tbot*( ps_old[i]/pbot - 1.)      # pg 8 eq 5
-      # T0    = Tstar + lapse*phis_new[i]/gravit              # pg 9 eq 13
-      T0    = Tstar + lapse*phis_old[i]/gravit              # pg 9 eq 13
+        # Define Tbot & Pbot
+        tbot  = temperature[k]
+        pbot  = pressure[k]
 
-      # adjustments for very high (T_ref1) or low (T_ref2) temperatures 
-      if (Tstar <= T_ref1) and (T0 > T_ref1) :
-        # inhibit low pressure under elevated hot terrain
-        alpha = Rdair/phis_new[i]*( T_ref1 - Tstar )        # pg 9 eq 14.1
-      elif (Tstar > T_ref1) and (T0 > T_ref1) :
-        # inhibit low pressure under elevated hot terrain
-        Tstar = ( T_ref1 + Tstar )*0.5                      # pg 9 eq 14.2
-      if (Tstar < T_ref2) :
-        # inhibit unduly high pressure below elevated cold terrain
-        Tstar = ( T_ref2 + Tstar )*0.5                      # pg 9 eq 14.3
+        alpha = lapse*Rdair/gravit                                              # pg 8 eq 6
 
-      # Calculate new surface pressure
-      # beta = phis_new[i]/(Rdair*Tstar)
-      beta = del_phis/(gravit*Tstar)
-      temp = del_phis/(Rdair*Tstar)*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
-      ps_new[i] = ps_old[i] * np.exp( temp )                # pg 9 eq 12
+        # provisional extrapolated surface temperature
+        Tstar = tbot + alpha*tbot*( ds_data['PS'][:,i]/pbot - 1.)               # pg 8 eq 5
+        T0    = Tstar + lapse*ds_data['PHIS'][:,i]/gravit                       # pg 9 eq 13
+
+        # adjustments for very high (T_ref1) or low (T_ref2) temperatures 
+        if (Tstar <= T_ref1) and (T0 > T_ref1) :
+          # inhibit low pressure under elevated hot terrain
+          alpha = Rdair/ds_topo['PHIS'][i]*( T_ref1 - Tstar )                   # pg 9 eq 14.1
+        elif (Tstar > T_ref1) and (T0 > T_ref1) :
+          # inhibit low pressure under elevated hot terrain
+          Tstar = ( T_ref1 + Tstar )*0.5                                        # pg 9 eq 14.2
+        if (Tstar < T_ref2) :
+          # inhibit unduly high pressure below elevated cold terrain
+          Tstar = ( T_ref2 + Tstar )*0.5                                        # pg 9 eq 14.3
+
+        # Calculate new surface pressure
+        beta = del_phis/(gravit*Tstar)
+        temp = del_phis/(Rdair*Tstar)*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
+        ds_data['PS'][:,i] = ds_data['PS'][:,i].values * np.exp( temp.values )  # pg 9 eq 12
+
+
+  if debug :
+    # Debugging print statements
+    print('After Adjustment:')
+    print_stat(ds_data['PS'],name='PS (new)')
+
+  return
 
 #-------------------------------------------------------------------------------
 # Adjust surface temperature
@@ -135,7 +165,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
   Adjust the surface temperature based on surace height difference 
   and assumed standard atmosphere lapse rate 
     ds        xarray dataset containing surface temperature and 
-              surface geopotential on model grid 
+              surface geopotential on Model-Coordinateel grid 
     ds_topo   xarray dataset containing smoothed model topography 
               (i.e. target topo)
   """
@@ -147,9 +177,11 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
     raise KeyError('sfc geopotential (PHIS) variable is missing from ds_data')
   if 'PHIS' not in ds_topo.variables : 
     raise KeyError('sfc geopotential (PHIS) variable is missing from ds_topo')
+  if len(ds_data['ncol'].values) != len(ds_topo['ncol'].values) : 
+    raise IndexError('ncol dimensions of input datasets do not match')
 
-  # Allow for debugging print statements
   if debug :
+    # Debugging print statements
     print('Before Adjustment:')
     print_stat(ds_data['PHIS'],name='PHIS (old)')
     print_stat(ds_topo['PHIS'],name='PHIS (new)')
@@ -158,6 +190,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
   ds_data['TS'] = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse/gravit
 
   if debug :
+    # Debugging print statements
     print('After Adjustment:')
     print_stat(ds_data['TS'],name='TS (new)')
 

@@ -42,8 +42,8 @@ adjust_cld_frac = False     # adjust cloud fraction to remove values outside of 
 
 output_file_name = 'HICCUP_TEST.output.nc'
 
-topo_file_name  = '/project/projectdirs/acme/inputdata/atm/cam/topo/'
-topo_file_name += 'USGS-gtopo30_ne30pg2_16xdel2-PFC-consistentSGH.c20190417.nc'
+# topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'
+topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions
@@ -100,17 +100,11 @@ if any([adjust_sfc_temp, adjust_sfc_pres]):
     # Adjust surface temperature to match new surface height
     if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
 
-    exit()
-
     # Adjust surface pressure to match new surface height
-    if adjust_sfc_pres:
-        hsa.adjust_surface_pressure(plev, ncol, temperature_mid,
-                                    pressure_mid, pressure_int,
-                                    phis_old, ps_old, 
-                                    phis_new, ps_new)
+    if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo, lev_coord_name='plev', debug=True )
 
     # Write the adjusted dataset back to the file
-    ds.to_netcdf(output_file_name)
+    # ds.to_netcdf(output_file_name)
 
 exit(f'\n{output_file_name}\n')
 
