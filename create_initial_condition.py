@@ -22,6 +22,7 @@
 import os
 import glob
 import datetime
+import numpy as np
 import xarray as xr
 import subprocess as sp
 import hiccup_data_class as hdc
@@ -29,8 +30,9 @@ import hiccup_state_adjustment as hsa
 
 verbose = True
 
+# These flags are just for debugging
 recreate_map_file = False
-remap_data_horz   = False
+remap_data_horz   = True
 
 # Adjustment options
 adjust_sfc_temp = True     # Adjust surface temperature to match new surface height
@@ -73,7 +75,7 @@ if recreate_map_file :
 # Horizontally remap the data
 # ------------------------------------------------------------------------------
 
-if False :
+if remap_data_horz :
 
   # Horizontally regrid the data
   hiccup_data.remap_horizontal(output_file_name=output_file_name)
@@ -93,18 +95,18 @@ if False :
 # ------------------------------------------------------------------------------
 if any([adjust_sfc_temp, adjust_sfc_pres]):
 
-    # Load the file into an xarray dataset
-    ds_data = xr.open_dataset(output_file_name)
-    ds_topo = xr.open_dataset(topo_file_name)
+  # Load the file into an xarray dataset
+  ds_data = xr.open_dataset(output_file_name).load()
+  ds_topo = xr.open_dataset(topo_file_name)
 
-    # Adjust surface temperature to match new surface height
-    if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
+  # Adjust surface temperature to match new surface height
+  if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
 
-    # Adjust surface pressure to match new surface height
-    if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo, lev_coord_name='plev', debug=True )
+  # Adjust surface pressure to match new surface height
+  if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo, lev_coord_name='lev', pressure_var_name='lev' )
 
-    # Write the adjusted dataset back to the file
-    # ds.to_netcdf(output_file_name)
+  # Write the adjusted dataset back to the file
+  ds_data.to_netcdf(output_file_name)
 
 exit(f'\n{output_file_name}\n')
 

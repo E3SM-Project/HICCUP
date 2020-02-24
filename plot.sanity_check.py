@@ -7,6 +7,7 @@ import os
 def main(fig_file='sanity_check',fig_type='png'):
 
    var = ['PS','T','Q','U']
+   # var = ['PS']
 
    klev = -5
 

@@ -9,6 +9,7 @@ import xarray as xr
 import subprocess as sp
 import shutil 
 import re
+import glob
 
 default_output_dir  = './'
 ncremap_alg         = ' --alg_typ=tempest '        # algorithm flag for ncremap
@@ -174,13 +175,13 @@ class hiccup_data(object):
             run_cmd(cmd,verbose,shell=True)
 
             # # Create scrip file while we're at it (can be slow)
-            # check_dependency('ConvertExodusToSCRIP')
-            # scrip_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
-            # cmd = 'ConvertExodusToSCRIP'
-            # cmd += f' --in {self.dst_grid_file} '
-            # cmd += f' --out {scrip_file} '
-            # cmd += f' >> {tempest_log_file}'
-            # run_cmd(cmd,verbose,shell=True)
+            check_dependency('ConvertExodusToSCRIP')
+            scrip_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
+            cmd = 'ConvertExodusToSCRIP'
+            cmd += f' --in {self.dst_grid_file} '
+            cmd += f' --out {scrip_file} '
+            cmd += f' >> {tempest_log_file}'
+            run_cmd(cmd,verbose,shell=True)
 
         else:
             raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
@@ -305,7 +306,7 @@ class hiccup_data(object):
         run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
-        run_cmd(f'rm {output_file_name} ',verbose)
+        if output_file_name in glob.glob('*') : run_cmd(f'rm {output_file_name} ',verbose)
 
         if verbose : print('\nCombining temporary remapped files...')
 
@@ -435,7 +436,7 @@ class ERA5(hiccup_data):
         """ rename file vars specific to this subclass """
         if verbose is None : verbose = hiccup_verbose
         
-        new_lev_name = 'plev'
+        new_lev_name = 'lev'
 
         # Rename pressure variable (needed for vertical remap)
         check_dependency('ncrename')

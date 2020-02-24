@@ -31,7 +31,7 @@ class state_adjustment_test_case(unittest.TestCase):
   #-----------------------------------------------------------------------------
   def test_adjust_surface_pressure(self):
     """ Does surface pressure interpolation give the right value? """
-    phis_int        = np.array([ 2.5e3, 1.5e3, 0.5e3 ])   # interface altitudes to define plev
+    phis_int        = np.array([ 3.5e3, 2.5e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3 ])   # interface altitudes to define plev
     phis_min        = np.min(phis_int)
     phis_new        = np.array([ phis_min-0.5e3, phis_min+0.5e3, phis_min ])
     plev            = len(phis_int)-1
@@ -52,13 +52,16 @@ class state_adjustment_test_case(unittest.TestCase):
     ts_old        = np.array(temperature_int[:,-1])
     phis_old      = np.array([phis_min]*ncol)
 
+    pressure_mid = pressure_mid[0,:]
+
     # Convert into dataset - then add dummy time dimension 
     # use .copy() to avoid creating a read-only dataset
     ds_data = xr.Dataset({'PHIS':xr.DataArray(phis_old,dims=['ncol'])
                          ,'PS'  :xr.DataArray(ps_old,dims=['ncol'])
                          ,'TS'  :xr.DataArray(ts_old,dims=['ncol'])
                          ,'T'   :xr.DataArray(temperature_mid,dims=['ncol','lev'])
-                         ,'plev':xr.DataArray(pressure_mid,dims=['ncol','lev'])
+                         # ,'plev':xr.DataArray(pressure_mid,dims=['ncol','lev'])
+                         ,'plev':xr.DataArray(pressure_mid,dims=['lev'])
                          # ,'Pint':xr.DataArray(pressure_int,dims=['ncol','lev'])
                          }
                          ,coords={'ncol':np.arange(ncol)
@@ -67,7 +70,7 @@ class state_adjustment_test_case(unittest.TestCase):
                         ).expand_dims(time=1,axis=0).copy(deep=True)
     ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
 
-    hsa.adjust_surface_pressure( ds_data, ds_topo )
+    hsa.adjust_surface_pressure( ds_data, ds_topo, debug=True )    
 
     # Get the adjusted surface pressure for value checking
     ps_new = ds_data['PS'].isel(time=0).values
