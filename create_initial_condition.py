@@ -52,7 +52,8 @@ topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 
 
 # Create data class instance, which includes xarray file dataset objects
-# and variable name dictionaries for mapping between naming conventions
+# and variable name dictionaries for mapping between naming conventions.
+# This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,atm_file='HICCUP_TEST.ERA5.atm.remap.nc'
                                     ,sfc_file='HICCUP_TEST.ERA5.sfc.remap.nc'
