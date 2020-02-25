@@ -31,8 +31,9 @@ import hiccup_state_adjustment as hsa
 verbose = True
 
 # These flags are just for debugging
-recreate_map_file = False
-remap_data_horz   = True
+create_map_file = False
+remap_data_horz = True
+remap_data_vert = True
 
 # Adjustment options
 adjust_sfc_temp = True     # Adjust surface temperature to match new surface height
@@ -44,8 +45,11 @@ adjust_cld_frac = False     # adjust cloud fraction to remove values outside of 
 
 output_file_name = 'HICCUP_TEST.output.nc'
 
+vert_file_name = 'vert_coord_L72.nc'
+
 # topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'
 topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions
@@ -56,20 +60,17 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
 
-# Check input files for for required variables
-hiccup_data.check_file_vars()   # cjones note: let's fold this into the create_hiccup_data() call
-
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 # ------------------------------------------------------------------------------
-if recreate_map_file :
+if create_map_file :
 
-    # Create grid description files needed for the mapping file
-    hiccup_data.create_src_grid_file()
-    hiccup_data.create_dst_grid_file()
+  # Create grid description files needed for the mapping file
+  hiccup_data.create_src_grid_file()
+  hiccup_data.create_dst_grid_file()
 
-    # Create mapping file
-    hiccup_data.create_map_file()
+  # Create mapping file
+  hiccup_data.create_map_file()
 
 # ------------------------------------------------------------------------------
 # Horizontally remap the data
@@ -116,16 +117,18 @@ if any([adjust_sfc_temp, adjust_sfc_pres]):
 # Vertically remap the data
 # ------------------------------------------------------------------------------
 
-# Specify temporary file for vertically interpolated output
-vert_tmp_file_name = output_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
+if remap_data_horz :
 
-# Do the vertical interpolation
-hiccup_data.remap_vertical(input_file_name=output_file_name
-                          ,output_file_name=vert_tmp_file_name
-                          ,vert_file_name=f'vert_coord_{hiccup_data.dst_vert_grid}.nc')
+  # Specify temporary file for vertically interpolated output
+  vert_tmp_file_name = output_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
 
-# Overwrite the output file with the vertically interpolated data
-hdc.run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
+  # Do the vertical interpolation
+  hiccup_data.remap_vertical(input_file_name=output_file_name
+                            ,output_file_name=vert_tmp_file_name
+                            ,vert_file_name=vert_file_name)
+
+  # Overwrite the output file with the vertically interpolated data
+  hdc.run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
 
 # ------------------------------------------------------------------------------
 # Perform state adjustments on interpolated data

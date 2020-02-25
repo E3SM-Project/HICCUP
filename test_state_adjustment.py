@@ -70,7 +70,7 @@ class state_adjustment_test_case(unittest.TestCase):
                         ).expand_dims(time=1,axis=0).copy(deep=True)
     ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
 
-    hsa.adjust_surface_pressure( ds_data, ds_topo, debug=True )    
+    hsa.adjust_surface_pressure( ds_data, ds_topo, debug=False )    
 
     # Get the adjusted surface pressure for value checking
     ps_new = ds_data['PS'].isel(time=0).values

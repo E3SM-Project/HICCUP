@@ -62,13 +62,18 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
     hiccup_verbose = verbose
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
-            return subclass(name
-                           ,atm_file=atm_file
-                           ,sfc_file=sfc_file
-                           ,dst_horz_grid=dst_horz_grid
-                           ,dst_vert_grid=dst_vert_grid
-                           ,output_dir=output_dir
-                           ,lev_type=lev_type)
+            # Create the object
+            obj = subclass(name
+                      ,atm_file=atm_file
+                      ,sfc_file=sfc_file
+                      ,dst_horz_grid=dst_horz_grid
+                      ,dst_vert_grid=dst_vert_grid
+                      ,output_dir=output_dir
+                      ,lev_type=lev_type)
+            # Check input files for for required variables
+            obj.check_file_vars()
+            # Return the object if everything checks out
+            return obj
     raise ValueError(f'{name} is not a valid HICCUP dataset name')
 # ------------------------------------------------------------------------------
 # Base Class
