@@ -47,7 +47,7 @@ output_file_name = 'HICCUP_TEST.output.nc'
 
 vert_file_name = 'vert_coord_L72.nc'
 
-# topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'
+# topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
 topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 
 
@@ -91,8 +91,6 @@ if remap_data_horz :
   # Clean up the global attributes of the file
   hiccup_data.clean_global_attributes(file_name=output_file_name)
 
-# exit(f'\n{output_file_name}\n')  # exit for testing purposes
-
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 if any([adjust_sfc_temp, adjust_sfc_pres]):
@@ -111,8 +109,6 @@ if any([adjust_sfc_temp, adjust_sfc_pres]):
 
   # Write the adjusted dataset back to the file
   ds_data.to_netcdf(output_file_name)
-
-# exit(f'\n{output_file_name}\n')  # exit for testing purposes
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
