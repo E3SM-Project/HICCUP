@@ -338,9 +338,10 @@ class hiccup_data(object):
             vert_remap_var_list = []
             ds = xr.open_dataset(input_file_name)
             for key in ds.variables.keys(): 
-                # if self.lev_name in ds[key].dims and key is not self.lev_name :
-                if self.lev_name in ds[key].dims and key!=self.lev_name :
-                    vert_remap_var_list.append(key)
+                vert_remap_var_list.append(key)
+                # only remap varaibles with lev coord - this ignores other variables like TS!
+                # if self.lev_name in ds[key].dims and key!=self.lev_name :
+                #     vert_remap_var_list.append(key)
         vert_remap_var_list = ','.join(vert_remap_var_list)
 
         # Perform the vertical remapping
@@ -376,15 +377,15 @@ class ERA5(hiccup_data):
         self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
         # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
         self.atm_var_name_dict.update({'U':'u'})            # zonal wind
-        # self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
-        # self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
-        # self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
-        # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
+        self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
+        self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
+        self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
+        self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
 
         # Surface variables
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
-        self.sfc_var_name_dict.update({'PHIS':'z'})        # skin temperature 
+        self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
         # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
         # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
         # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
@@ -436,7 +437,7 @@ class ERA5(hiccup_data):
         """ rename file vars specific to this subclass """
         if verbose is None : verbose = hiccup_verbose
         
-        new_lev_name = 'lev'
+        new_lev_name = 'plev'
 
         # Rename pressure variable (needed for vertical remap)
         check_dependency('ncrename')

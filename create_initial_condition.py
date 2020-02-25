@@ -89,7 +89,7 @@ if remap_data_horz :
   # Clean up the global attributes of the file
   hiccup_data.clean_global_attributes(file_name=output_file_name)
 
-# exit(f'\n{output_file_name}\n')
+# exit(f'\n{output_file_name}\n')  # exit for testing purposes
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -103,29 +103,29 @@ if any([adjust_sfc_temp, adjust_sfc_pres]):
   if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
 
   # Adjust surface pressure to match new surface height
-  if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo, lev_coord_name='lev', pressure_var_name='lev' )
+  if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo \
+                                                   ,lev_coord_name='plev' \
+                                                   ,pressure_var_name='plev' )
 
   # Write the adjusted dataset back to the file
   ds_data.to_netcdf(output_file_name)
 
-exit(f'\n{output_file_name}\n')
+# exit(f'\n{output_file_name}\n')  # exit for testing purposes
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 # ------------------------------------------------------------------------------
 
-# Define list of variables that will be vertical remapped
-# vert_remap_var_list = 'T,Q,U,V,P0,PS,PHIS,CLDLIQ,CLDICE,O3,date,datesec,hyam,hybm,hyai,hybi,lev,ilev'
-# vert_remap_var_list = 'T,Q,U,V,P0,PS,CLDLIQ,CLDICE,O3'
-# vert_remap_var_list = 'T'
-
+# Specify temporary file for vertically interpolated output
 vert_tmp_file_name = output_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
 
+# Do the vertical interpolation
 hiccup_data.remap_vertical(input_file_name=output_file_name
                           ,output_file_name=vert_tmp_file_name
                           ,vert_file_name=f'vert_coord_{hiccup_data.dst_vert_grid}.nc')
 
-sp.call(f'mv {vert_tmp_file_name} {output_file_name} '.split())
+# Overwrite the output file with the vertically interpolated data
+hdc.run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
 
 # ------------------------------------------------------------------------------
 # Perform state adjustments on interpolated data
