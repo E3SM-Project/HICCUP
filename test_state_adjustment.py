@@ -105,16 +105,24 @@ class state_adjustment_test_case(unittest.TestCase):
   def test_remove_supersaturation(self):
     """ do supersaturated values get limited correctly? """
     temperature_in = 300
-    pressure_in    = 1010e2
-    qv_sat = hsa.calculate_qv_sat_liq(temperature_in,pressure_in/1e2)
+    pressure_in    = 1010
+    qv_sat = hsa.calculate_qv_sat_liq(temperature_in,pressure_in)
     qv = xr.DataArray(np.array([ 1.1*qv_sat , 1.0*qv_sat , 0.9*qv_sat ]))
     ncol = len(qv.values)
     temperature = xr.DataArray([temperature_in]*ncol)
     pressure    = xr.DataArray([pressure_in]   *ncol)
-    hsa.remove_supersaturation( qv, temperature, pressure )
-    rh_out = qv/qv_sat
+
+    # Convert into dataset
+    ds = xr.Dataset({'Q'  :xr.DataArray(qv,dims=['ncol'])
+                    ,'T'  :xr.DataArray(temperature,dims=['ncol'])
+                    ,'plev':xr.DataArray(pressure,dims=['ncol'])
+                    }, coords={'ncol':np.arange(ncol)} )
+
+    hsa.remove_supersaturation( ds )
+
+    rh_out = ds['Q'].values/qv_sat
     expected_answer = np.array([1.0, 1.0, 0.9])
-    self.assertTrue( np.all( np.abs(rh_out.values-expected_answer)<1e-10 ) )
+    self.assertTrue( np.all( np.abs(rh_out-expected_answer)<1e-10 ) )
   #-----------------------------------------------------------------------------
   # def test_dry_mass_fixer(self):
   #   """ """

@@ -216,7 +216,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def remove_supersaturation( qv, temperature, pressure ):
+def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev' ):
   """
   Adjust the surface temperature based on new surace height assumed lapse rate 
     ncol            # columns
@@ -226,19 +226,50 @@ def remove_supersaturation( qv, temperature, pressure ):
   """
   qv_min = 1.0e-9   # minimum specific humidity value allowed
 
+  if hybrid_lev :
+    pressure = get_pressure_from_hybrid(ds)
+  else :
+    pressure = ds[pressure_var_name]
+
   # Calculate saturation specific humidity
-  qv_sat = calculate_qv_sat_liq(temperature,pressure/1e2)
+  qv_sat = calculate_qv_sat_liq(ds['T'],pressure)
 
   # The following check is to avoid the generation of negative values
   # that can occur in the upper stratosphere and mesosphere
-  qv_sat = qv_sat.where(qv_sat>=0.0,other=1.0)
+  qv_sat = xr.where(qv_sat>=0.0,qv_sat,1.0)
 
   # Calculate relative humidity for limiter
-  rh = qv / qv_sat
+  rh = ds['Q'].values / qv_sat.values
+
+  # save attributes to restore later
+  tmp_attrs = ds['Q'].attrs
 
   # Apply limiter conditions
-  qv.values = xr.where(rh>1.,qv_sat,qv)
-  qv.values = xr.where(rh<0.,qv_min,qv)
+  ds['Q'] = xr.where(rh>1.,qv_sat,ds['Q'])
+  ds['Q'] = xr.where(rh<0.,qv_min,ds['Q'])
+
+  # restore attributes
+  ds['Q'].attrs = tmp_attrs
+
+  return
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def adjust_cld_wtr( ds ):
+  """
+  """
+  ds['CLDLIQ'] = xr.where(ds['CLDLIQ']>=0, ds['CLDLIQ'], 0. )
+  ds['CLDICE'] = xr.where(ds['CLDICE']>=0, ds['CLDICE'], 0. )
+  return
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def adjust_cloud_fraction( ds, frac_var_name='FRAC'):
+  """
+  """
+  ds[frac_var_name] = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
+  ds[frac_var_name] = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
+  return
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -280,6 +311,25 @@ def calculate_qv_sat_ice( temperature, pressure ):
   qv_sat = r_sat / ( 1 + r_sat )
 
   return qv_sat
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def get_pressure_from_hybrid( ds, a_coeff_name='hyam', b_coeff_name='hybm' ):
+  """
+  Calculate 3D pressure field from hybrid vertical coordinates
+  following the formulation for CESM/E3SM
+  """
+  pressure = ds[a_coeff_name] * ds['P0'] + ds[b_coeff_name] * ds['PS']
+  
+  # Make sure dimensions are in correct order for mid-point levels
+  if a_coeff_name=='hyam' and all(d in ds.dims for d in ['time','lev','ncol']):
+    pressure = pressure.transpose('time','lev','ncol')
+  
+  # Make sure dimensions are in correct order for interface levels
+  if a_coeff_name=='hyai' and all(d in ds.dims for d in ['time','ilev','ncol']):
+    pressure = pressure.transpose('time','ilev','ncol')
+  
+  return pressure
+
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 # def dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out ):
