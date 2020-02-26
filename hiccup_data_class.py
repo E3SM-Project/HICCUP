@@ -11,8 +11,13 @@ import shutil
 import re
 import glob
 
+# use current path as default output location
 default_output_dir  = './'
-ncremap_alg         = ' --alg_typ=tempest '        # algorithm flag for ncremap
+
+# algorithm flag for ncremap
+ncremap_alg         = ' --alg_typ=tempest '        
+
+# log file for Tempest output
 tempest_log_file    = 'TempestRemap.log'
 
 hiccup_verbose = False
@@ -194,9 +199,11 @@ class hiccup_data(object):
         return 
     # --------------------------------------------------------------------------
     def create_map_file(self,verbose=None):
-        """ Generate mapping file aftergrid files have been created """
+        """ Generate mapping file after grid files have been created """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating mapping file...')
+
+        check_dependency('ncremap')
 
         # Check that grid file fields are not empty
         if self.src_grid_file == None : 
@@ -212,8 +219,7 @@ class hiccup_data(object):
             self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
         else:
             self.map_opts = self.map_opts+' --out_type fv --out_np 1 --volumetric '
-
-        check_dependency('ncremap')
+        
         cmd = f'ncremap {ncremap_alg} '
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
@@ -257,15 +263,12 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdding reference pressure (P0)...')
 
-        import os 
-
         check_dependency('ncap2')
+        check_dependency('ncatted')
 
         # Add the variable
         run_cmd(f"ncap2 --create_ram --no_tmp_fl --hst -A -s 'P0=100000.' {file_name} {file_name}",
                 verbose,prefix='  ',suffix='',shell=True)
-
-        check_dependency('ncatted')
 
         # add long_name attribute
         run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' {file_name}",
@@ -291,6 +294,7 @@ class hiccup_data(object):
         sfc_tmp_file_name = './tmp_sfc_data.nc'
 
         check_dependency('ncremap')
+        check_dependency('ncks')
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
@@ -315,8 +319,6 @@ class hiccup_data(object):
 
         if verbose : print('\nCombining temporary remapped files...')
 
-        check_dependency('ncks')
-
         # Add atmosphere temporary file data into the final output file
         run_cmd(f'ncks -A {atm_tmp_file_name} {output_file_name} ',
                 verbose,prefix='  ',suffix='')
@@ -337,6 +339,8 @@ class hiccup_data(object):
         """  Vertically remap data and combine into single file """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nVertically remapping the data...')
+
+        check_dependency('ncremap')
 
         # Build variable list from the input file if not supplied
         if vert_remap_var_list is None :
@@ -426,13 +430,13 @@ class ERA5(hiccup_data):
         run_cmd(f'rm {self.src_grid_file} ',verbose)
 
         check_dependency('ncremap')
+
         cmd  = f'ncremap {ncremap_alg} ' 
         cmd += f' --tmp_dir=./tmp'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
         cmd += f'#latlon={self.nlat},{self.nlon}'                    
         cmd +=  '#lat_typ=uni'
         cmd +=  '#lat_drc=n2s'
-        # cmd +=  '#lat_drc=s2n'
         cmd +=  '#lon_typ=grn_ctr '
         cmd += f' -g {self.src_grid_file} '
         run_cmd(cmd,verbose,shell=True)
@@ -444,8 +448,12 @@ class ERA5(hiccup_data):
         
         new_lev_name = 'plev'
 
-        # Rename pressure variable (needed for vertical remap)
         check_dependency('ncrename')
+        check_dependency('ncap2')
+        check_dependency('ncatted')
+        check_dependency('ncks')
+
+        # Rename pressure variable (needed for vertical remap)
         run_cmd(f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}',
             verbose,shell=True)
 
@@ -453,7 +461,6 @@ class ERA5(hiccup_data):
         self.lev_name = new_lev_name
 
         # change pressure variable type to double and units to Pascals (needed for vertical remap)
-        check_dependency('ncap2')
         run_cmd(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}",
                 verbose,prefix='  ',suffix='',shell=True)
 
@@ -462,7 +469,6 @@ class ERA5(hiccup_data):
                 verbose,prefix='  ',suffix='',shell=True)
 
         # Remove lat/lon vertices variables since they are not needed
-        check_dependency('ncks')
         run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
             verbose,shell=True)
 
@@ -477,6 +483,8 @@ class ERA5(hiccup_data):
                            'input_file', 'map_file', 'remap_version', 'remap_hostname', 
                            'remap_command', 'remap_script', 'NCO' ]
         
+        check_dependency('ncatted')
+
         # Remove the attributes listed in global_att_list
         for att in global_att_list:
             run_cmd(f'ncatted -O -a {att},global,d,, {file_name} {file_name}',
