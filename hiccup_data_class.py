@@ -427,7 +427,8 @@ class ERA5(hiccup_data):
         if verbose : print('\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
-        run_cmd(f'rm {self.src_grid_file} ',verbose)
+        if self.src_grid_file in glob.glob('*') : 
+            run_cmd(f'rm {self.src_grid_file} ',verbose)
 
         check_dependency('ncremap')
 

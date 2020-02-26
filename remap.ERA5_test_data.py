@@ -4,11 +4,13 @@ import glob
 import subprocess
 pwd = os.getenv('PWD')
 
-# The user might need to "unpack" the data if downloaded directly from CDS
-# example: ncpdq -U HICCUP_TEST.ERA5.sfc.nc ERA5.HICCUP_TEST.sfc.upack.nc
+# The user likely needs to "unpack" the data if downloaded directly from CDS
+# examples: 
+# ncpdq -U HICCUP_TEST.ERA5.atm.nc HICCUP_TEST.ERA5.atm.upack.nc
+# ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
 
 src_file_name = 'HICCUP_TEST.ERA5.sfc.upack.nc'
-dst_file_name = src_file_name.replace('.upack.nc','.remap.nc')
+dst_file_name = src_file_name.replace('.upack.nc','.low-res.nc')
 
 nlat_src,nlon_src = 721,1440
 nlat_dst,nlon_dst = 180,360

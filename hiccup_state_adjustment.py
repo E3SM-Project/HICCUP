@@ -127,7 +127,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # very high (T_ref1) or low (T_ref2) temperatures 
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.1
-  condition =  np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
+  condition = np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
   alpha = xr.where(condition, Rdair/ds_topo['PHIS']*(T_ref1-Tstar) ,alpha)
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.2
