@@ -55,8 +55,8 @@ topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    ,atm_file='HICCUP_TEST.ERA5.atm.remap.nc'
-                                    ,sfc_file='HICCUP_TEST.ERA5.sfc.remap.nc'
+                                    ,atm_file='HICCUP_TEST.ERA5.atm.low-res.nc'
+                                    ,sfc_file='HICCUP_TEST.ERA5.sfc.low-res.nc'
                                     ,dst_horz_grid='ne30pg2'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
