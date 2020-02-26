@@ -61,6 +61,10 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
 
+# override the xarray default netcdf format of 
+# NETCDF4 to avoid file permission issue
+nc_format = 'NETCDF3_64BIT'
+
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 # ------------------------------------------------------------------------------
@@ -96,21 +100,20 @@ if remap_data_horz :
 if any([adjust_sfc_temp, adjust_sfc_pres]):
 
   # Load the file into an xarray dataset
-  # ds_data = xr.open_dataset(output_file_name).load()
-  with xr.open_dataset(output_file_name).load() as ds_data:
-    ds_topo = xr.open_dataset(topo_file_name)
+  ds_data = xr.open_dataset(output_file_name).load()
+  ds_topo = xr.open_dataset(topo_file_name)
 
-    # Adjust surface temperature to match new surface height
-    if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
+  # Adjust surface temperature to match new surface height
+  if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
 
-    # Adjust surface pressure to match new surface height
-    if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo \
-                                                     ,lev_coord_name='plev' \
-                                                     ,pressure_var_name='plev' )
+  # Adjust surface pressure to match new surface height
+  if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo \
+                                                   ,lev_coord_name='plev' \
+                                                   ,pressure_var_name='plev' )
 
   # Write the adjusted dataset back to the file
-  # ds_data.to_netcdf(output_file_name)
-  # ds_data.close()
+  ds_data.to_netcdf(output_file_name,format=nc_format)
+  ds_data.close()
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
@@ -136,20 +139,23 @@ if remap_data_vert :
 if any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
 
   # Load the file into an xarray dataset
-  with xr.open_dataset(output_file_name).load() as ds_data:
+  ds_data = xr.open_dataset(output_file_name).load()
 
-    # adjust water vapor to eliminate supersaturation
-    if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
+  # adjust water vapor to eliminate supersaturation
+  if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
 
-    # adjust cloud water to remove negative values?
-    if adjust_cld_wtr : hsa.adjust_cld_wtr( ds_data )
+  # adjust cloud water to remove negative values?
+  if adjust_cld_wtr : hsa.adjust_cld_wtr( ds_data )
 
-    # adjust cloud fraction to remove values outside of [0,1]
-    if adjust_cld_frac : hsa.adjust_cloud_fraction( ds_data )
+  # adjust cloud fraction to remove values outside of [0,1]
+  if adjust_cld_frac : hsa.adjust_cloud_fraction( ds_data )
 
-    # adjust surface pressure to retain dry mass of atmosphere
-    if adjust_glb_mass : hsa.dry_mass_fixer( ds_data )
+  # adjust surface pressure to retain dry mass of atmosphere
+  if adjust_glb_mass : hsa.dry_mass_fixer( ds_data )
 
+  # Write the adjusted dataset to the file
+  ds_data.to_netcdf(output_file_name,format=nc_format)
+  ds_data.close()
 
 # ------------------------------------------------------------------------------
 # Print final output file name
