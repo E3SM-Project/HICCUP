@@ -99,6 +99,7 @@ if remap_data_horz :
   hiccup_data.clean_global_attributes(file_name=output_file_name)
 
 # ------------------------------------------------------------------------------
+# Adjust sfc temperature and pressure before vertical interpolation
 # ------------------------------------------------------------------------------
 if any([adjust_sfc_temp, adjust_sfc_pres]):
 
@@ -171,7 +172,7 @@ hiccup_data.add_time_date_variables( ds_data )
 # hiccup_data.add_extra_data_variables( ds_data )
 
 # Write the final dataset back to the file
-ds_data.to_netcdf(output_file_name,mode='w',format=nc_format)
+ds_data.to_netcdf(output_file_name,format=nc_format)
 ds_data.close()
 
 # ------------------------------------------------------------------------------
