@@ -31,6 +31,10 @@ DATA FOR TESTING AND DEVELOPMENT
 a low-resolution version of ERA5 pressure level data is included in this repo:
   HICCUP_TEST.ERA5.atm.low-res.nc
   HICCUP_TEST.ERA5.sfc.low-res.nc
-To aquire new test data, use the get_ERA5_data.py script, followed by running:
+To aquire new test data, use the get_ERA5_data.py script, follwed by unpacking 
+the data with the following command:
+  ncpdq -U HICCUP_TEST.ERA5.atm.nc HICCUP_TEST.ERA5.atm.upack.nc
+  ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
+followed by running (check to make sure file names match):
   remap.ERA5_test_data.py
 which is a simple script for reducing the resolution of the test data
