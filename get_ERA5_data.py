@@ -70,7 +70,7 @@ if get_sfc:
         'format'        : 'netcdf',
         'variable'      : ['surface_pressure'
                           ,'skin_temperature'
-                          # ,'sea_surface_temperature'
+                          ,'sea_surface_temperature'
                           ,'soil_temperature_level_1'
                           ,'soil_temperature_level_2'
                           ,'soil_temperature_level_3'

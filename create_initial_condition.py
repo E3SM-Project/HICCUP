@@ -43,23 +43,25 @@ adjust_cld_wtr  = False     # adjust cloud water to remove negative values
 adjust_cld_frac = False     # adjust cloud fraction to remove values outside of [0,1]
 adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmosphere
 
-output_file_name = 'HICCUP_TEST.output.nc'
+output_file_name = 'data/HICCUP_TEST.output.nc'
 
 vert_file_name = 'vert_coord_L72.nc'
 
 # topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
-# topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
-topo_file_name = 'USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+# topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    # ,atm_file='HICCUP_TEST.ERA5.atm.low-res.nc'
-                                    # ,sfc_file='HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    ,atm_file='HICCUP_TEST.ERA5.atm.upack.nc'
-                                    ,sfc_file='HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
+                                    ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
+                                    # ,atm_file='data/HICCUP_TEST.ERA5.atm.upack.nc'
+                                    # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    # ,sst_file='data/sst.day.mean.2018.nc'
+                                    # ,ice_file='data/icec.day.mean.2018.nc'
                                     ,dst_horz_grid='ne30np4'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)

@@ -11,8 +11,10 @@ import shutil
 import re
 import glob
 
-# use current path as default output location
-default_output_dir  = './'
+# default output paths
+default_output_dir  = './data/'
+default_grid_dir    = './grid_files/'
+default_map_dir     = './map_files/'
 
 # algorithm flag for ncremap
 ncremap_alg         = ' --alg_typ=tempest '        
@@ -61,7 +63,8 @@ def check_dependency(cmd):
 # Method for returning class object
 # ------------------------------------------------------------------------------
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
-                       output_dir=default_output_dir,lev_type='',verbose=False):
+                       output_dir=default_output_dir,grid_dir=default_grid_dir,
+                       map_dir=default_map_dir,lev_type='',verbose=False):
     """ Return HICCUP data class object """
     global hiccup_verbose
     hiccup_verbose = verbose
@@ -74,6 +77,8 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                       ,dst_horz_grid=dst_horz_grid
                       ,dst_vert_grid=dst_vert_grid
                       ,output_dir=output_dir
+                      ,grid_dir=grid_dir
+                      ,map_dir=map_dir
                       ,lev_type=lev_type)
             # Check input files for for required variables
             obj.check_file_vars()
@@ -86,7 +91,8 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
 class hiccup_data(object):
     """ Base class for HICCUP data object """
     def __init__(self,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
-                 output_dir=default_output_dir,lev_type=''):
+                 output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 map_dir=default_map_dir,lev_type=''):
         self.lev_type = lev_type
         self.atm_file = atm_file
         self.sfc_file = sfc_file
@@ -103,9 +109,17 @@ class hiccup_data(object):
         self.map_file = None
 
         # Make sure output directory is formatted correctly
-        if output_dir=='' : output_dir = './'
+        if output_dir=='' or output_dir==None : output_dir = './'
         if not output_dir.endswith('/'): output_dir += '/'
         self.output_dir = output_dir
+
+        if grid_dir=='' or grid_dir==None : grid_dir = './'
+        if not grid_dir.endswith('/'): grid_dir += '/'
+        self.grid_dir = grid_dir
+
+        if map_dir=='' or map_dir==None : map_dir = './'
+        if not map_dir.endswith('/'): map_dir += '/'
+        self.map_dir = map_dir
 
         # Load input files into xarray datasets
         self.ds_atm = xr.open_dataset(self.atm_file)
@@ -154,7 +168,7 @@ class hiccup_data(object):
             
             # Spectral element grid with physics on GLL nodes
             ne = re.search('ne(.*)np', self.dst_horz_grid).group(1)
-            self.dst_grid_file = self.output_dir+f'exodus_ne{ne}.g'
+            self.dst_grid_file = self.grid_dir+f'exodus_ne{ne}.g'
             
             check_dependency('GenerateCSMesh')
             cmd = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
@@ -166,7 +180,7 @@ class hiccup_data(object):
             # Spectral element grid with FV physics grid (ex. ne30pg2)
             ne  = re.search('ne(.*)pg', self.dst_horz_grid).group(1)
             npg = re.search('pg(.*)', self.dst_horz_grid).group(1)
-            exodus_file = self.output_dir+f'exodus_ne{ne}.g'
+            exodus_file = self.grid_dir+f'exodus_ne{ne}.g'
 
             # First create exodus file
             check_dependency('GenerateCSMesh')
@@ -175,7 +189,7 @@ class hiccup_data(object):
             run_cmd(cmd,verbose,shell=True)
             
             # Next switch to volumetric mesh that matches the physgrid
-            self.dst_grid_file = self.output_dir+f'exodus_{self.dst_horz_grid}.nc'
+            self.dst_grid_file = self.grid_dir+f'exodus_{self.dst_horz_grid}.nc'
             check_dependency('GenerateVolumetricMesh')
             cmd = 'GenerateVolumetricMesh'
             cmd += f' --in {exodus_file} '
@@ -186,7 +200,7 @@ class hiccup_data(object):
 
             # # Create scrip file while we're at it (can be slow)
             check_dependency('ConvertExodusToSCRIP')
-            scrip_file = self.output_dir+f'scrip_{self.dst_horz_grid}.nc'
+            scrip_file = self.grid_dir+f'scrip_{self.dst_horz_grid}.nc'
             cmd = 'ConvertExodusToSCRIP'
             cmd += f' --in {self.dst_grid_file} '
             cmd += f' --out {scrip_file} '
@@ -246,7 +260,7 @@ class hiccup_data(object):
             # so make them optional by adding a preceeding dot
             if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
             # print the command and execute
-            run_cmd(cmd,verbose,prefix='  ',suffix='')
+            run_cmd(cmd,verbose,prefix='  ',suffix='',shell=True)
 
         if verbose : print('\n Renaming ATM vars... \n')
         for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
@@ -468,11 +482,15 @@ class ERA5(hiccup_data):
     @classmethod
     def is_name_for(cls,name) : return name == 'ERA5'
     def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
-                 output_dir=default_output_dir,lev_type=''):
+                 output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 map_dir=default_map_dir,lev_type=''):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
                         ,dst_vert_grid=dst_vert_grid
+                        ,output_dir=output_dir
+                        ,grid_dir=grid_dir
+                        ,map_dir=map_dir
                         ,lev_type=lev_type)
         
         self.name = 'ERA5'
@@ -516,9 +534,9 @@ class ERA5(hiccup_data):
         self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
 
         self.src_grid_name = f'{self.nlat}x{self.nlon}'
-        self.src_grid_file = self.output_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
+        self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
 
-        self.map_file = self.output_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
+        self.map_file = self.map_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
 
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):
