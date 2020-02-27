@@ -10,6 +10,7 @@ import subprocess as sp
 import shutil 
 import re
 import glob
+import os
 
 # default output paths
 default_output_dir  = './data/'
@@ -65,7 +66,10 @@ def check_dependency(cmd):
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                        output_dir=default_output_dir,grid_dir=default_grid_dir,
                        map_dir=default_map_dir,lev_type='',verbose=False):
-    """ Return HICCUP data class object """
+    """ 
+    Create HICCUP data class object, check for required input variables and 
+    create specified output directories if they do not exist
+    """
     global hiccup_verbose
     hiccup_verbose = verbose
     for subclass in hiccup_data.__subclasses__():
@@ -80,8 +84,15 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                       ,grid_dir=grid_dir
                       ,map_dir=map_dir
                       ,lev_type=lev_type)
+            
             # Check input files for for required variables
             obj.check_file_vars()
+
+            # Create the output, grid, and map folders if they do not exist
+            if not os.path.exists(output_dir) : os.makedirs(output_dir)
+            if not os.path.exists(grid_dir)   : os.makedirs(grid_dir)
+            if not os.path.exists(map_dir)    : os.makedirs(map_dir)
+
             # Return the object if everything checks out
             return obj
     raise ValueError(f'{name} is not a valid HICCUP dataset name')
