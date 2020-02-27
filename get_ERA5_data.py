@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# Script for downloading ERA5 pressure level and surface data
+# links to CDS web interface:
+#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
+#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels
+# A list of available variables can also be found in the ERA5 documentation:
+#   https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+
 import os
 import cdsapi
 server = cdsapi.Client()
@@ -63,23 +70,24 @@ if get_sfc:
         'format'        : 'netcdf',
         'variable'      : ['surface_pressure'
                           ,'skin_temperature'
-                          ,'sea_surface_temperature'
+                          # ,'sea_surface_temperature'
                           ,'soil_temperature_level_1'
                           ,'soil_temperature_level_2'
                           ,'soil_temperature_level_3'
                           ,'soil_temperature_level_4'
-                          ,'leaf_area_index_high_vegetation'
-                          ,'leaf_area_index_low_vegetation'
-                          ,'skin_reservoir_content'
-                          ,'snow_albedo'
-                          ,'snow_density'
+                          # ,'leaf_area_index_high_vegetation'
+                          # ,'leaf_area_index_low_vegetation'
+                          # ,'skin_reservoir_content'
+                          # ,'snow_albedo'
+                          # ,'snow_density'
                           ,'snow_depth'
                           ,'temperature_of_snow_layer'
-                          ,'volumetric_soil_water_layer_1'
-                          ,'volumetric_soil_water_layer_2'
-                          ,'volumetric_soil_water_layer_3'
-                          ,'volumetric_soil_water_layer_4'
+                          # ,'volumetric_soil_water_layer_1'
+                          # ,'volumetric_soil_water_layer_2'
+                          # ,'volumetric_soil_water_layer_3'
+                          # ,'volumetric_soil_water_layer_4'
                           ,'orography'
+                          ,'sea_ice_cover'
                           ],
     }, output_file_sfc)
 #-------------------------------------------------------------------------------

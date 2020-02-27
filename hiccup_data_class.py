@@ -362,6 +362,105 @@ class hiccup_data(object):
         run_cmd(cmd,verbose,shell=True)
 
         return
+
+    # --------------------------------------------------------------------------
+    def add_time_date_variables(self,ds):
+        """
+        Check final output file and add necessary time and date information
+        """
+        time_shape = ( len(ds['time']) )
+        time_coord = {'time':ds['time']}
+        time_dim   = ['time']
+
+        # Change time attributes
+        # ds['time'].attrs['calendar'] = 'noleap'       # this causes xarray to throw an error
+        ds['time'].attrs['bounds'] = 'time_bnds'
+
+        # add time_bnds variable
+        time_bnds = np.full( (len(ds['time']),2), 0. )
+        for t in range(len(ds['time'])) : time_bnds[t,:] = ds['time'].values
+        ds['time_bnds'] = xr.DataArray( time_bnds, coords=time_coord, dims=['time','nbnd'] )
+        ds['time_bnds'].attrs['long_name'] = 'time interval endpoints'
+
+        # Other miscellaneous time/date variables
+        if 'date' not in ds.variables :
+            ds['date'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['date'].attrs['long_name'] = 'current date (YYYYMMDD)'
+
+        if 'datesec' not in ds.variables :
+            ds['datesec'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['datesec'].attrs['long_name'] = 'current seconds of current date'
+
+        if 'ndbase' not in ds.variables :
+            ds['ndbase'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['ndbase'].attrs['long_name'] = 'base day'
+
+        if 'nsbase' not in ds.variables :
+            ds['nsbase'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int),
+                                        coords=time_coord, dims=time_dim )
+            ds['nsbase'].attrs['long_name'] = 'seconds of base day'
+
+        if 'nbdate' not in ds.variables :
+            ds['nbdate'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nbdate'].attrs['long_name'] = 'base date (YYYYMMDD)'
+
+        if 'nbsec' not in ds.variables :
+            ds['nbsec'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nbsec'].attrs['long_name'] = 'seconds of base date'
+
+        if 'ndcur' not in ds.variables :
+            ds['ndcur'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['ndcur'].attrs['long_name'] = 'current day (from base day)'
+
+        if 'nscur' not in ds.variables :
+            ds['nscur'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nscur'].attrs['long_name'] = 'current seconds of current day'
+
+        if 'nsteph' not in ds.variables :
+            ds['nsteph'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nsteph'].attrs['long_name'] = 'current timestep'
+
+        # if 'date_written' not in ds.variables :
+        #     ds['date_written'] = xr.DataArray( np.full(time_shape,0.), coords=time_coord, dims=time_dim )
+        #     ds['date_written'].attrs['long_name'] = ''
+
+        # if 'time_written' not in ds.variables :
+        #     ds['time_written'] = xr.DataArray( np.full(time_shape,0.), coords=time_coord, dims=time_dim )
+        #     ds['time_written'].attrs['long_name'] = ''
+
+        return
+
+    # --------------------------------------------------------------------------
+    def add_extra_data_variables(self,ds) :
+        """
+        Check final output file and add other data variables needed by the model
+        """
+        shape_2D = ( len(ds['time']), len(ds['ncol']) )
+        shape_3D = ( len(ds['time']), len(ds['lev']), len(ds['ncol']) )
+        coord_2D = {'time':ds['time'], 'ncol':ds['ncol'] }
+        coord_3D = {'time':ds['time'], 'lev':ds['lev'], 'ncol':ds['ncol'] }
+        dims_2D  = ['time','ncol']
+        dims_3D  = ['time','lev','ncol']
+
+        if 'NUMICE' not in ds.variables :
+            ds['NUMICE'] = xr.DataArray( np.full(shape_3D,0.), coords=coord_3D, dims=dims_3D )
+            ds['NUMICE'].attrs['units'] = 'kg/kg'
+            ds['NUMICE'].attrs['long_name'] = 'Grid box averaged cloud ice number'
+
+        if 'NUMLIQ' not in ds.variables :
+            ds['NUMLIQ'] = xr.DataArray( np.full(shape_3D,0.), coords=coord_3D, dims=dims_3D )
+            ds['NUMLIQ'].attrs['units'] = 'kg/kg'
+            ds['NUMLIQ'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
+        
+        return
 # ------------------------------------------------------------------------------
 # Subclasses
 # ------------------------------------------------------------------------------
@@ -396,17 +495,18 @@ class ERA5(hiccup_data):
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
         self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
         # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
-        # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        # self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        # self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})    # Sea ice area fraction
+        self.sfc_var_name_dict.update({'SNOWHICE':'sd'})     # Snow depth 
+        # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
+        # self.sfc_var_name_dict.update({'':'rsn'})          # Snow density 
+        # self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
         # self.sfc_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
         # self.sfc_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
         # self.sfc_var_name_dict.update({'':'src'})          # Skin reservoir content 
-        # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
-        # self.sfc_var_name_dict.update({'':'rsn'})          # Snow density 
-        # self.sfc_var_name_dict.update({'':'sd'})           # Snow depth 
-        # self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
         # self.sfc_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
         # self.sfc_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
         # self.sfc_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 

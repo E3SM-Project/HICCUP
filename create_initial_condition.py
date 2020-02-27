@@ -48,7 +48,8 @@ output_file_name = 'HICCUP_TEST.output.nc'
 vert_file_name = 'vert_coord_L72.nc'
 
 # topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
-topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+# topo_file_name = 'USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+topo_file_name = 'USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
 
 # Create data class instance, which includes xarray file dataset objects
@@ -59,7 +60,7 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     # ,sfc_file='HICCUP_TEST.ERA5.sfc.low-res.nc'
                                     ,atm_file='HICCUP_TEST.ERA5.atm.upack.nc'
                                     ,sfc_file='HICCUP_TEST.ERA5.sfc.upack.nc'
-                                    ,dst_horz_grid='ne30pg2'
+                                    ,dst_horz_grid='ne30np4'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
 
@@ -158,6 +159,20 @@ if any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
   # Write the adjusted dataset to the file
   ds_data.to_netcdf(output_file_name,format=nc_format)
   ds_data.close()
+
+# ------------------------------------------------------------------------------
+# Add any additional data to file
+# ------------------------------------------------------------------------------
+
+# Load the file into an xarray dataset
+ds_data = xr.open_dataset(output_file_name).load()
+
+hiccup_data.add_time_date_variables( ds_data )
+# hiccup_data.add_extra_data_variables( ds_data )
+
+# Write the final dataset back to the file
+ds_data.to_netcdf(output_file_name,mode='w',format=nc_format)
+ds_data.close()
 
 # ------------------------------------------------------------------------------
 # Print final output file name
