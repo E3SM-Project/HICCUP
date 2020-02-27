@@ -138,15 +138,21 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def __str__(self):
         str_out = ''
+        fmt_key_len = 18
         for key in self.__dict__.keys(): 
             attribute = getattr(self,key)
             if isinstance(attribute,dict):
-                str_out = str_out+f'  {key:15}:\n'
+                str_out += f'  {key:{fmt_key_len}}:\n'
                 for k in attribute.keys(): 
-                    str_out = str_out+f'      {k:8}  {attribute[k]}\n'
+                    str_out += ' '*(fmt_key_len+4)+f'{k:8}  {attribute[k]}\n'
+            elif isinstance(attribute, xr.Dataset) : 
+                str_out += f'  {key:{fmt_key_len}}:'
+                ds_str = attribute.__str__().replace('\n','\n'+' '*(fmt_key_len+4))
+                str_out += f'  {ds_str}\n'
             else:
                 if attribute!='' :
-                    str_out = str_out+f'  {key:15}:  {attribute}\n'
+                    str_out += f'  {key:{fmt_key_len}}:  {attribute}\n'
+
         return str_out
     # --------------------------------------------------------------------------
     def check_file_vars(self):
