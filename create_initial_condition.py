@@ -137,13 +137,14 @@ if remap_data_vert :
   hdc.run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
 
 # ------------------------------------------------------------------------------
-# Perform state adjustments on interpolated data
+# Perform state adjustments on interpolated data and add additional data
 # ------------------------------------------------------------------------------
 
-if any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
-
-  # Load the file into an xarray dataset
+# Load the file into an xarray dataset
   ds_data = xr.open_dataset(output_file_name).load()
+
+# Make state adjustments
+if any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
 
   # adjust water vapor to eliminate supersaturation
   if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
@@ -161,14 +162,10 @@ if any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
   ds_data.to_netcdf(output_file_name,format=nc_format)
   ds_data.close()
 
-# ------------------------------------------------------------------------------
-# Add any additional data to file
-# ------------------------------------------------------------------------------
-
-# Load the file into an xarray dataset
-ds_data = xr.open_dataset(output_file_name).load()
-
+# Add time/date information
 hiccup_data.add_time_date_variables( ds_data )
+
+# Add extra variable that weren;t included in input data
 # hiccup_data.add_extra_data_variables( ds_data )
 
 # Write the final dataset back to the file
