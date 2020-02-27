@@ -19,7 +19,8 @@ def main(fig_file='sanity_check',fig_type='png'):
    #----------------------------------------------------------------------------
    # Create dataset objects
    ds = xr.open_dataset('HICCUP_TEST.output.nc' )
-   scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
+   # scrip_ds = xr.open_dataset('scrip_ne30pg2.nc')
+   scrip_ds = xr.open_dataset('scrip_ne30np4.nc')
 
    #----------------------------------------------------------------------------
    # Set up plot stuff
