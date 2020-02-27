@@ -39,9 +39,9 @@ remap_data_vert = True
 adjust_sfc_temp = True     # Adjust surface temperature to match new surface height
 adjust_sfc_pres = True     # Adjust surface pressure to match new surface height
 adjust_supersat = True     # adjust qv to eliminate supersaturation
-adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmosphere
 adjust_cld_wtr  = False     # adjust cloud water to remove negative values
 adjust_cld_frac = False     # adjust cloud fraction to remove values outside of [0,1]
+adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmosphere
 
 output_file_name = 'HICCUP_TEST.output.nc'
 

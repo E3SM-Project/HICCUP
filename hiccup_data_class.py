@@ -471,7 +471,13 @@ class ERA5(hiccup_data):
 
         # Remove lat/lon vertices variables since they are not needed
         run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
-            verbose,shell=True)
+                verbose,prefix='  ',suffix='',shell=True)
+
+        # also remove "bounds" attribute
+        run_cmd(f'ncatted -O -a bounds,lat,d,, {file_name} {file_name}',
+                verbose,prefix='  ',suffix='',shell=True)
+        run_cmd(f'ncatted -O -a bounds,lon,d,, {file_name} {file_name}',
+                verbose,shell=True)
 
         return
     # --------------------------------------------------------------------------
