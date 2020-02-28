@@ -11,8 +11,8 @@ year = 2018
 host = 'ftp.cdc.noaa.gov'
 path = 'Datasets/noaa.oisst.v2.highres/'
 
-sst_file_name = f'sst.day.mean.{year}.nc'
-ice_file_name = f'icec.day.mean.{year}.nc'
+sst_file_name = f'data/sst.day.mean.{year}.nc'
+ice_file_name = f'data/icec.day.mean.{year}.nc'
 
 ftp = ftplib.FTP(host)
 ftp.login()

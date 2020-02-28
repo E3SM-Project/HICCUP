@@ -31,7 +31,7 @@ time_list = ['00:00']
 lev = [ '50','100','150','200','300','400','500','600'
       ,'700','750','800','850','900','950','1000']
 
-output_path = os.getenv('PWD')+'/'
+output_path = os.getenv('PWD')+'/data/'
 
 output_file_plv = output_path+'HICCUP_TEST.ERA5.atm.nc'
 output_file_sfc = output_file_plv.replace('atm.nc','sfc.nc')
