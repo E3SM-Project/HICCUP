@@ -88,7 +88,6 @@ if create_map_file :
 # ------------------------------------------------------------------------------
 # Horizontally remap the data
 # ------------------------------------------------------------------------------
-
 if remap_data_horz :
 
     # Horizontally regrid the data
@@ -127,7 +126,6 @@ if do_state_adjust and any([adjust_sfc_temp, adjust_sfc_pres]):
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 # ------------------------------------------------------------------------------
-
 if remap_data_vert :
 
     # Do the vertical interpolation
