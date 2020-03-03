@@ -164,7 +164,7 @@ if do_state_adjust and any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, ad
 # Add time/date information
 hiccup_data.add_time_date_variables( ds_data )
 
-# Add extra variable that weren't included in input data
+# Add extra variable that weren't included in input data - DO WE NEED THIS?
 # hiccup_data.add_extra_data_variables( ds_data )
 
 # Write the final dataset back to the file
