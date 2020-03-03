@@ -102,6 +102,12 @@ if remap_data_horz :
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
 
+    # Add time/date information
+    ds_data = xr.open_dataset(output_atm_file_name).load()
+    hiccup_data.add_time_date_variables( ds_data )
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.close()
+
 # ------------------------------------------------------------------------------
 # Adjust sfc temperature and pressure before vertical interpolation
 # ------------------------------------------------------------------------------
@@ -136,12 +142,10 @@ if remap_data_vert :
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 # ------------------------------------------------------------------------------
-
-# Load the file into an xarray dataset
-ds_data = xr.open_dataset(output_atm_file_name).load()
-
-# Make final state adjustments
 if do_state_adjust and any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
+
+    # Load the file into an xarray dataset
+    ds_data = xr.open_dataset(output_atm_file_name).load()
 
     # adjust water vapor to eliminate supersaturation
     if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
@@ -159,15 +163,13 @@ if do_state_adjust and any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, ad
     ds_data.to_netcdf(output_atm_file_name,format=nc_format)
     ds_data.close()
 
-# Add time/date information
-hiccup_data.add_time_date_variables( ds_data )
 
-# Add extra variable that weren't included in input data - DO WE NEED THIS?
-# hiccup_data.add_extra_data_variables( ds_data )
+    # Add extra variable that weren't included in input data - DO WE NEED THIS?
+    # hiccup_data.add_extra_data_variables( ds_data )
 
-# Write the final dataset back to the file
-ds_data.to_netcdf(output_atm_file_name,format=nc_format)
-ds_data.close()
+    # Write the final dataset back to the file
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.close()
 
 # ------------------------------------------------------------------------------
 # Create SST/sea ice file

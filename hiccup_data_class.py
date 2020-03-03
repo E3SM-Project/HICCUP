@@ -433,7 +433,7 @@ class hiccup_data(object):
         return
 
     # --------------------------------------------------------------------------
-    def add_time_date_variables(self,ds):
+    def add_time_date_variables(self,ds,verbose=None):
         """
         Check final output file and add necessary time and date information
         """
