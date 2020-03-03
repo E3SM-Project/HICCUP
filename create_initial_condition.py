@@ -78,12 +78,12 @@ nc_format = 'NETCDF3_64BIT'
 # ------------------------------------------------------------------------------
 if create_map_file :
 
-  # Create grid description files needed for the mapping file
-  hiccup_data.create_src_grid_file()
-  hiccup_data.create_dst_grid_file()
+    # Create grid description files needed for the mapping file
+    hiccup_data.create_src_grid_file()
+    hiccup_data.create_dst_grid_file()
 
-  # Create mapping file
-  hiccup_data.create_map_file()
+    # Create mapping file
+    hiccup_data.create_map_file()
 
 # ------------------------------------------------------------------------------
 # Horizontally remap the data
@@ -91,38 +91,38 @@ if create_map_file :
 
 if remap_data_horz :
 
-  # Horizontally regrid the data
-  hiccup_data.remap_horizontal(output_file_name=output_atm_file_name)
+    # Horizontally regrid the data
+    hiccup_data.remap_horizontal(output_file_name=output_atm_file_name)
 
-  # Rename variables to match what the model expects
-  hiccup_data.rename_vars(file_name=output_atm_file_name)
+    # Rename variables to match what the model expects
+    hiccup_data.rename_vars(file_name=output_atm_file_name)
 
-  # add P0 variable
-  hiccup_data.add_reference_pressure(file_name=output_atm_file_name)
+    # add P0 variable
+    hiccup_data.add_reference_pressure(file_name=output_atm_file_name)
 
-  # Clean up the global attributes of the file
-  hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
+    # Clean up the global attributes of the file
+    hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
 
 # ------------------------------------------------------------------------------
 # Adjust sfc temperature and pressure before vertical interpolation
 # ------------------------------------------------------------------------------
 if do_state_adjust and any([adjust_sfc_temp, adjust_sfc_pres]):
 
-  # Load the file into an xarray dataset
-  ds_data = xr.open_dataset(output_atm_file_name).load()
-  ds_topo = xr.open_dataset(topo_file_name)
+    # Load the file into an xarray dataset
+    ds_data = xr.open_dataset(output_atm_file_name).load()
+    ds_topo = xr.open_dataset(topo_file_name)
 
-  # Adjust surface temperature to match new surface height
-  if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
+    # Adjust surface temperature to match new surface height
+    if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
 
-  # Adjust surface pressure to match new surface height
-  if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo \
-                                                   ,lev_coord_name='plev' \
-                                                   ,pressure_var_name='plev' )
+    # Adjust surface pressure to match new surface height
+    if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo \
+                                                    ,lev_coord_name='plev' \
+                                                    ,pressure_var_name='plev' )
 
-  # Write the adjusted dataset back to the file
-  ds_data.to_netcdf(output_atm_file_name,format=nc_format)
-  ds_data.close()
+    # Write the adjusted dataset back to the file
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.close()
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
@@ -130,10 +130,10 @@ if do_state_adjust and any([adjust_sfc_temp, adjust_sfc_pres]):
 
 if remap_data_vert :
 
-  # Do the vertical interpolation
-  hiccup_data.remap_vertical(input_file_name=output_atm_file_name
-                            ,output_file_name=output_atm_file_name
-                            ,vert_file_name=vert_file_name)
+    # Do the vertical interpolation
+    hiccup_data.remap_vertical(input_file_name=output_atm_file_name
+                              ,output_file_name=output_atm_file_name
+                              ,vert_file_name=vert_file_name)
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
@@ -145,21 +145,21 @@ ds_data = xr.open_dataset(output_atm_file_name).load()
 # Make final state adjustments
 if do_state_adjust and any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
 
-  # adjust water vapor to eliminate supersaturation
-  if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
+    # adjust water vapor to eliminate supersaturation
+    if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
 
-  # adjust cloud water to remove negative values?
-  if adjust_cld_wtr : hsa.adjust_cld_wtr( ds_data )
+    # adjust cloud water to remove negative values?
+    if adjust_cld_wtr : hsa.adjust_cld_wtr( ds_data )
 
-  # adjust cloud fraction to remove values outside of [0,1]
-  if adjust_cld_frac : hsa.adjust_cloud_fraction( ds_data )
+    # adjust cloud fraction to remove values outside of [0,1]
+    if adjust_cld_frac : hsa.adjust_cloud_fraction( ds_data )
 
-  # adjust surface pressure to retain dry mass of atmosphere
-  if adjust_glb_mass : hsa.dry_mass_fixer( ds_data )
+    # adjust surface pressure to retain dry mass of atmosphere
+    if adjust_glb_mass : hsa.dry_mass_fixer( ds_data )
 
-  # Write the adjusted dataset to the file
-  ds_data.to_netcdf(output_atm_file_name,format=nc_format)
-  ds_data.close()
+    # Write the adjusted dataset to the file
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.close()
 
 # Add time/date information
 hiccup_data.add_time_date_variables( ds_data )
@@ -176,7 +176,7 @@ ds_data.close()
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
-  hiccup_data.create_sstice()
+    hiccup_data.create_sstice()
 
 # ------------------------------------------------------------------------------
 # Print final output file name
