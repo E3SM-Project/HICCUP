@@ -4,3 +4,6 @@ TempestRemap.log
 exodus_*
 scrip_*
 map_*
+*.png
+grid_files/*
+data/*
