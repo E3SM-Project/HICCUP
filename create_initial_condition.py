@@ -31,19 +31,19 @@ import hiccup_state_adjustment as hsa
 verbose = True
 
 # Logical flags for debugging
-create_map_file = False
-remap_data_horz = True
-remap_data_vert = True
-do_state_adjust = True
-create_sst_data = True
+create_map_file = False    # flag for grid and map file creation
+remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
+remap_data_vert = True    # toggle vertical remap
+do_state_adjust = True    # toggle for all adjustment calculations
+create_sst_data = True    # sst/sea ice file creation
 
 # Adjustment options
-adjust_sfc_temp = True     # Adjust surface temperature to match new surface height
-adjust_sfc_pres = True     # Adjust surface pressure to match new surface height
-adjust_supersat = True     # adjust qv to eliminate supersaturation
-adjust_cld_wtr  = False     # adjust cloud water to remove negative values
-adjust_cld_frac = False     # adjust cloud fraction to remove values outside of [0,1]
-adjust_glb_mass = False     # adjust surface pressure to retain dry mass of atmosphere
+adjust_sfc_temp = True    # Adjust surface temperature to match new surface height
+adjust_sfc_pres = True    # Adjust surface pressure to match new surface height
+adjust_supersat = True    # adjust qv to eliminate supersaturation
+adjust_cld_wtr  = False    # adjust cloud water to remove negative values
+adjust_cld_frac = False    # adjust cloud fraction to remove values outside of [0,1]
+adjust_glb_mass = False    # adjust surface pressure to retain dry mass of atmosphere
 
 output_atm_file_name = 'data/HICCUP_TEST.output.atm.nc'
 output_sst_file_name = 'data/HICCUP_TEST.output.sst.nc'
@@ -72,10 +72,6 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
 nc_format = 'NETCDF3_64BIT'
-
-
-# Remove old output file
-hdc.run_cmd(f'rm {output_atm_file_name} ',verbose)
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
@@ -133,6 +129,8 @@ if do_state_adjust and any([adjust_sfc_temp, adjust_sfc_pres]):
 # ------------------------------------------------------------------------------
 
 if remap_data_vert :
+
+  # TODO: move temporary file creation/deletion into remap_vertical()
 
   # Specify temporary file for vertically interpolated output
   vert_tmp_file_name = output_atm_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
