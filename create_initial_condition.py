@@ -176,13 +176,14 @@ ds_data.close()
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
-    hiccup_data.create_sstice()
+    hiccup_data.create_sstice(output_file=output_sst_file_name)
 
 # ------------------------------------------------------------------------------
 # Print final output file name
 # ------------------------------------------------------------------------------
 
 print(f'\noutput_atm_file_name: {output_atm_file_name}\n')
+print(f'output_sst_file_name: {output_sst_file_name}\n')
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

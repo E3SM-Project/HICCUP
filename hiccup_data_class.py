@@ -6,6 +6,7 @@
 
 import numpy as np
 import xarray as xr
+import pandas as pd
 import subprocess as sp
 import shutil 
 import re
@@ -436,12 +437,27 @@ class hiccup_data(object):
         """
         Check final output file and add necessary time and date information
         """
+
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nEditing time and date variables...')
+
+        # time coordinate information
         time_shape = ( len(ds['time']) )
-        time_coord = {'time':ds['time']}
+        time_coord = {'time':ds['time'].values}
         time_dim   = ['time']
 
+
+        # Use the pandas library to parse the time/date information
+        datetime = pd.DatetimeIndex( ds['time'].values )
+        year  = datetime.year.values
+        month = datetime.month.values
+        day   = datetime.day.values
+        hour  = datetime.hour.values
+        sec   = datetime.second.values
+
         # Change time attributes
-        # ds['time'].attrs['calendar'] = 'noleap'       # this causes xarray to throw an error
+        ds['time'].attrs['calendar'] = 'noleap'       # this might cause xarray to throw an error
+        # ds['time'].attrs['calendar'] = 'gregorian'
         ds['time'].attrs['bounds'] = 'time_bnds'
 
         # add time_bnds variable
@@ -450,51 +466,53 @@ class hiccup_data(object):
         ds['time_bnds'] = xr.DataArray( time_bnds, coords=time_coord, dims=['time','nbnd'] )
         ds['time_bnds'].attrs['long_name'] = 'time interval endpoints'
 
-        # Other miscellaneous time/date variables
+        # string representation of date
+        # date_str = str(year).zfill(4)+str(month).zfill(2)+str(day).zfill(2)
+
+        # Integer representation of date
+        date_int = year*1e4 + month*1e2 + day
+
+        # miscellaneous time/date variables
         if 'date' not in ds.variables :
-            ds['date'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['date'] = xr.DataArray( np.array(date_int,dtype=np.int), 
                                         coords=time_coord, dims=time_dim )
             ds['date'].attrs['long_name'] = 'current date (YYYYMMDD)'
-
         if 'datesec' not in ds.variables :
-            ds['datesec'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['datesec'] = xr.DataArray( np.array(sec,dtype=np.int), 
                                         coords=time_coord, dims=time_dim )
             ds['datesec'].attrs['long_name'] = 'current seconds of current date'
-
-        if 'ndbase' not in ds.variables :
-            ds['ndbase'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
-                                        coords=time_coord, dims=time_dim )
-            ds['ndbase'].attrs['long_name'] = 'base day'
-
-        if 'nsbase' not in ds.variables :
-            ds['nsbase'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int),
-                                        coords=time_coord, dims=time_dim )
-            ds['nsbase'].attrs['long_name'] = 'seconds of base day'
-
-        if 'nbdate' not in ds.variables :
-            ds['nbdate'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
-                                        coords=time_coord, dims=time_dim )
-            ds['nbdate'].attrs['long_name'] = 'base date (YYYYMMDD)'
-
-        if 'nbsec' not in ds.variables :
-            ds['nbsec'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
-                                        coords=time_coord, dims=time_dim )
-            ds['nbsec'].attrs['long_name'] = 'seconds of base date'
-
         if 'ndcur' not in ds.variables :
             ds['ndcur'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
                                         coords=time_coord, dims=time_dim )
             ds['ndcur'].attrs['long_name'] = 'current day (from base day)'
-
         if 'nscur' not in ds.variables :
-            ds['nscur'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['nscur'] = xr.DataArray( np.array(sec,dtype=np.int), 
                                         coords=time_coord, dims=time_dim )
             ds['nscur'].attrs['long_name'] = 'current seconds of current day'
-
         if 'nsteph' not in ds.variables :
             ds['nsteph'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
                                         coords=time_coord, dims=time_dim )
             ds['nsteph'].attrs['long_name'] = 'current timestep'
+
+        # Base day time - not sure what this is for
+        if 'nbdate' not in ds.variables :
+            ds['nbdate'] = xr.DataArray( np.array(date_int,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nbdate'].attrs['long_name'] = 'base date (YYYYMMDD)'
+        if 'ndbase' not in ds.variables :
+            ds['ndbase'] = xr.DataArray( np.array(day,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['ndbase'].attrs['long_name'] = 'base day'
+        if 'nsbase' not in ds.variables :
+            ds['nsbase'] = xr.DataArray( np.array(sec,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nsbase'].attrs['long_name'] = 'seconds of base day'
+        if 'nbsec' not in ds.variables :
+            ds['nbsec'] = xr.DataArray( np.array(sec,dtype=np.int), 
+                                        coords=time_coord, dims=time_dim )
+            ds['nbsec'].attrs['long_name'] = 'seconds of base date'
+
+        # (Not sure how to handle string/char variables, but are they needed?)
 
         # if 'date_written' not in ds.variables :
         #     ds['date_written'] = xr.DataArray( np.full(time_shape,0.), coords=time_coord, dims=time_dim )
@@ -552,7 +570,7 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prefix='  ',suffix='')
     # --------------------------------------------------------------------------
-    def create_sstice(self):
+    def create_sstice(self,output_file):
         """
         Create sst and sea ice data file for hindcast. 
         """
