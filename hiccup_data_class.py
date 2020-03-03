@@ -374,7 +374,7 @@ class hiccup_data(object):
         run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
-        if output_file_name in glob.glob('*') : run_cmd(f'rm {output_file_name} ',verbose)
+        if output_file_name in glob.glob(output_file_name) : run_cmd(f'rm {output_file_name} ',verbose)
 
         if verbose : print('\nCombining temporary remapped files...')
 
