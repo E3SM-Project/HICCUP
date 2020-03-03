@@ -44,6 +44,9 @@ class tcolor:
 # Common method for printing and running commands
 # ------------------------------------------------------------------------------
 def run_cmd(cmd,verbose=None,prefix='\n  ',suffix='',use_color=True,shell=False):
+    """
+    Method to encapsulate running system commands and checking for failures
+    """
     if verbose is None : verbose = hiccup_verbose
     msg = f'{prefix}{cmd}{suffix}'
     if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
@@ -57,7 +60,9 @@ def run_cmd(cmd,verbose=None,prefix='\n  ',suffix='',use_color=True,shell=False)
 # Method for checking if required software is installed
 # ------------------------------------------------------------------------------
 def check_dependency(cmd):
-    """ Check for required system commands"""
+    """ 
+    Check for required system commands 
+    """
     if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
     return
 # ------------------------------------------------------------------------------
@@ -65,6 +70,7 @@ def check_dependency(cmd):
 # ------------------------------------------------------------------------------
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                        output_dir=default_output_dir,grid_dir=default_grid_dir,
+                       sstice_name=None,sst_file=None,ice_file=None,
                        map_dir=default_map_dir,lev_type='',verbose=False):
     """ 
     Create HICCUP data class object, check for required input variables and 
@@ -78,6 +84,9 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
             obj = subclass(name
                       ,atm_file=atm_file
                       ,sfc_file=sfc_file
+                      ,sstice_name=sstice_name
+                      ,sst_file=sst_file
+                      ,ice_file=ice_file
                       ,dst_horz_grid=dst_horz_grid
                       ,dst_vert_grid=dst_vert_grid
                       ,output_dir=output_dir
@@ -100,9 +109,12 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
 # Base Class
 # ------------------------------------------------------------------------------
 class hiccup_data(object):
-    """ Base class for HICCUP data object """
+    """ 
+    Base class for HICCUP data object 
+    """
     def __init__(self,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 sstice_name=None,sst_file=None,ice_file=None,
                  map_dir=default_map_dir,lev_type=''):
         self.lev_type = lev_type
         self.atm_file = atm_file
@@ -118,6 +130,10 @@ class hiccup_data(object):
         self.src_grid_file = None
         self.dst_grid_file = None
         self.map_file = None
+
+        self.sstice_name = sstice_name
+        self.sst_file = sst_file
+        self.ice_file = ice_file
 
         # Make sure output directory is formatted correctly
         if output_dir=='' or output_dir==None : output_dir = './'
@@ -156,7 +172,9 @@ class hiccup_data(object):
         return str_out
     # --------------------------------------------------------------------------
     def check_file_vars(self):
-        """ Check that required variables are in the input files """
+        """ 
+        Check that required variables are in the input files 
+        """
 
         # Create list of variables in the files
         atm_file_vars = []
@@ -177,7 +195,9 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=None):
-        """ Generate destination model grid file """
+        """ 
+        Generate destination model grid file 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating dst grid file...')
 
@@ -230,7 +250,9 @@ class hiccup_data(object):
         return 
     # --------------------------------------------------------------------------
     def create_map_file(self,verbose=None):
-        """ Generate mapping file after grid files have been created """
+        """ 
+        Generate mapping file after grid files have been created 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating mapping file...')
 
@@ -261,7 +283,9 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def rename_vars(self,file_name,verbose=None):
-        """ rename variables in file according to variable name dictionaries """
+        """ 
+        Rename variables in file according to variable name dictionaries 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming variables to match model variable names...')
 
@@ -290,7 +314,9 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def add_reference_pressure(self,file_name,verbose=None):
-        """ add P0 variable """
+        """ 
+        Add P0 variable 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdding reference pressure (P0)...')
 
@@ -312,7 +338,9 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None):
-        """  Horizontally remap data and combine into single file """
+        """  
+        Horizontally remap data and combine into single file 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nHorizontally remapping the data to temporary files...')
 
@@ -367,7 +395,9 @@ class hiccup_data(object):
     def remap_vertical(self,input_file_name,output_file_name,
                        vert_file_name,vert_remap_var_list=None,
                        verbose=None):
-        """  Vertically remap data and combine into single file """
+        """  
+        Vertically remap data and combine into single file 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nVertically remapping the data...')
 
@@ -492,6 +522,33 @@ class hiccup_data(object):
             ds['NUMLIQ'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
         
         return
+    # --------------------------------------------------------------------------
+    def clean_global_attributes(self,file_name,verbose=None):
+        """ 
+        Remove messy global attributes of the file 
+        """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print('\nCleaning up excessive global attributes...')
+        
+        global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
+                           'input_file', 'map_file', 'remap_version', 'remap_hostname', 
+                           'remap_command', 'remap_script', 'NCO' ]
+        
+        check_dependency('ncatted')
+
+        # Remove the attributes listed in global_att_list
+        for att in global_att_list:
+            run_cmd(f'ncatted -O -a {att},global,d,, {file_name} {file_name}',
+                    verbose,prefix='  ',suffix='')
+
+        # Also reset the history attribute
+        run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
+                verbose,prefix='  ',suffix='')
+    # --------------------------------------------------------------------------
+    def create_sstice(self):
+        """
+        Create sst and sea ice data file for hindcast. 
+        """
 # ------------------------------------------------------------------------------
 # Subclasses
 # ------------------------------------------------------------------------------
@@ -500,11 +557,15 @@ class ERA5(hiccup_data):
     def is_name_for(cls,name) : return name == 'ERA5'
     def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 sstice_name=None,sst_file=None,ice_file=None,
                  map_dir=default_map_dir,lev_type=''):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
                         ,dst_vert_grid=dst_vert_grid
+                        ,sstice_name=sstice_name
+                        ,sst_file=sst_file
+                        ,ice_file=ice_file
                         ,output_dir=output_dir
                         ,grid_dir=grid_dir
                         ,map_dir=map_dir
@@ -557,7 +618,9 @@ class ERA5(hiccup_data):
 
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):
-        """ Generate source grid file """
+        """ 
+        Generate source grid file 
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating src grid file...')
 
@@ -579,7 +642,9 @@ class ERA5(hiccup_data):
         return 
     # --------------------------------------------------------------------------
     def rename_vars_special(self,file_name,verbose=None):
-        """ rename file vars specific to this subclass """
+        """ 
+        Rename file vars specific to this subclass 
+        """
         if verbose is None : verbose = hiccup_verbose
         
         new_lev_name = 'plev'
@@ -615,25 +680,5 @@ class ERA5(hiccup_data):
                 verbose,shell=True)
 
         return
-    # --------------------------------------------------------------------------
-    def clean_global_attributes(self,file_name,verbose=None):
-        """ remove messy global attributes of the file """
-        if verbose is None : verbose = hiccup_verbose
-        if verbose: print('\nCleaning up excessive global attributes...')
-        
-        global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
-                           'input_file', 'map_file', 'remap_version', 'remap_hostname', 
-                           'remap_command', 'remap_script', 'NCO' ]
-        
-        check_dependency('ncatted')
-
-        # Remove the attributes listed in global_att_list
-        for att in global_att_list:
-            run_cmd(f'ncatted -O -a {att},global,d,, {file_name} {file_name}',
-                    verbose,prefix='  ',suffix='')
-
-        # Also reset the history attribute
-        run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
-                verbose,prefix='  ',suffix='')
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

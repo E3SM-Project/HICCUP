@@ -62,8 +62,9 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
                                     # ,atm_file='data/HICCUP_TEST.ERA5.atm.upack.nc'
                                     # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
-                                    # ,sst_file='data/sst.day.mean.2018.nc'
-                                    # ,ice_file='data/icec.day.mean.2018.nc'
+                                    ,sstice_name='NOAA'
+                                    ,sst_file='data/sst.day.mean.2018.nc'
+                                    ,ice_file='data/icec.day.mean.2018.nc'
                                     ,dst_horz_grid='ne30np4'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
@@ -71,6 +72,10 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
 nc_format = 'NETCDF3_64BIT'
+
+
+# Remove old output file
+hdc.run_cmd(f'rm {output_atm_file_name} ',verbose)
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
@@ -91,7 +96,7 @@ if create_map_file :
 if remap_data_horz :
 
   # Horizontally regrid the data
-  hiccup_data.remap_horizontal(output_atm_file_name=output_atm_file_name)
+  hiccup_data.remap_horizontal(output_file_name=output_atm_file_name)
 
   # Rename variables to match what the model expects
   hiccup_data.rename_vars(file_name=output_atm_file_name)
@@ -134,7 +139,7 @@ if remap_data_vert :
 
   # Do the vertical interpolation
   hiccup_data.remap_vertical(input_file_name=output_atm_file_name
-                            ,output_atm_file_name=vert_tmp_file_name
+                            ,output_file_name=vert_tmp_file_name
                             ,vert_file_name=vert_file_name)
 
   # Overwrite the output file with the vertically interpolated data
@@ -181,7 +186,7 @@ ds_data.close()
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
-  # hiccup_data.create_sstice()
+  hiccup_data.create_sstice()
 
 # ------------------------------------------------------------------------------
 # Print final output file name
