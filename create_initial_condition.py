@@ -130,18 +130,10 @@ if do_state_adjust and any([adjust_sfc_temp, adjust_sfc_pres]):
 
 if remap_data_vert :
 
-  # TODO: move temporary file creation/deletion into remap_vertical()
-
-  # Specify temporary file for vertically interpolated output
-  vert_tmp_file_name = output_atm_file_name.replace('.nc',f'.{hiccup_data.dst_vert_grid}.nc')
-
   # Do the vertical interpolation
   hiccup_data.remap_vertical(input_file_name=output_atm_file_name
-                            ,output_file_name=vert_tmp_file_name
+                            ,output_file_name=output_atm_file_name
                             ,vert_file_name=vert_file_name)
-
-  # Overwrite the output file with the vertically interpolated data
-  hdc.run_cmd(f'mv {vert_tmp_file_name} {output_atm_file_name} ')
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data

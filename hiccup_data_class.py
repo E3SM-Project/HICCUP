@@ -403,6 +403,10 @@ class hiccup_data(object):
 
         check_dependency('ncremap')
 
+        # Specify temporary file for vertically interpolated output
+        # This allows for input and output files to be the same
+        vert_tmp_file_name = output_file_name.replace('.nc',f'.{self.dst_vert_grid}.nc')
+
         # Build variable list from the input file if not supplied
         if vert_remap_var_list is None :
             vert_remap_var_list = []
@@ -419,8 +423,11 @@ class hiccup_data(object):
         cmd+= f' --vrt_fl={vert_file_name}'
         cmd+= f' --var_lst={vert_remap_var_list}'
         cmd+= f' --in_fl={input_file_name}'
-        cmd+= f' --out_fl={output_file_name}'
+        cmd+= f' --out_fl={vert_tmp_file_name}'
         run_cmd(cmd,verbose,shell=True)
+
+        # Overwrite the output file with the vertically interpolated data
+        run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
 
         return
 
