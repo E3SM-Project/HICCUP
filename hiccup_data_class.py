@@ -44,10 +44,13 @@ class tcolor:
 # ------------------------------------------------------------------------------
 # Common method for printing and running commands
 # ------------------------------------------------------------------------------
-def run_cmd(cmd,verbose=None,prefix='\n  ',suffix='',use_color=True,shell=False):
+def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
     """
     Method to encapsulate running system commands and checking for failures
     """
+    prefix='  '
+    suffix=''
+    if prepend_line : prefix = '\n'+prefix
     if verbose is None : verbose = hiccup_verbose
     msg = f'{prefix}{cmd}{suffix}'
     if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
@@ -302,7 +305,7 @@ class hiccup_data(object):
             # so make them optional by adding a preceeding dot
             if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
             # print the command and execute
-            run_cmd(cmd,verbose,prefix='  ',suffix='',shell=True)
+            run_cmd(cmd,verbose,prepend_line=False,shell=True)
 
         if verbose : print('\n Renaming ATM vars... \n')
         for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
@@ -326,15 +329,15 @@ class hiccup_data(object):
 
         # Add the variable
         run_cmd(f"ncap2 --create_ram --no_tmp_fl --hst -A -s 'P0=100000.' {file_name} {file_name}",
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
 
         # add long_name attribute
         run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' {file_name}",
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
         
         # add units attribute
         run_cmd(f"ncatted --hst -A -a units,P0,a,c,'Pa' {file_name}",
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
 
         return
     # --------------------------------------------------------------------------
@@ -381,15 +384,15 @@ class hiccup_data(object):
 
         # Add atmosphere temporary file data into the final output file
         run_cmd(f'ncks -A {atm_tmp_file_name} {output_file_name} ',
-                verbose,prefix='  ',suffix='')
+                verbose,prepend_line=False)
 
         # Add surface temporary file data into the final output file
         run_cmd(f'ncks -A {sfc_tmp_file_name} {output_file_name} ',
-                verbose,prefix='  ',suffix='')
+                verbose,prepend_line=False)
 
         # delete the temporary files
         run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',
-                verbose,prefix='  ',suffix='')
+                verbose,prepend_line=False)
 
         return
     # --------------------------------------------------------------------------
@@ -564,16 +567,125 @@ class hiccup_data(object):
         # Remove the attributes listed in global_att_list
         for att in global_att_list:
             run_cmd(f'ncatted -O -a {att},global,d,, {file_name} {file_name}',
-                    verbose,prefix='  ',suffix='')
+                    verbose,prepend_line=False)
 
         # Also reset the history attribute
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
-                verbose,prefix='  ',suffix='')
+                verbose,prepend_line=False)
     # --------------------------------------------------------------------------
-    def create_sstice(self,output_file):
+    def create_sstice(self,output_file_name,output_grid_spacing=1,
+                      force_grid_and_map_generation=False,
+                      verbose=None):
         """
         Create sst and sea ice data file for hindcast. 
+        The sst/ice data needs to be on a uniform (equiangular grid, so this 
+        routine automatically remaps the input data. The SST and ice data are 
+        assumed to exist on the same grid.
+        The model interpolates the time coordinate, and the easiest way to get
+        persistent SST is to...
         """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nCreating SST and sea ice data file...')
+
+        check_dependency('ncremap')
+        check_dependency('ncks')
+
+        if self.sst_file is None: raise ValueError('sst_file cannot be None!')
+        if self.ice_file is None: raise ValueError('ice_file cannot be None!')
+
+        ds_sst = xr.open_dataset(self.sst_file)
+        ds_ice = xr.open_dataset(self.ice_file)
+
+        # determine input grid 
+        if self.sstice_name=='NOAA': lat_name, lon_name = 'lat', 'lon'
+        if self.sstice_name=='ERA5': lat_name, lon_name = 'latitude', 'longitude'
+        nlat_src = len( ds_sst[lat_name].values )
+        nlon_src = len( ds_sst[lon_name].values )
+
+        ds_sst.close()
+        ds_ice.close()
+
+        nlat_dst = int( 180/output_grid_spacing )
+        nlon_dst = int( 360/output_grid_spacing )
+
+        # Only do remapping if grid sizes are not equal
+        if (nlat_src!=nlat_dst) and (nlon_src!=nlon_dst) :
+
+            src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
+            dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}.nc'
+
+            map_file = f'{default_grid_dir}/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
+
+            sst_tmp_file_name = './tmp_sst_data.nc'
+            ice_tmp_file_name = './tmp_ice_data.nc'
+
+            # Create the source grid file
+            if src_grid_file not in glob.glob(src_grid_file) and not force_grid_and_map_generation :
+                cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
+                cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
+                cmd += f'#latlon={nlat_src},{nlon_src}#lon_typ=grn_ctr#lat_typ=uni'
+                if self.sstice_name=='NOAA': cmd +=  '#lat_drc=s2n'
+                if self.sstice_name=='ERA5': cmd +=  '#lat_drc=n2s'
+                cmd += f' -g {src_grid_file} '
+                run_cmd(cmd,verbose,shell=True,prepend_line=False)
+
+            # Create the destination grid file
+            if dst_grid_file not in glob.glob(dst_grid_file) and not force_grid_and_map_generation :
+                cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
+                cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
+                cmd += f'#latlon={nlat_dst},{nlon_dst}#lat_typ=uni#lon_typ=grn_ctr'
+                cmd +=  '#lat_drc=s2n'
+                cmd += f' -g {dst_grid_file} '
+                run_cmd(cmd,verbose,shell=True)
+
+            # Generate mapping file
+            if map_file not in glob.glob(map_file) and not force_grid_and_map_generation :
+                cmd  = f'ncremap {ncremap_alg} -a fv2fv '
+                cmd += f' --src_grd={src_grid_file}'
+                cmd += f' --dst_grd={dst_grid_file}'
+                cmd += f' --map_file={map_file}'
+                run_cmd(cmd,verbose,shell=True,prepend_line=False)
+
+            # Map the SST data
+            var_list = ','.join(self.atm_var_name_dict.values())
+            cmd =  f'ncremap {ncremap_alg} '
+            cmd += f' --map_file={map_file} '
+            cmd += f' --in_file={self.sst_file} '
+            cmd += f' --out_file={sst_tmp_file_name} '
+            run_cmd(cmd,verbose)
+
+            # Map the sea ice data
+            var_list = ','.join(self.sfc_var_name_dict.values())
+            cmd =  f'ncremap {ncremap_alg} '
+            cmd += f' --map_file={map_file} '
+            cmd += f' --in_file={self.ice_file} '
+            cmd += f' --out_file={ice_tmp_file_name} '
+            run_cmd(cmd,verbose)
+
+            # Remove output file if it already exists
+            if output_file_name in glob.glob(output_file_name) : 
+                run_cmd(f'rm {output_file_name} ',verbose)
+
+            # Add sst temporary file data into the final output file
+            run_cmd(f'ncks -A {sst_tmp_file_name} {output_file_name} ',
+                    verbose,prepend_line=False)
+
+            # Add ice temporary file data into the final output file
+            run_cmd(f'ncks -A {ice_tmp_file_name} {output_file_name} ',
+                    verbose,prepend_line=False)
+
+            # delete the temporary files
+            run_cmd(f'rm {sst_tmp_file_name} {ice_tmp_file_name} ',
+                    verbose,prepend_line=False)
+            
+
+        # fill in missing values over continents
+
+        # deal with time coordinate
+
+        # rename variables
+
+        return
 # ------------------------------------------------------------------------------
 # Subclasses
 # ------------------------------------------------------------------------------
@@ -650,7 +762,7 @@ class ERA5(hiccup_data):
         if verbose : print('\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
-        if self.src_grid_file in glob.glob('*') : 
+        if self.src_grid_file in glob.glob(self.src_grid_file) : 
             run_cmd(f'rm {self.src_grid_file} ',verbose)
 
         check_dependency('ncremap')
@@ -664,6 +776,7 @@ class ERA5(hiccup_data):
         cmd +=  '#lon_typ=grn_ctr '
         cmd += f' -g {self.src_grid_file} '
         run_cmd(cmd,verbose,shell=True)
+
         return 
     # --------------------------------------------------------------------------
     def rename_vars_special(self,file_name,verbose=None):
@@ -688,19 +801,19 @@ class ERA5(hiccup_data):
 
         # change pressure variable type to double and units to Pascals (needed for vertical remap)
         run_cmd(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}",
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
 
         # change units attribute
         run_cmd(f"ncatted --hst -A -a units,{new_lev_name},a,c,'Pa' {file_name}",
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
 
         # Remove lat/lon vertices variables since they are not needed
         run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
 
         # also remove "bounds" attribute
         run_cmd(f'ncatted -O -a bounds,lat,d,, {file_name} {file_name}',
-                verbose,prefix='  ',suffix='',shell=True)
+                verbose,prepend_line=False,shell=True)
         run_cmd(f'ncatted -O -a bounds,lon,d,, {file_name} {file_name}',
                 verbose,shell=True)
 

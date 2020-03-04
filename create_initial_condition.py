@@ -32,9 +32,9 @@ verbose = True
 
 # Logical flags for debugging
 create_map_file = False    # flag for grid and map file creation
-remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
-remap_data_vert = True    # toggle vertical remap
-do_state_adjust = True    # toggle for all adjustment calculations
+remap_data_horz = False    # toggle horizontal remap, variable renaming, and reference pressure
+remap_data_vert = False    # toggle vertical remap
+do_state_adjust = False    # toggle for all adjustment calculations
 create_sst_data = True    # sst/sea ice file creation
 
 # Adjustment options
@@ -176,14 +176,16 @@ if do_state_adjust and any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, ad
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
-    hiccup_data.create_sstice(output_file=output_sst_file_name)
+    hiccup_data.create_sstice(output_file_name=output_sst_file_name)
 
 # ------------------------------------------------------------------------------
 # Print final output file name
 # ------------------------------------------------------------------------------
 
-print(f'\noutput_atm_file_name: {output_atm_file_name}\n')
-print(f'output_sst_file_name: {output_sst_file_name}\n')
+print()
+print(f'output_atm_file_name: {output_atm_file_name}')
+print(f'output_sst_file_name: {output_sst_file_name}')
+print()
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
