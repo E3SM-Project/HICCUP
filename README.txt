@@ -39,12 +39,16 @@ involving numerous, undocumented, subjective decisions mainly by Phil Rasch
 and Po-Lun Ma who did not document the process, so there is no recipe to 
 recreate the grid from scratch. To create the vertical coordinate file it is 
 easiest to extract it from a pre-existing model data file as follows:
+
   1. Dump the vertical grid data into a text file using ncdump:
-    ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
+     ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
+
   2. manually edit the file to remove extra header info,
-    but keep the general CDL format created by ncdump
+     but keep the general CDL format created by ncdump
+
   3. Generate a new netcdf file from the edited text file using ncgen:
-    ncgen vert_coord.txt -o vert_coord.nc
+     ncgen vert_coord.txt -o vert_coord.nc
+
 
 --------------------------------------------------------------------------------
 
