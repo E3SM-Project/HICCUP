@@ -31,6 +31,7 @@ import hiccup_state_adjustment as hsa
 verbose = True
 
 # Logical flags for debugging
+unpack_nc_files = False
 create_map_file = False    # flag for grid and map file creation
 remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
 remap_data_vert = True    # toggle vertical remap
@@ -64,6 +65,13 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
 nc_format = 'NETCDF3_64BIT'
+
+# ------------------------------------------------------------------------------
+# Make sure files are "unpacked" (may take awhile, so only do it if you need to)
+# ------------------------------------------------------------------------------
+if unpack_nc_files:
+
+    hiccup_data.unpack_data_files()
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files

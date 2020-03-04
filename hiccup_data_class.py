@@ -198,6 +198,14 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
+    def unpack_data_files(self):
+        """
+        Make sure data files are unpacked
+        """
+        for f in [ self.atm_file, self.sfc_file, self.sst_file, self.ice_file ]:
+            run_cmd(f'ncpdq -U --ovr {f} {f}',verbose,prepend_line=False)
+        return
+    # --------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=None):
         """ 
         Generate destination model grid file 
