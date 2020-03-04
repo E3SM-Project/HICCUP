@@ -257,6 +257,7 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev' ):
 #-------------------------------------------------------------------------------
 def adjust_cld_wtr( ds ):
   """
+  Adjust cloud water to remove negative values
   """
   ds['CLDLIQ'] = xr.where(ds['CLDLIQ']>=0, ds['CLDLIQ'], 0. )
   ds['CLDICE'] = xr.where(ds['CLDICE']>=0, ds['CLDICE'], 0. )
@@ -266,6 +267,7 @@ def adjust_cld_wtr( ds ):
 #-------------------------------------------------------------------------------
 def adjust_cloud_fraction( ds, frac_var_name='FRAC'):
   """
+  Adjust cloud fraction to remove values outside of [0,1]
   """
   ds[frac_var_name] = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
   ds[frac_var_name] = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )

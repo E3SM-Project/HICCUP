@@ -143,10 +143,10 @@ if do_state_adjust :
     hsa.remove_supersaturation( ds_data, hybrid_lev=True )
 
     # adjust cloud water to remove negative values?
-    # hsa.adjust_cld_wtr( ds_data )
+    hsa.adjust_cld_wtr( ds_data )
 
     # adjust cloud fraction to remove values outside of [0,1]
-    # hsa.adjust_cloud_fraction( ds_data )
+    hsa.adjust_cloud_fraction( ds_data )
 
     # adjust surface pressure to retain dry mass of atmosphere
     # hsa.dry_mass_fixer( ds_data )

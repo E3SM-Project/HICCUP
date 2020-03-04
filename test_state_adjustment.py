@@ -9,8 +9,10 @@ import hiccup_state_adjustment as hsa
 
 class standard_atmosphere:
   def __init__(self,altitude):
-    """ return a 2-uplet (pressure, temperature) depending on provided altitude.
-    Units are SI (m, PA, Kelvin)"""
+    """ 
+    Return a 2-uplet (pressure, temperature) depending on provided altitude.
+    Units are SI (m, PA, Kelvin)
+    """
     self.altitude = altitude
     self.pressure = np.empty(altitude.shape)
     self.temperature = np.empty(altitude.shape)
@@ -27,10 +29,14 @@ class standard_atmosphere:
 
 #===============================================================================
 class state_adjustment_test_case(unittest.TestCase):
-  """ Tests for hiccup_state_adjustment.py """
-  #-----------------------------------------------------------------------------
+  """ 
+  Tests for hiccup_state_adjustment.py 
+  """
+  # ----------------------------------------------------------------------------
   def test_adjust_surface_pressure(self):
-    """ Does surface pressure interpolation give the right value? """
+    """ 
+    Does surface pressure interpolation give the right value? 
+    """
     phis_int        = np.array([ 3.5e3, 2.5e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3 ])   # interface altitudes to define plev
     phis_min        = np.min(phis_int)
     phis_new        = np.array([ phis_min-0.5e3, phis_min+0.5e3, phis_min ])
@@ -80,9 +86,11 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( ps_new[0] >ps_old[0] )
     self.assertTrue( ps_new[1] <ps_old[1] )
     self.assertTrue( ps_new[2]==ps_old[2] )
-  #-----------------------------------------------------------------------------
+  # ----------------------------------------------------------------------------
   def test_adjust_surface_temperature(self):
-    """ Does surface temperature interpolation give the right value? """
+    """ 
+    Does surface temperature interpolation give the right value? 
+    """
     phis      = 0.5e3
     phis_old  = np.array([phis]*3)
     phis_new  = np.array([ phis-0.5e3, phis+0.5e3, phis ])
@@ -101,9 +109,11 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( ts_new[0] <ts_old[0] )
     self.assertTrue( ts_new[1] >ts_old[1] )
     self.assertTrue( ts_new[2]==ts_old[2] )
-  #-----------------------------------------------------------------------------
+  # ----------------------------------------------------------------------------
   def test_remove_supersaturation(self):
-    """ do supersaturated values get limited correctly? """
+    """ 
+    Do supersaturated values get limited correctly? 
+    """
     temperature_in = 300
     pressure_in    = 1010
     qv_sat = hsa.calculate_qv_sat_liq(temperature_in,pressure_in)
@@ -123,7 +133,28 @@ class state_adjustment_test_case(unittest.TestCase):
     rh_out = ds['Q'].values/qv_sat
     expected_answer = np.array([1.0, 1.0, 0.9])
     self.assertTrue( np.all( np.abs(rh_out-expected_answer)<1e-10 ) )
-  #-----------------------------------------------------------------------------
+  # ----------------------------------------------------------------------------
+  def test_adjust_cld_wtr(self):
+    """
+    """
+    vals = [0,-1,1]
+    expected_answer = [0,0,1]
+    ncol = np.arange(len(vals))
+    ds = xr.Dataset({'CLDLIQ':xr.DataArray(vals,dims=['ncol'])
+                    ,'CLDICE':xr.DataArray(vals,dims=['ncol'])
+                    }, coords={'ncol':ncol} )
+
+    hsa.adjust_cld_wtr( ds )
+
+    self.assertTrue( np.all( np.abs(ds['CLDLIQ'].values-expected_answer)<1e-10 ) )
+    self.assertTrue( np.all( np.abs(ds['CLDICE'].values-expected_answer)<1e-10 ) )
+  # ----------------------------------------------------------------------------
+  # def test_adjust_cloud_fraction(self):
+  #   """
+  #   """
+  #   hsa.adjust_cld_wtr( ds )
+  #   self.assertTrue( )
+  # ----------------------------------------------------------------------------
   # def test_dry_mass_fixer(self):
   #   """ """
   #   hsa.dry_mass_fixer( ncol, plev, hyai, hybi, wgt, qv, mass_ref, ps_in, ps_out )
