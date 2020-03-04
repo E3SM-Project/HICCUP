@@ -136,6 +136,7 @@ class state_adjustment_test_case(unittest.TestCase):
   # ----------------------------------------------------------------------------
   def test_adjust_cld_wtr(self):
     """
+    Does cloud water and ice get limited properly?
     """
     vals = [0,-1,1]
     expected_answer = [0,0,1]
@@ -149,11 +150,19 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( np.all( np.abs(ds['CLDLIQ'].values-expected_answer)<1e-10 ) )
     self.assertTrue( np.all( np.abs(ds['CLDICE'].values-expected_answer)<1e-10 ) )
   # ----------------------------------------------------------------------------
-  # def test_adjust_cloud_fraction(self):
-  #   """
-  #   """
-  #   hsa.adjust_cld_wtr( ds )
-  #   self.assertTrue( )
+  def test_adjust_cloud_fraction(self):
+    """
+    Does cloud fraction get limited properly?
+    """
+    input_vals = [0,-1,1,2]
+    expected_answer = [0,0,1,1]
+    ncol = np.arange(len(input_vals))
+    ds = xr.Dataset({'CLOUD_FRAC':xr.DataArray(input_vals,dims=['ncol'])
+                    }, coords={'ncol':ncol} )
+
+    hsa.adjust_cloud_fraction( ds, frac_var_name='CLOUD_FRAC' )
+    
+    self.assertTrue( np.all( np.abs(ds['CLOUD_FRAC'].values-expected_answer)<1e-10 ) )
   # ----------------------------------------------------------------------------
   # def test_dry_mass_fixer(self):
   #   """ """
