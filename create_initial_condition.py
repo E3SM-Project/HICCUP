@@ -32,18 +32,10 @@ verbose = True
 
 # Logical flags for debugging
 create_map_file = False    # flag for grid and map file creation
-remap_data_horz = False    # toggle horizontal remap, variable renaming, and reference pressure
-remap_data_vert = False    # toggle vertical remap
-do_state_adjust = False    # toggle for all adjustment calculations
-create_sst_data = True    # sst/sea ice file creation
-
-# Adjustment options
-adjust_sfc_temp = True    # Adjust surface temperature to match new surface height
-adjust_sfc_pres = True    # Adjust surface pressure to match new surface height
-adjust_supersat = True    # adjust qv to eliminate supersaturation
-adjust_cld_wtr  = False    # adjust cloud water to remove negative values
-adjust_cld_frac = False    # adjust cloud fraction to remove values outside of [0,1]
-adjust_glb_mass = False    # adjust surface pressure to retain dry mass of atmosphere
+remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
+remap_data_vert = True    # toggle vertical remap
+do_state_adjust = True    # toggle for all adjustment calculations
+create_sst_data = False    # sst/sea ice file creation
 
 output_atm_file_name = 'data/HICCUP_TEST.output.atm.nc'
 output_sst_file_name = 'data/HICCUP_TEST.output.sst.nc'
@@ -111,19 +103,19 @@ if remap_data_horz :
 # ------------------------------------------------------------------------------
 # Adjust sfc temperature and pressure before vertical interpolation
 # ------------------------------------------------------------------------------
-if do_state_adjust and any([adjust_sfc_temp, adjust_sfc_pres]):
+if do_state_adjust :
 
     # Load the file into an xarray dataset
     ds_data = xr.open_dataset(output_atm_file_name).load()
     ds_topo = xr.open_dataset(topo_file_name)
 
     # Adjust surface temperature to match new surface height
-    if adjust_sfc_temp : hsa.adjust_surface_temperature( ds_data, ds_topo )
+    hsa.adjust_surface_temperature( ds_data, ds_topo )
 
     # Adjust surface pressure to match new surface height
-    if adjust_sfc_pres : hsa.adjust_surface_pressure( ds_data, ds_topo \
-                                                    ,lev_coord_name='plev' \
-                                                    ,pressure_var_name='plev' )
+    hsa.adjust_surface_pressure( ds_data, ds_topo \
+                                ,lev_coord_name='plev' \
+                                ,pressure_var_name='plev' )
 
     # Write the adjusted dataset back to the file
     ds_data.to_netcdf(output_atm_file_name,format=nc_format)
@@ -142,27 +134,22 @@ if remap_data_vert :
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 # ------------------------------------------------------------------------------
-if do_state_adjust and any([adjust_glb_mass, adjust_supersat, adjust_cld_wtr, adjust_cld_frac]):
+if do_state_adjust :
 
     # Load the file into an xarray dataset
     ds_data = xr.open_dataset(output_atm_file_name).load()
 
     # adjust water vapor to eliminate supersaturation
-    if adjust_supersat : hsa.remove_supersaturation( ds_data, hybrid_lev=True )
+    hsa.remove_supersaturation( ds_data, hybrid_lev=True )
 
     # adjust cloud water to remove negative values?
-    if adjust_cld_wtr : hsa.adjust_cld_wtr( ds_data )
+    # hsa.adjust_cld_wtr( ds_data )
 
     # adjust cloud fraction to remove values outside of [0,1]
-    if adjust_cld_frac : hsa.adjust_cloud_fraction( ds_data )
+    # hsa.adjust_cloud_fraction( ds_data )
 
     # adjust surface pressure to retain dry mass of atmosphere
-    if adjust_glb_mass : hsa.dry_mass_fixer( ds_data )
-
-    # Write the adjusted dataset to the file
-    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
-    ds_data.close()
-
+    # hsa.dry_mass_fixer( ds_data )
 
     # Add extra variable that weren't included in input data - DO WE NEED THIS?
     # hiccup_data.add_extra_data_variables( ds_data )
