@@ -62,7 +62,7 @@ the data with the following command:
   ncpdq -U HICCUP_TEST.ERA5.atm.nc HICCUP_TEST.ERA5.atm.upack.nc
   ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
 followed by running (check to make sure file names match):
-  remap.ERA5_test_data.py
+  remap.test_data.ERA5.py
 which is a simple script for reducing the resolution of the test data
 
 --------------------------------------------------------------------------------
