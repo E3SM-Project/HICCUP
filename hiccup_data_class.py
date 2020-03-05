@@ -24,6 +24,10 @@ ncremap_alg         = ' --alg_typ=tempest '
 # log file for Tempest output
 tempest_log_file    = 'TempestRemap.log'
 
+# override the xarray default netcdf format of 
+# NETCDF4 to avoid file permission issue
+hiccup_nc_format = 'NETCDF3_64BIT'
+
 hiccup_verbose = False
 
 # Set numpy to ignore overflow errors
@@ -686,12 +690,46 @@ class hiccup_data(object):
             run_cmd(f'rm {sst_tmp_file_name} {ice_tmp_file_name} ',
                     verbose,prepend_line=False)
             
+        # rename variables
+        if self.sstice_name=='NOAA': old_name_sst,old_name_ice = 'sst','icec'
+        if self.sstice_name=='ERA5': old_name_sst,old_name_ice = 'sst','siconc'
+        
+        cmd = f'ncrename --hst --variable {old_name_sst},SST_cpl {output_file_name}'
+        run_cmd(cmd,verbose,shell=True)
 
-        # fill in missing values over continents
+        cmd = f'ncrename --hst --variable {old_name_ice},ice_cov {output_file_name}'
+        run_cmd(cmd,verbose,shell=True)
+
+        # Open remapped and combined data file
+        ds = xr.open_dataset(output_file_name).load()
+
+        # Set invalid values to np.nan before using interpolate_na()
+        ds['SST_cpl'] = ds['SST_cpl'].where(np.abs(ds['SST_cpl']) < 999, np.nan)
+
+        # fill in missing SSTvalues over continents by linearly interpolating
+        ds['SST_cpl'] = ds['SST_cpl'].interpolate_na(dim='lon',period=360)
+
+        # extrapolate in latitude direction to deal with poles (this requires scipy)
+        ds['SST_cpl'] = ds['SST_cpl'].interpolate_na(dim='lat',method='nearest'
+                                                    ,fill_value='extrapolate')
+
+        # Fill missing ice values with zero
+        ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']>=0, 0)
+        ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']<=2, 0)
+        # Also limit values slightly above 1
+        ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']<=1, 1)
+
 
         # deal with time coordinate
 
-        # rename variables
+
+
+
+
+        # Write back to final file
+        ds.to_netcdf(output_file_name,format=hiccup_nc_format)
+        ds.close()
+        
 
         return
 # ------------------------------------------------------------------------------

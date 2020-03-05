@@ -33,10 +33,10 @@ verbose = True
 # Logical flags for debugging
 unpack_nc_files = False
 create_map_file = False    # flag for grid and map file creation
-remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
-remap_data_vert = True    # toggle vertical remap
-do_state_adjust = True    # toggle for all adjustment calculations
-create_sst_data = False    # sst/sea ice file creation
+remap_data_horz = False    # toggle horizontal remap, variable renaming, and reference pressure
+remap_data_vert = False    # toggle vertical remap
+do_state_adjust = False    # toggle for all adjustment calculations
+create_sst_data = True    # sst/sea ice file creation
 
 output_atm_file_name = 'data/HICCUP_TEST.output.atm.nc'
 output_sst_file_name = 'data/HICCUP_TEST.output.sst.nc'
@@ -46,6 +46,10 @@ vert_file_name = 'vert_coord_L72.nc'
 # topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
 # topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+
+# override the xarray default netcdf format of 
+# NETCDF4 to avoid file permission issue
+nc_format = 'NETCDF3_64BIT'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
@@ -62,9 +66,6 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
 
-# override the xarray default netcdf format of 
-# NETCDF4 to avoid file permission issue
-nc_format = 'NETCDF3_64BIT'
 
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
