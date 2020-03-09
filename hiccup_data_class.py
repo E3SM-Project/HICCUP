@@ -603,6 +603,36 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prepend_line=False)
     # --------------------------------------------------------------------------
+    def sstice_subset_and_combine(self,tmp_file_name=None,method='initial'):
+        """
+        Extract a temporal subset of the SST and sea ice data
+        and combine into new temporary file for later regridding
+        method options (only initial is currently supported):
+        - initial           just use first time
+        - match_atmos       find time that corresponds to time in atmos data
+        - date_range_avg    produce an average over a specified date range
+        - average           average
+        - all               one output file per time slice
+        """
+        if tmp_file_name is None: raise ValueError('tmp_file_name cannot be None!')
+        if self.sst_file is None: raise ValueError('sst_file cannot be None!')
+        if self.ice_file is None: raise ValueError('ice_file cannot be None!')
+
+        ds_sst = xr.open_dataset(self.sst_file).isel(time=slice(0,0))
+        ds_ice = xr.open_dataset(self.ice_file).isel(time=slice(0,0))
+        ds_out = xr.merge([ds_sst,ds_ice])
+
+        ########################################
+        # Subset time here...
+        ########################################
+
+        ds_out.to_netcdf(tmp_file_name,format=hiccup_nc_format)
+        ds_out.close()
+        ds_sst.close()
+        ds_ice.close()
+
+        return
+    # --------------------------------------------------------------------------
     def sstice_remap_data(self, output_file_name, output_grid_spacing=1,
                           force_grid_and_map_generation=False,
                           verbose=None):
@@ -641,7 +671,7 @@ class hiccup_data(object):
         src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
         dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}_s2n.nc'
 
-        map_file = f'{default_grid_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
+        map_file = f'{default_map_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
 
         # Define temporary file for regridded data (these will be deleted)
         sst_tmp_file_name = './tmp_sst_data.nc'
@@ -679,23 +709,29 @@ class hiccup_data(object):
             cmd += f' --map_file={map_file}'
             run_cmd(cmd,verbose,shell=True,prepend_line=False)
 
+        # Specify time slice - DOES NOT WORK FOR SOME REASON???
+        # datetime = '\"2018-01-01 00:00:0.0\"'
+        # datetime = 0
+
         # Map the SST data
         var_list = ','.join(self.atm_var_name_dict.values())
         cmd =  f'ncremap {ncremap_alg} '
+        # cmd += f' --nco_opt=\'-d time,{datetime}\' '
         cmd += f' --vars={self.sst_name} '
         cmd += f' --map_file={map_file} '
         cmd += f' --in_file={self.sst_file} '
         cmd += f' --out_file={sst_tmp_file_name} '
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
 
         # Map the sea ice data
         var_list = ','.join(self.sfc_var_name_dict.values())
         cmd =  f'ncremap {ncremap_alg} '
+        # cmd += f' --nco_opt=\'-d time,{datetime}\' '
         cmd += f' --vars={self.ice_name} '
         cmd += f' --map_file={map_file} '
         cmd += f' --in_file={self.ice_file} '
         cmd += f' --out_file={ice_tmp_file_name} '
-        run_cmd(cmd,verbose)
+        run_cmd(cmd,verbose,shell=True)
 
         # Remove output file if it already exists
         if output_file_name in glob.glob(output_file_name) : 
@@ -774,6 +810,8 @@ class hiccup_data(object):
 
         # Set invalid values to np.nan before using interpolate_na()
         ds['SST_cpl'] = xr.where( np.fabs(ds['SST_cpl'].values) < 999, ds['SST_cpl'], np.nan)
+        # finite_ind = np.isfinite(ds['SST_cpl'].values)
+        # ds['SST_cpl'][finite_ind] = np.where( np.fabs(ds['SST_cpl'][finite_ind].values) < 999, np.nan)
 
         # fill in missing SST values over continents by linearly interpolating
         ds['SST_cpl'] = ds['SST_cpl'].interpolate_na(dim='lon',period=360)

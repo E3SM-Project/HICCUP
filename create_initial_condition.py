@@ -175,11 +175,16 @@ if do_state_adjust :
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
+    # tmp_file_name = 'tmp_sstice.nc'
+    # hiccup_data.sstice_subset_and_combine(tmp_file_name=tmp_file_name)
+    # print(tmp_file_name)
+    # exit()
+
     # Remap the sst/ice data to a 1x1 grid
     hiccup_data.sstice_remap_data(output_file_name=output_sst_file_name
-                                 # ,force_grid_and_map_generation=True
+                                 ,force_grid_and_map_generation=True
                                  )
-
+    exit()
     # Rename the variables and remove unnecessary variables and attributes
     hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
 
