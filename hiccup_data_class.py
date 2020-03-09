@@ -157,11 +157,11 @@ class hiccup_data(object):
         self.map_dir = map_dir
 
         # Check if sst/ice dataset is supported
-        if self.sstice_name not in [None,'NOAA']: 
-            err_msg = f'sstice_name={self.sstice_name} is not currently supported'
-            if self.sstice_name=='ERA5': 
-                err_msg += ' due to an issue handling missing values during remapping'
-            raise ValueError(err_msg)
+        # if self.sstice_name not in [None,'NOAA']: 
+        #     err_msg = f'sstice_name={self.sstice_name} is not currently supported'
+        #     if self.sstice_name=='ERA5': 
+        #         err_msg += ' due to an issue handling missing values during remapping'
+        #     raise ValueError(err_msg)
             
         # set input variable names for SST and sea ice 
         if self.sstice_name=='NOAA': self.sst_name,self.ice_name = 'sst','icec'
@@ -642,9 +642,9 @@ class hiccup_data(object):
         if True:
 
             src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
-            dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}.nc'
+            dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}_s2n.nc'
 
-            map_file = f'{default_grid_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
+            map_file = f'{default_grid_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
 
             sst_tmp_file_name = './tmp_sst_data.nc'
             ice_tmp_file_name = './tmp_ice_data.nc'
@@ -665,7 +665,9 @@ class hiccup_data(object):
             if dst_grid_file not in glob.glob(dst_grid_file) or force_grid_and_map_generation :
                 cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
                 cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
-                cmd += f'#latlon={nlat_dst},{nlon_dst}#lat_typ=uni#lon_typ=grn_ctr'
+                cmd += f'#latlon={nlat_dst},{nlon_dst}'
+                cmd += f'#lat_typ=uni'
+                cmd += f'#lon_typ=grn_ctr'
                 cmd +=  '#lat_drc=s2n'
                 cmd += f' -g {dst_grid_file} '
                 run_cmd(cmd,verbose,shell=True)
