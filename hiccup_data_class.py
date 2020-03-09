@@ -621,102 +621,99 @@ class hiccup_data(object):
         if self.sst_file is None: raise ValueError('sst_file cannot be None!')
         if self.ice_file is None: raise ValueError('ice_file cannot be None!')
 
+        # Load the files as xarray datasets to read the grid dimensions
         ds_sst = xr.open_dataset(self.sst_file)
         ds_ice = xr.open_dataset(self.ice_file)
 
-        # determine input grid 
+        # Determine input grid 
         if self.sstice_name=='NOAA': lat_name, lon_name = 'lat', 'lon'
         if self.sstice_name=='ERA5': lat_name, lon_name = 'latitude', 'longitude'
         nlat_src = len( ds_sst[lat_name].values )
         nlon_src = len( ds_sst[lon_name].values )
 
+        # Close the datasets
         ds_sst.close()
         ds_ice.close()
 
+        # Define output grid dimensions
         nlat_dst = int( 180/output_grid_spacing )
         nlon_dst = int( 360/output_grid_spacing )
 
+        # Define grid and map file names
+        src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
+        dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}_s2n.nc'
 
-        # Only do remapping if grid sizes are not equal
-        # if (nlat_src!=nlat_dst) and (nlon_src!=nlon_dst) :
-        if True:
+        map_file = f'{default_grid_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
 
-            src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
-            dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}_s2n.nc'
+        # Define temporary file for regridded data (these will be deleted)
+        sst_tmp_file_name = './tmp_sst_data.nc'
+        ice_tmp_file_name = './tmp_ice_data.nc'
 
-            map_file = f'{default_grid_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
-
-            sst_tmp_file_name = './tmp_sst_data.nc'
-            ice_tmp_file_name = './tmp_ice_data.nc'
-
-            # Create the source grid file
-            if src_grid_file not in glob.glob(src_grid_file) or force_grid_and_map_generation :
-                cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
-                cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
-                cmd += f'#latlon={nlat_src},{nlon_src}'
-                cmd += f'#lat_typ=uni'
-                cmd += f'#lon_typ=grn_ctr'
-                if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
-                if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
-                cmd += f' -g {src_grid_file} '
-                run_cmd(cmd,verbose,shell=True,prepend_line=False)
-            
-            # Create the destination grid file
-            if dst_grid_file not in glob.glob(dst_grid_file) or force_grid_and_map_generation :
-                cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
-                cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
-                cmd += f'#latlon={nlat_dst},{nlon_dst}'
-                cmd += f'#lat_typ=uni'
-                cmd += f'#lon_typ=grn_ctr'
-                cmd +=  '#lat_drc=s2n'
-                cmd += f' -g {dst_grid_file} '
-                run_cmd(cmd,verbose,shell=True)
-
-            # Generate mapping file
-            if map_file not in glob.glob(map_file) or force_grid_and_map_generation :
-                cmd  = f'ncremap {ncremap_alg} '
-                cmd += f' -a fv2fv '
-                cmd += f' --src_grd={src_grid_file}'
-                cmd += f' --dst_grd={dst_grid_file}'
-                cmd += f' --map_file={map_file}'
-                run_cmd(cmd,verbose,shell=True,prepend_line=False)
-
-            # Map the SST data
-            var_list = ','.join(self.atm_var_name_dict.values())
-            cmd =  f'ncremap {ncremap_alg} '
-            cmd += f' --vars={self.sst_name} '
-            cmd += f' --map_file={map_file} '
-            cmd += f' --in_file={self.sst_file} '
-            cmd += f' --out_file={sst_tmp_file_name} '
-            run_cmd(cmd,verbose)
-
-            # Map the sea ice data
-            var_list = ','.join(self.sfc_var_name_dict.values())
-            cmd =  f'ncremap {ncremap_alg} '
-            cmd += f' --vars={self.ice_name} '
-            cmd += f' --map_file={map_file} '
-            cmd += f' --in_file={self.ice_file} '
-            cmd += f' --out_file={ice_tmp_file_name} '
-            run_cmd(cmd,verbose)
-
-            # Remove output file if it already exists
-            if output_file_name in glob.glob(output_file_name) : 
-                run_cmd(f'rm {output_file_name} ',verbose)
-
-            # Add sst temporary file data into the final output file
-            run_cmd(f'ncks -A {sst_tmp_file_name} {output_file_name} ',
-                    verbose,prepend_line=False)
-
-            # Add ice temporary file data into the final output file
-            run_cmd(f'ncks -A {ice_tmp_file_name} {output_file_name} ',
-                    verbose,prepend_line=False)
-
-            # delete the temporary files
-            run_cmd(f'rm {sst_tmp_file_name} {ice_tmp_file_name} ',
-                    verbose,prepend_line=False)
+        # Create the source grid file
+        if src_grid_file not in glob.glob(src_grid_file) or force_grid_and_map_generation :
+            cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
+            cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
+            cmd += f'#latlon={nlat_src},{nlon_src}'
+            cmd += f'#lat_typ=uni'
+            cmd += f'#lon_typ=grn_ctr'
+            if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
+            if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
+            cmd += f' -g {src_grid_file} '
+            run_cmd(cmd,verbose,shell=True,prepend_line=False)
         
-        # else:
-            # grids are same, so copy data to new output file
+        # Create the destination grid file
+        if dst_grid_file not in glob.glob(dst_grid_file) or force_grid_and_map_generation :
+            cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
+            cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
+            cmd += f'#latlon={nlat_dst},{nlon_dst}'
+            cmd += f'#lat_typ=uni'
+            cmd += f'#lon_typ=grn_ctr'
+            cmd +=  '#lat_drc=s2n'
+            cmd += f' -g {dst_grid_file} '
+            run_cmd(cmd,verbose,shell=True)
+
+        # Generate mapping file
+        if map_file not in glob.glob(map_file) or force_grid_and_map_generation :
+            cmd  = f'ncremap {ncremap_alg} '
+            cmd += f' -a fv2fv '
+            cmd += f' --src_grd={src_grid_file}'
+            cmd += f' --dst_grd={dst_grid_file}'
+            cmd += f' --map_file={map_file}'
+            run_cmd(cmd,verbose,shell=True,prepend_line=False)
+
+        # Map the SST data
+        var_list = ','.join(self.atm_var_name_dict.values())
+        cmd =  f'ncremap {ncremap_alg} '
+        cmd += f' --vars={self.sst_name} '
+        cmd += f' --map_file={map_file} '
+        cmd += f' --in_file={self.sst_file} '
+        cmd += f' --out_file={sst_tmp_file_name} '
+        run_cmd(cmd,verbose)
+
+        # Map the sea ice data
+        var_list = ','.join(self.sfc_var_name_dict.values())
+        cmd =  f'ncremap {ncremap_alg} '
+        cmd += f' --vars={self.ice_name} '
+        cmd += f' --map_file={map_file} '
+        cmd += f' --in_file={self.ice_file} '
+        cmd += f' --out_file={ice_tmp_file_name} '
+        run_cmd(cmd,verbose)
+
+        # Remove output file if it already exists
+        if output_file_name in glob.glob(output_file_name) : 
+            run_cmd(f'rm {output_file_name} ',verbose)
+
+        # Add sst temporary file data into the final output file
+        run_cmd(f'ncks -A {sst_tmp_file_name} {output_file_name} ',
+                verbose,prepend_line=False)
+
+        # Add ice temporary file data into the final output file
+        run_cmd(f'ncks -A {ice_tmp_file_name} {output_file_name} ',
+                verbose,prepend_line=False)
+
+        # delete the temporary files
+        run_cmd(f'rm {sst_tmp_file_name} {ice_tmp_file_name} ',
+                verbose,prepend_line=False)
 
         return
     # --------------------------------------------------------------------------
@@ -760,7 +757,6 @@ class hiccup_data(object):
         - limit sea ice fraction  
         - interpolate to fill in missing SST data, extrapolate where necessary (i.e. Antarctica)
         """
-
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdjusting SST and sea ice data values...')
 
