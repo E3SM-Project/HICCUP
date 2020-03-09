@@ -621,9 +621,8 @@ class hiccup_data(object):
         if self.sst_file is None: raise ValueError('sst_file cannot be None!')
         if self.ice_file is None: raise ValueError('ice_file cannot be None!')
 
-        # Load the files as xarray datasets to read the grid dimensions
+        # Load the SST file as xarray datasets to read the grid dimensions
         ds_sst = xr.open_dataset(self.sst_file)
-        ds_ice = xr.open_dataset(self.ice_file)
 
         # Determine input grid 
         if self.sstice_name=='NOAA': lat_name, lon_name = 'lat', 'lon'
@@ -631,9 +630,8 @@ class hiccup_data(object):
         nlat_src = len( ds_sst[lat_name].values )
         nlon_src = len( ds_sst[lon_name].values )
 
-        # Close the datasets
+        # Close the dataset
         ds_sst.close()
-        ds_ice.close()
 
         # Define output grid dimensions
         nlat_dst = int( 180/output_grid_spacing )
@@ -654,8 +652,8 @@ class hiccup_data(object):
             cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
             cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
             cmd += f'#latlon={nlat_src},{nlon_src}'
-            cmd += f'#lat_typ=uni'
-            cmd += f'#lon_typ=grn_ctr'
+            cmd +=  '#lat_typ=uni'
+            cmd +=  '#lon_typ=grn_ctr'
             if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
             if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
             cmd += f' -g {src_grid_file} '
@@ -666,8 +664,8 @@ class hiccup_data(object):
             cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
             cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
             cmd += f'#latlon={nlat_dst},{nlon_dst}'
-            cmd += f'#lat_typ=uni'
-            cmd += f'#lon_typ=grn_ctr'
+            cmd +=  '#lat_typ=uni'
+            cmd +=  '#lon_typ=grn_ctr'
             cmd +=  '#lat_drc=s2n'
             cmd += f' -g {dst_grid_file} '
             run_cmd(cmd,verbose,shell=True)
@@ -675,7 +673,7 @@ class hiccup_data(object):
         # Generate mapping file
         if map_file not in glob.glob(map_file) or force_grid_and_map_generation :
             cmd  = f'ncremap {ncremap_alg} '
-            cmd += f' -a fv2fv '
+            cmd +=  ' -a fv2fv '
             cmd += f' --src_grd={src_grid_file}'
             cmd += f' --dst_grd={dst_grid_file}'
             cmd += f' --map_file={map_file}'
