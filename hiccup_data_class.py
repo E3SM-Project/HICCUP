@@ -742,6 +742,12 @@ class hiccup_data(object):
         run_cmd(f'ncks -C -O -x -v area,gw,lat_bnds,lon_bnds {output_file_name} {output_file_name}',
                 verbose,prepend_line=False,shell=True)
 
+        # Drop unnecessary attributes
+        global_att_list = ['history_of_appended_files']
+        for att in global_att_list:
+            run_cmd(f'ncatted -O -a {att},global,d,, {output_file_name} {output_file_name}',
+                    verbose,prepend_line=False)
+
         # Reset the history attribute
         run_cmd(f'ncatted -h -O -a history,global,o,c, {output_file_name} {output_file_name}',
                 verbose,prepend_line=False)

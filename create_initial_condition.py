@@ -175,12 +175,15 @@ if do_state_adjust :
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
+    # Remap the sst/ice data to a 1x1 grid
     hiccup_data.sstice_remap_data(output_file_name=output_sst_file_name
                                  # ,force_grid_and_map_generation=True
                                  )
 
+    # Rename the variables and remove unnecessary variables and attributes
     hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
 
+    # Adjust final SST/ice data to fill in missing values and limit ice fraction
     hiccup_data.sstice_adjustments(output_file_name=output_sst_file_name)
 
 # ------------------------------------------------------------------------------
