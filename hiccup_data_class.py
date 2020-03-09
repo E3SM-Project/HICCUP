@@ -440,7 +440,8 @@ class hiccup_data(object):
             ds = xr.open_dataset(input_file_name)
             for key in ds.variables.keys(): 
                 vert_remap_var_list.append(key)
-                # only remap varaibles with lev coord - this ignores other variables like TS!
+                # only remap variables with lev coord in order to
+                # ignore other variables (i.e. TS, PS)
                 # if self.lev_name in ds[key].dims and key!=self.lev_name :
                 #     vert_remap_var_list.append(key)
         vert_remap_var_list = ','.join(vert_remap_var_list)
@@ -471,7 +472,6 @@ class hiccup_data(object):
         time_shape = ( len(ds['time']) )
         time_coord = {'time':ds['time'].values}
         time_dim   = ['time']
-
 
         # Use the pandas library to parse the time/date information
         datetime = pd.DatetimeIndex( ds['time'].values )
@@ -752,9 +752,10 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def sstice_adjustments(self, output_file_name, verbose=None):
         """
-        Limit sea ice fraction and make sure units are correct.
-        Also interpolate to fill in missing SST values and extrapolate 
-        where necessary (i.e. Antarctica). 
+        Perform miscellaneous adjustments to the final SST/ice file
+        - make sure SST units are Celsius
+        - limit sea ice fraction  
+        - interpolate to fill in missing SST data, extrapolate where necessary (i.e. Antarctica)
         """
 
         if verbose is None : verbose = hiccup_verbose
