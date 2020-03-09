@@ -608,9 +608,9 @@ class hiccup_data(object):
                           verbose=None):
         """
         Create horizontally remapped sst and sea ice data file. 
-        The sst/ice data needs to be on a uniform (equiangular grid, so this 
+        The sst/ice data needs to be on a uniform (equiangular) grid, so this 
         routine automatically remaps the input data. The SST and ice data are 
-        assumed to exist on the same grid.
+        assumed to exist on the same grid and, hence, use the same grid file.
         """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
@@ -654,8 +654,8 @@ class hiccup_data(object):
                 cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
                 cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
                 cmd += f'#latlon={nlat_src},{nlon_src}'
-                cmd += f'#lon_typ=grn_ctr'
                 cmd += f'#lat_typ=uni'
+                cmd += f'#lon_typ=grn_ctr'
                 if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
                 if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
                 cmd += f' -g {src_grid_file} '
@@ -674,7 +674,8 @@ class hiccup_data(object):
 
             # Generate mapping file
             if map_file not in glob.glob(map_file) or force_grid_and_map_generation :
-                cmd  = f'ncremap {ncremap_alg} -a fv2fv '
+                cmd  = f'ncremap {ncremap_alg} '
+                cmd += f' -a fv2fv '
                 cmd += f' --src_grd={src_grid_file}'
                 cmd += f' --dst_grd={dst_grid_file}'
                 cmd += f' --map_file={map_file}'
