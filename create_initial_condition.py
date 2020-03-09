@@ -59,9 +59,12 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
                                     # ,atm_file='data/HICCUP_TEST.ERA5.atm.upack.nc'
                                     # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
-                                    ,sstice_name='NOAA'
-                                    ,sst_file='data/sst.day.mean.2018.nc'
-                                    ,ice_file='data/icec.day.mean.2018.nc'
+                                    # ,sstice_name='NOAA'
+                                    # ,sst_file='data/sst.day.mean.2018.nc'
+                                    # ,ice_file='data/icec.day.mean.2018.nc'
+                                    ,sstice_name='ERA5'
+                                    ,sst_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    ,ice_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     ,dst_horz_grid='ne30np4'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
@@ -154,10 +157,10 @@ if do_state_adjust :
     # adjust cloud water to remove negative values?
     hsa.adjust_cld_wtr( ds_data )
 
-    # adjust cloud fraction to remove values outside of [0,1]
+    # adjust cloud fraction to remove values outside of [0,1] - DO WE NEED THIS?
     # hsa.adjust_cloud_fraction( ds_data )
 
-    # adjust surface pressure to retain dry mass of atmosphere
+    # adjust surface pressure to retain dry mass of atmosphere - NOT TESTED
     # hsa.dry_mass_fixer( ds_data )
 
     # Add extra variable that weren't included in input data - DO WE NEED THIS?
@@ -172,7 +175,13 @@ if do_state_adjust :
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
-    hiccup_data.create_sstice(output_file_name=output_sst_file_name)
+    hiccup_data.sstice_remap_data(output_file_name=output_sst_file_name
+                                 # ,force_grid_and_map_generation=True
+                                 )
+
+    hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
+
+    hiccup_data.sstice_adjustments(output_file_name=output_sst_file_name)
 
 # ------------------------------------------------------------------------------
 # Print final output file name

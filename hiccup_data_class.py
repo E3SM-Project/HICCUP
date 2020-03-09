@@ -28,22 +28,22 @@ tempest_log_file    = 'TempestRemap.log'
 # NETCDF4 to avoid file permission issue
 hiccup_nc_format = 'NETCDF3_64BIT'
 
+# Global verbosity default
 hiccup_verbose = False
 
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
 
+# Numeric parameters
+tk_zero = 273.15 # value for converting between celsius and Kelvin
+
 # Set up terminal colors
 class tcolor:
-    ENDC     = '\033[0m'
-    BLACK    = '\033[30m'
-    RED      = '\033[31m'
-    GREEN    = '\033[32m'
-    YELLOW   = '\033[33m'
-    BLUE     = '\033[34m'
-    MAGENTA  = '\033[35m'
-    CYAN     = '\033[36m'
-    WHITE    = '\033[37m'
+    ENDC, BLACK, RED     = '\033[0m','\033[30m','\033[31m'
+    GREEN, YELLOW, BLUE  = '\033[32m','\033[33m','\033[34m'
+    MAGENTA, CYAN, WHITE = '\033[35m','\033[36m','\033[37m'
+
+
 
 # ------------------------------------------------------------------------------
 # Common method for printing and running commands
@@ -143,7 +143,7 @@ class hiccup_data(object):
         self.sst_file = sst_file
         self.ice_file = ice_file
 
-        # Make sure output directory is formatted correctly
+        # Make sure directory strings are formatted correctly
         if output_dir=='' or output_dir==None : output_dir = './'
         if not output_dir.endswith('/'): output_dir += '/'
         self.output_dir = output_dir
@@ -155,6 +155,17 @@ class hiccup_data(object):
         if map_dir=='' or map_dir==None : map_dir = './'
         if not map_dir.endswith('/'): map_dir += '/'
         self.map_dir = map_dir
+
+        # Check if sst/ice dataset is supported
+        if self.sstice_name not in [None,'NOAA']: 
+            err_msg = f'sstice_name={self.sstice_name} is not currently supported'
+            if self.sstice_name=='ERA5': 
+                err_msg += ' due to an issue handling missing values during remapping'
+            raise ValueError(err_msg)
+            
+        # set input variable names for SST and sea ice 
+        if self.sstice_name=='NOAA': self.sst_name,self.ice_name = 'sst','icec'
+        if self.sstice_name=='ERA5': self.sst_name,self.ice_name = 'sst','siconc'
 
         # Load input files into xarray datasets
         self.ds_atm = xr.open_dataset(self.atm_file)
@@ -561,6 +572,13 @@ class hiccup_data(object):
             ds['NUMLIQ'].attrs['units'] = 'kg/kg'
             ds['NUMLIQ'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
         
+        # Other variables that might be needed:
+        # H2SO4
+        # H2O2
+        # DMS
+        # SOAG
+        # SO2
+
         return
     # --------------------------------------------------------------------------
     def clean_global_attributes(self,file_name,verbose=None):
@@ -585,19 +603,17 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prepend_line=False)
     # --------------------------------------------------------------------------
-    def create_sstice(self,output_file_name,output_grid_spacing=1,
-                      force_grid_and_map_generation=False,
-                      verbose=None):
+    def sstice_remap_data(self, output_file_name, output_grid_spacing=1,
+                          force_grid_and_map_generation=False,
+                          verbose=None):
         """
-        Create sst and sea ice data file for hindcast. 
+        Create horizontally remapped sst and sea ice data file. 
         The sst/ice data needs to be on a uniform (equiangular grid, so this 
         routine automatically remaps the input data. The SST and ice data are 
         assumed to exist on the same grid.
-        The model interpolates the time coordinate, and the easiest way to get
-        persistent SST is to...
         """
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nCreating SST and sea ice data file...')
+        if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
 
         check_dependency('ncremap')
         check_dependency('ncks')
@@ -620,29 +636,33 @@ class hiccup_data(object):
         nlat_dst = int( 180/output_grid_spacing )
         nlon_dst = int( 360/output_grid_spacing )
 
+
         # Only do remapping if grid sizes are not equal
-        if (nlat_src!=nlat_dst) and (nlon_src!=nlon_dst) :
+        # if (nlat_src!=nlat_dst) and (nlon_src!=nlon_dst) :
+        if True:
 
             src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
             dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}.nc'
 
-            map_file = f'{default_grid_dir}/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
+            map_file = f'{default_grid_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 
             sst_tmp_file_name = './tmp_sst_data.nc'
             ice_tmp_file_name = './tmp_ice_data.nc'
 
             # Create the source grid file
-            if src_grid_file not in glob.glob(src_grid_file) and not force_grid_and_map_generation :
+            if src_grid_file not in glob.glob(src_grid_file) or force_grid_and_map_generation :
                 cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
                 cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
-                cmd += f'#latlon={nlat_src},{nlon_src}#lon_typ=grn_ctr#lat_typ=uni'
-                if self.sstice_name=='NOAA': cmd +=  '#lat_drc=s2n'
-                if self.sstice_name=='ERA5': cmd +=  '#lat_drc=n2s'
+                cmd += f'#latlon={nlat_src},{nlon_src}'
+                cmd += f'#lon_typ=grn_ctr'
+                cmd += f'#lat_typ=uni'
+                if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
+                if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
                 cmd += f' -g {src_grid_file} '
                 run_cmd(cmd,verbose,shell=True,prepend_line=False)
-
+            
             # Create the destination grid file
-            if dst_grid_file not in glob.glob(dst_grid_file) and not force_grid_and_map_generation :
+            if dst_grid_file not in glob.glob(dst_grid_file) or force_grid_and_map_generation :
                 cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
                 cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
                 cmd += f'#latlon={nlat_dst},{nlon_dst}#lat_typ=uni#lon_typ=grn_ctr'
@@ -651,7 +671,7 @@ class hiccup_data(object):
                 run_cmd(cmd,verbose,shell=True)
 
             # Generate mapping file
-            if map_file not in glob.glob(map_file) and not force_grid_and_map_generation :
+            if map_file not in glob.glob(map_file) or force_grid_and_map_generation :
                 cmd  = f'ncremap {ncremap_alg} -a fv2fv '
                 cmd += f' --src_grd={src_grid_file}'
                 cmd += f' --dst_grd={dst_grid_file}'
@@ -661,6 +681,7 @@ class hiccup_data(object):
             # Map the SST data
             var_list = ','.join(self.atm_var_name_dict.values())
             cmd =  f'ncremap {ncremap_alg} '
+            cmd += f' --vars={self.sst_name} '
             cmd += f' --map_file={map_file} '
             cmd += f' --in_file={self.sst_file} '
             cmd += f' --out_file={sst_tmp_file_name} '
@@ -669,6 +690,7 @@ class hiccup_data(object):
             # Map the sea ice data
             var_list = ','.join(self.sfc_var_name_dict.values())
             cmd =  f'ncremap {ncremap_alg} '
+            cmd += f' --vars={self.ice_name} '
             cmd += f' --map_file={map_file} '
             cmd += f' --in_file={self.ice_file} '
             cmd += f' --out_file={ice_tmp_file_name} '
@@ -689,42 +711,83 @@ class hiccup_data(object):
             # delete the temporary files
             run_cmd(f'rm {sst_tmp_file_name} {ice_tmp_file_name} ',
                     verbose,prepend_line=False)
-            
-        # rename variables
-        if self.sstice_name=='NOAA': old_name_sst,old_name_ice = 'sst','icec'
-        if self.sstice_name=='ERA5': old_name_sst,old_name_ice = 'sst','siconc'
         
-        cmd = f'ncrename --hst --variable {old_name_sst},SST_cpl {output_file_name}'
+        # else:
+            # grids are same, so copy data to new output file
+
+        return
+    # --------------------------------------------------------------------------
+    def sstice_rename_vars(self, output_file_name, new_sst_name='SST_cpl',
+                           new_ice_name='ice_cov', verbose=None):
+        """
+        Rename sst and sea icea variables and remove unnecessary variables
+        """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nRenaming SST and sea ice variables...')
+
+        check_dependency('ncrename')
+        check_dependency('ncks')
+        check_dependency('ncatted')
+
+        # rename variables
+        cmd = f'ncrename --hst --variable {self.sst_name},{new_sst_name} {output_file_name}'
         run_cmd(cmd,verbose,shell=True)
 
-        cmd = f'ncrename --hst --variable {old_name_ice},ice_cov {output_file_name}'
+        cmd = f'ncrename --hst --variable {self.ice_name},{new_ice_name} {output_file_name}'
         run_cmd(cmd,verbose,shell=True)
+
+        # Make sure dimensions names are correct
+        run_cmd(f'ncrename --hst --dimension .longitude,lon {output_file_name}',verbose,shell=True)
+        run_cmd(f'ncrename --hst --dimension .latitude,lat  {output_file_name}',verbose,shell=True)
+
+        # Drop unnecessary variables
+        run_cmd(f'ncks -C -O -x -v area,gw,lat_bnds,lon_bnds {output_file_name} {output_file_name}',
+                verbose,prepend_line=False,shell=True)
+
+        # Reset the history attribute
+        run_cmd(f'ncatted -h -O -a history,global,o,c, {output_file_name} {output_file_name}',
+                verbose,prepend_line=False)
+
+        return
+    # --------------------------------------------------------------------------
+    def sstice_adjustments(self, output_file_name, verbose=None):
+        """
+        Limit sea ice fraction and make sure units are correct.
+        Also interpolate to fill in missing SST values and extrapolate 
+        where necessary (i.e. Antarctica). 
+        """
+
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nAdjusting SST and sea ice data values...')
 
         # Open remapped and combined data file
         ds = xr.open_dataset(output_file_name).load()
 
-        # Set invalid values to np.nan before using interpolate_na()
-        ds['SST_cpl'] = ds['SST_cpl'].where(np.abs(ds['SST_cpl']) < 999, np.nan)
+        # Convert units to Celsius
+        if ds['SST_cpl'].attrs['units'] in ['K','degrees_K','Kelvin'] :
+            ds['SST_cpl'] = ds['SST_cpl']-tk_zero
+            ds['SST_cpl'].attrs['units'] = 'degrees_C'
 
-        # fill in missing SSTvalues over continents by linearly interpolating
+        # Set invalid values to np.nan before using interpolate_na()
+        ds['SST_cpl'] = xr.where( np.fabs(ds['SST_cpl'].values) < 999, ds['SST_cpl'], np.nan)
+
+        # fill in missing SST values over continents by linearly interpolating
         ds['SST_cpl'] = ds['SST_cpl'].interpolate_na(dim='lon',period=360)
 
-        # extrapolate in latitude direction to deal with poles (this requires scipy)
+        # extrapolate in latitude direction to deal with poles (requires scipy)
         ds['SST_cpl'] = ds['SST_cpl'].interpolate_na(dim='lat',method='nearest'
                                                     ,fill_value='extrapolate')
 
         # Fill missing ice values with zero
         ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']>=0, 0)
         ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']<=2, 0)
-        # Also limit values slightly above 1
+
+        # Also limit ice values slightly above 1 that might result from remap
         ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']<=1, 1)
 
 
         # deal with time coordinate
-
-
-
-
+        # ??????
 
         # Write back to final file
         ds.to_netcdf(output_file_name,format=hiccup_nc_format)
