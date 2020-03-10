@@ -90,6 +90,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   pressure = ds_data[pressure_var_name]
   if 'time' not in pressure.dims : pressure = pressure.expand_dims(time=len(ps_tmp['time']),axis=0)
   if 'ncol' not in pressure.dims : pressure = pressure.expand_dims(ncol=len(ps_tmp['ncol']),axis=1)
+  # If ps_tmp has extra lat/lon coords they will cause an error, so just drop them
+  if 'lat' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lat')
+  if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lon')
   pressure_with_ps = xr.concat( [ pressure, ps_tmp ], dim=lev_coord_name )
 
   # calculate pressure thickness - reverse direction so sign is correct
