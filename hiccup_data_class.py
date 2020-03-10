@@ -671,7 +671,7 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def get_sst_file(self):
         """
-        return file name that contains input SST data
+        Return file name that contains input SST data
         """
         sst_file = self.sstice_combined_file
         if sst_file is None : sst_file = self.sst_file
@@ -680,7 +680,7 @@ class hiccup_data(object):
 
     def open_combined_sstice_dataset(self):
         """
-        return xarray dataset of combined SST and sea ice dataset
+        Return xarray dataset of combined SST and sea ice dataset
         """
         if self.sstice_combined_file is None :
             # if sstice_combined_file is not defined then we need to 
@@ -688,13 +688,13 @@ class hiccup_data(object):
             if self.sst_file is None and self.ice_file is None: 
                 raise ValueError('sst_file and ice_file must be set if sstice_combined_file is not set!')
             # Combine individual SST and sea ice data files
-            ds_sst = xr.open_dataset(self.sst_file)
-            ds_ice = xr.open_dataset(self.ice_file)
+            ds_sst = xr.open_dataset(self.sst_file).load()
+            ds_ice = xr.open_dataset(self.ice_file).load()
             ds_out = xr.merge([ds_sst,ds_ice])
             ds_sst.close(); ds_ice.close()
         else:
             # Open combined sst/ice data file
-            ds_out = xr.open_dataset(self.sst_file)
+            ds_out = xr.open_dataset(self.sstice_combined_file)
         return ds_out
     # --------------------------------------------------------------------------
     def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False,
@@ -796,27 +796,42 @@ class hiccup_data(object):
             # If there are multiple matching times, just use the first instance
             if time_slice.size > 1 : time_slice = time_slice[0]
 
-        # Load time sliced data and write out to temporary file
+        # Load time sliced data
         ds_out = self.open_combined_sstice_dataset().isel(time=time_slice).load()
+        # Drop any extra variables
+        for var in ds_out.variables :
+            if var not in [self.sst_name,self.ice_name] and var not in ds_out.coords : 
+                ds_out = ds_out.drop_vars(var)
+        # write out to temporary file
         ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
         ds_out.close()
-
-        run_cmd(f'ncdump -h {sstice_tmp_file_name}')
 
         # Replace nan values with missing_value to avoid remapping issues
         if self.sstice_name=='NOAA':
             missing_value = 1e36
-            ds = xr.open_dataset(sstice_tmp_file_name).load()
-            ds[self.sst_name] = ds[self.sst_name].where( ds[self.sst_name].values != np.nan, missing_value )
-            ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
-            ds_out.close()
+            # ds = xr.open_dataset(sstice_tmp_file_name).load()
+            # ds[self.sst_name] = ds[self.sst_name].where( ds[self.sst_name].values != np.nan, missing_value )
+            # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+            # ds.close()
             cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
-            run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True)
-            run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.ice_name}'),verbose,shell=True)
-            run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True)
-            run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True)
+            run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True,prepend_line=False)
+            run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.ice_name}'),verbose,shell=True,prepend_line=False)
+            run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True,prepend_line=False)
+            run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True,prepend_line=False)
+        # if self.sstice_name=='ERA5':
+        #     missing_value = 1e36
+        #     # ds = xr.open_dataset(sstice_tmp_file_name).load()
+        #     # ds.fillna(value=missing_value)
+        #     # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+        #     # ds.close()
+        #     cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
+        #     run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True,prepend_line=False)
+        #     run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.ice_name}'),verbose,shell=True,prepend_line=False)
+        #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True,prepend_line=False)
+        #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True,prepend_line=False)
 
-        run_cmd(f'ncdump -h {sstice_tmp_file_name}')
+        # run_cmd(f'ncdump -h {sstice_tmp_file_name}')
+        # exit()
 
         if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
 

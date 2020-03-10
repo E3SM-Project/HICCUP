@@ -55,17 +55,15 @@ nc_format = 'NETCDF3_64BIT'
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
-                                    ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    # ,atm_file='data/HICCUP_TEST.ERA5.atm.upack.nc'
-                                    # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    # ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
+                                    # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
+                                    ,atm_file='data/HICCUP_TEST.ERA5.atm.upack.nc'
+                                    ,sfc_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     ,sstice_name='NOAA'
                                     ,sst_file='data/sst.day.mean.2018.nc'
                                     ,ice_file='data/icec.day.mean.2018.nc'
                                     # ,sstice_name='ERA5'
-                                    # ,sstice_combined_file=''
-                                    # ,sst_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    # ,ice_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
+                                    # ,sstice_combined_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     ,dst_horz_grid='ne30np4'
                                     ,dst_vert_grid='L72'
                                     ,verbose=verbose)
@@ -176,35 +174,22 @@ if do_state_adjust :
 # ------------------------------------------------------------------------------
 if create_sst_data :
 
-    # extract a temporal subset and combine data if sstice_combined_file=None
-    hiccup_data.sstice_subset_and_combine()
-
     # create grid and mapping files
-    hiccup_data.sstice_create_src_grid_file()
-    hiccup_data.sstice_create_dst_grid_file()
-    hiccup_data.sstice_create_map_file()
+    overwrite = False
+    hiccup_data.sstice_create_src_grid_file(force_overwrite=overwrite)
+    hiccup_data.sstice_create_dst_grid_file(force_overwrite=overwrite)
+    hiccup_data.sstice_create_map_file(force_overwrite=overwrite)
 
-    # ????
-    hiccup_data.sstice_remap(output_file_name=output_sst_file_name)
+    # Remap the sst/ice data after time slicing and combining (if necessary)
+    hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,
+                                       time_slice_method='initial',
+                                       atm_file=output_atm_file_name)
 
     # Rename the variables and remove unnecessary variables and attributes
-    # hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
+    hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
 
     # Adjust final SST/ice data to fill in missing values and limit ice fraction
-    # hiccup_data.sstice_adjustments(output_file_name=output_sst_file_name)
-
-    exit()
-
-    # # Remap the sst/ice data to a 1x1 grid
-    # hiccup_data.sstice_remap_data(output_file_name=output_sst_file_name
-    #                              ,force_grid_and_map_generation=True
-    #                              )
-
-    # # Rename the variables and remove unnecessary variables and attributes
-    # hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
-
-    # # Adjust final SST/ice data to fill in missing values and limit ice fraction
-    # hiccup_data.sstice_adjustments(output_file_name=output_sst_file_name)
+    hiccup_data.sstice_adjustments(output_file_name=output_sst_file_name)
 
 # ------------------------------------------------------------------------------
 # Print final output file name
