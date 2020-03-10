@@ -33,10 +33,11 @@ verbose = True
 # Logical flags for debugging
 unpack_nc_files = False
 create_map_file = False    # flag for grid and map file creation
-remap_data_horz = False    # toggle horizontal remap, variable renaming, and reference pressure
-remap_data_vert = False    # toggle vertical remap
-do_state_adjust = False    # toggle for all adjustment calculations
-create_sst_data = True    # sst/sea ice file creation
+remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
+do_state_adjst1 = True    # toggle for post vertical interpolation adjustment calculations
+remap_data_vert = True    # toggle vertical remap
+do_state_adjst2 = True    # toggle for post vertical interpolation adjustment calculations
+create_sst_data = False    # sst/sea ice file creation
 
 output_atm_file_name = 'data/HICCUP_TEST.output.atm.nc'
 output_sst_file_name = 'data/HICCUP_TEST.output.sst.nc'
@@ -57,15 +58,16 @@ nc_format = 'NETCDF3_64BIT'
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     # ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
                                     # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    ,atm_file='data/HICCUP_TEST.ERA5.atm.upack.nc'
-                                    ,sfc_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    ,atm_file='data_scratch/HICCUP_TEST.ERA5.atm.upack.nc'
+                                    ,sfc_file='data_scratch/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     ,sstice_name='NOAA'
-                                    ,sst_file='data/sst.day.mean.2018.nc'
-                                    ,ice_file='data/icec.day.mean.2018.nc'
+                                    ,sst_file='data_scratch/sst.day.mean.2018.nc'
+                                    ,ice_file='data_scratch/icec.day.mean.2018.nc'
                                     # ,sstice_name='ERA5'
-                                    # ,sstice_combined_file='data/HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    # ,sstice_combined_file='data_scratch/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     ,dst_horz_grid='ne30np4'
                                     ,dst_vert_grid='L72'
+                                    ,output_dir='/global/homes/w/whannah/HICCUP/data_scratch/'
                                     ,verbose=verbose)
 
 
@@ -114,7 +116,7 @@ if remap_data_horz :
 # ------------------------------------------------------------------------------
 # Adjust sfc temperature and pressure before vertical interpolation
 # ------------------------------------------------------------------------------
-if do_state_adjust :
+if do_state_adjst1 :
 
     # Load the file into an xarray dataset
     ds_data = xr.open_dataset(output_atm_file_name).load()
@@ -145,7 +147,7 @@ if remap_data_vert :
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 # ------------------------------------------------------------------------------
-if do_state_adjust :
+if do_state_adjst2 :
 
     # Load the file into an xarray dataset
     ds_data = xr.open_dataset(output_atm_file_name).load()
