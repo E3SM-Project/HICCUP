@@ -55,7 +55,11 @@ def main(fig_file='sanity_check',fig_type='png'):
 
       # Create map plot
       plot.append( ngl.contour_map(wks,data.values,res) )
-      set_subtitles(wks, plot[len(plot)-1], data.attrs['long_name'], '', lev_str, font_height=font_height )
+      if 'long_name' in data.attrs:
+         left_str = data.attrs['long_name']
+      else:
+         left_str = var[v]
+      set_subtitles(wks, plot[len(plot)-1], left_str, '', lev_str, font_height=font_height )
       
       # if 'lev' in ds[var[v]].dims :
       #    # Create zonal mean plot (height vs lat) using area-weighted averaging of columns
