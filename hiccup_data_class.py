@@ -96,6 +96,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                       ,sstice_name=sstice_name
                       ,sst_file=sst_file
                       ,ice_file=ice_file
+                      ,sstice_combined_file=sstice_combined_file
                       ,dst_horz_grid=dst_horz_grid
                       ,dst_vert_grid=dst_vert_grid
                       ,output_dir=output_dir
@@ -144,6 +145,10 @@ class hiccup_data(object):
         self.sst_file = sst_file
         self.ice_file = ice_file
         self.sstice_combined_file = sstice_combined_file
+        self.sstice_nlat_src = None
+        self.sstice_nlon_src = None
+        self.sstice_nlat_dst = None
+        self.sstice_nlon_dst = None
 
         # Make sure directory strings are formatted correctly
         if output_dir=='' or output_dir==None : output_dir = './'
@@ -608,78 +613,53 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prepend_line=False)
     # --------------------------------------------------------------------------
-    def sstice_subset_and_combine(self,method='initial',verbose=None):
-        """
-        Extract a temporal subset of the SST and sea ice data
-        and combine into new temporary file for later regridding
-        method options (only initial is currently supported):
-        - initial           just use first time
-        - match_atmos       find time that corresponds to time in atmos data
-        - date_range_avg    produce an average over a specified date range
-        - all               one output file per time slice
-        """
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(f'\nSubsetting and combining SST and sea ice data...')
-
-        if method not in ['initial','match_atmos'] :
-            raise ValueError(f'{method} is not a supported method')
-
-        if method == 'initial' :
-            time_slice = slice(0,0)
-        if method == 'match_atmos' :
-            time_slice = slice(0,0)
-
-        if self.sstice_combined_file is None :
-
-            if self.sst_file is None and self.ice_file is None: 
-                raise ValueError('sst_file and ice_file must be set if sstice_combined_file is not set!')
-
-            # Combine 
-            ds_sst = xr.open_dataset(self.sst_file).isel(time=time_slice)
-            ds_ice = xr.open_dataset(self.ice_file).isel(time=time_slice)
-            ds_out = xr.merge([ds_sst,ds_ice])
-            ds_sst.close()
-            ds_ice.close()
-
-        else:
-
-            # Open combined sst/ice data file
-            ds_out = xr.open_dataset(self.sst_file).isel(time=time_slice)
-
-        # ds_out.to_netcdf(self.sstice_combined_file,format=hiccup_nc_format)
-        # ds_out.close()
-
-        return
     # --------------------------------------------------------------------------
-    def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None
-                                    ,verbose=None):
+    # SST and sea ice methods
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None,
+                                    force_overwrite=False,verbose=None):
         """
         Create a source grid file to use for remapping the SST and sea ice data.
         The SST and ice data are assumed to exist on the same grid.
         """
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print(f'\nCreating source grid file for SST and sea ice data...')
-
-        self.sstice_src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
 
         if diagnose_grid:
             # Load the SST file as xarray datasets to read the grid dimensions
-            ds_sst = xr.open_dataset(self.sst_file)
+            sst_file = self.sstice_combined_file
+            if sst_file is None : sst_file = self.sst_file
+            if sst_file is None : raise ValueError('No valid sst data file found!')
+
+            ds_sst = xr.open_dataset(sst_file)
 
             # Determine input grid 
             if self.sstice_name=='NOAA': lat_name, lon_name = 'lat', 'lon'
             if self.sstice_name=='ERA5': lat_name, lon_name = 'latitude', 'longitude'
-            nlat = len( ds_sst[lat_name].values )
-            nlon = len( ds_sst[lon_name].values )
+            self.sstice_nlat_src = len( ds_sst[lat_name].values )
+            self.sstice_nlon_src = len( ds_sst[lon_name].values )
 
             # Close the dataset
             ds_sst.close()
+        else:
+            # Use supplied grid dimensions
+            if nlat is None : raise ValueError('nlat can not be None if diagnose_grid is False!')
+            if nlon is None : raise ValueError('nlon can not be None if diagnose_grid is False!')
+            self.sstice_nlat_src = nlat
+            self.sstice_nlon_src = nlon
+
+        src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
+
+        # Define the source grid file to be created
+        self.sstice_src_grid_file = f'{default_grid_dir}scrip_{src_grid}.nc'
 
         # Create the source grid file
-        if src_grid_file not in glob.glob(self.sstice_src_grid_file) :
+        file_does_not_exist = self.sstice_src_grid_file not in glob.glob(self.sstice_src_grid_file) 
+        if file_does_not_exist or force_overwrite :
+            if verbose : print(f'\nCreating source grid file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
-            cmd += f' -G ttl=\'Equi-Angular grid {nlat}x{nlon}\'' 
-            cmd += f'#latlon={nlat},{nlon}'
+            cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
+            cmd += f'#latlon={self.sstice_nlat_src},{self.sstice_nlon_src}'
             cmd +=  '#lat_typ=uni'
             cmd +=  '#lon_typ=grn_ctr'
             if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
@@ -689,25 +669,59 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def sstice_create_dst_grid_file(self,output_grid_spacing=1,verbose=None):
+    def get_sst_file(self):
+        """
+        return file name that contains input SST data
+        """
+        sst_file = self.sstice_combined_file
+        if sst_file is None : sst_file = self.sst_file
+        if sst_file is None : raise ValueError('No valid sst data file found!')
+        return sst_file
+
+    def open_combined_sstice_dataset(self):
+        """
+        return xarray dataset of combined SST and sea ice dataset
+        """
+        if self.sstice_combined_file is None :
+            # if sstice_combined_file is not defined then we need to 
+            # combine the individual SST and sea ice data files
+            if self.sst_file is None and self.ice_file is None: 
+                raise ValueError('sst_file and ice_file must be set if sstice_combined_file is not set!')
+            # Combine individual SST and sea ice data files
+            ds_sst = xr.open_dataset(self.sst_file)
+            ds_ice = xr.open_dataset(self.ice_file)
+            ds_out = xr.merge([ds_sst,ds_ice])
+            ds_sst.close(); ds_ice.close()
+        else:
+            # Open combined sst/ice data file
+            ds_out = xr.open_dataset(self.sst_file)
+        return ds_out
+    # --------------------------------------------------------------------------
+    def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False,
+                                    verbose=None):
         """
         Create a target grid file to use for remapping the SST and sea ice data.
         The SST and ice data are assumed to exist on the same grid.
         """
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print(f'\nCreating target grid file for SST and sea ice data...')
-
-        self.sstice_dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}_s2n.nc'
 
         # Define output grid dimensions
-        nlat = int( 180/output_grid_spacing )
-        nlon = int( 360/output_grid_spacing )
+        self.sstice_nlat_dst = int( 180/output_grid_spacing )
+        self.sstice_nlon_dst = int( 360/output_grid_spacing )
+
+        dst_grid = f'{self.sstice_nlat_dst}x{self.sstice_nlon_dst}'
+
+        # Define the destination grid file to be created
+        # (add 's2n' in case input data is same grid with opposite orientation)
+        self.sstice_dst_grid_file = f'{default_grid_dir}scrip_{dst_grid}_s2n.nc'
 
         # Create the destination grid file
-        if dst_grid_file not in glob.glob(self.sstice_dst_grid_file) :
+        file_does_not_exist = self.sstice_dst_grid_file not in glob.glob(self.sstice_dst_grid_file)
+        if file_does_not_exist or force_overwrite :
+            if verbose : print(f'\nCreating target grid file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
-            cmd += f' -G ttl=\'Equi-Angular grid {nlat}x{nlon}\'' 
-            cmd += f'#latlon={nlat},{nlon}'
+            cmd += f' -G ttl=\'Equi-Angular grid {dst_grid}\'' 
+            cmd += f'#latlon={self.sstice_nlat_dst},{self.sstice_nlon_dst}'
             cmd +=  '#lat_typ=uni'
             cmd +=  '#lon_typ=grn_ctr'
             cmd +=  '#lat_drc=s2n'
@@ -716,17 +730,21 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def sstice_create_map_file(self,verbose=None):
+    def sstice_create_map_file(self,force_overwrite=False,verbose=None):
         """
         Create a mapping file to be used for SST and sea ice data
         """
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print(f'\nCreating mapping file for SST and sea ice data...')
 
-        self.sstice_map_file = f'{default_map_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
+        src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
+        dst_grid = f'{self.sstice_nlat_dst}x{self.sstice_nlon_dst}'
+
+        self.sstice_map_file = f'{default_map_dir}map_{src_grid}_to_{dst_grid}_s2n.nc'
 
         # Generate mapping file
-        if map_file not in glob.glob(self.sstice_map_file) :
+        file_does_not_exist = self.sstice_map_file not in glob.glob(self.sstice_map_file)
+        if file_does_not_exist or force_overwrite :
+            if verbose : print(f'\nCreating mapping file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} '
             cmd +=  ' -a fv2fv '
             cmd += f' --src_grd={self.sstice_src_grid_file}'
@@ -736,140 +754,84 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def sstice_remap(self,output_file_name,verbose=None):
+    def sstice_slice_and_remap(self,output_file_name,time_slice_method='initial',
+                               atm_file=None,verbose=None):
         """
-        Horizontally remap the SST and sea ice data
+        Horizontally remap the SST and sea ice data after time slicing and 
+        combining SST and sea ice files (if they are separate)
+        Extract a temporal subset of the SST and sea ice data
+        and combine into new temporary file for later regridding
+        method options (only initial is currently supported):
+        - initial           just use first time
+        - match_atmos       find time that corresponds to time in atmos data
+        - date_range_avg    produce an average over a specified date range
+        - use_all           one output file per time slice
         """
         if verbose is None : verbose = hiccup_verbose
+        if verbose : print(f'\nTime slicing {self.sstice_name} SST and sea ice data...')
+
+        check_dependency('ncatted')
+        check_dependency('ncremap')
+
+        # Define temporary file to hold the time sliced data for regridding
+        sstice_tmp_file_name = './tmp_sstice_timeslice_data.nc'
+
+        # Check that the time_slice_method is supported
+        if time_slice_method not in ['initial','match_atmos'] :
+            raise ValueError(f'time_slice_method: {time_slice_method} is not a supported method')
+
+        if time_slice_method == 'initial' :
+            time_slice = 0
+        if time_slice_method == 'match_atmos' :
+            if atm_file is None : 
+                raise ValueError('atm_file can not be None for time_slice_method= \'match_atmos\'')
+            sst_file = self.get_sst_file()
+            ds_sst = xr.open_dataset(sst_file)
+            ds_atm = xr.open_dataset(atm_file)
+            time_chk = ds_atm['time'].values[0] == ds_sst['time'].values
+            ds_sst.close(); ds_atm.close()
+            time_slice = np.flatnonzero(time_chk)
+            if time_slice.size == 0 :
+                raise ValueError('No matching time slice found between SST and atmos data!')
+            # If there are multiple matching times, just use the first instance
+            if time_slice.size > 1 : time_slice = time_slice[0]
+
+        # Load time sliced data and write out to temporary file
+        ds_out = self.open_combined_sstice_dataset().isel(time=time_slice).load()
+        ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+        ds_out.close()
+
+        run_cmd(f'ncdump -h {sstice_tmp_file_name}')
+
+        # Replace nan values with missing_value to avoid remapping issues
+        if self.sstice_name=='NOAA':
+            missing_value = 1e36
+            ds = xr.open_dataset(sstice_tmp_file_name).load()
+            ds[self.sst_name] = ds[self.sst_name].where( ds[self.sst_name].values != np.nan, missing_value )
+            ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+            ds_out.close()
+            cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
+            run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True)
+            run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.ice_name}'),verbose,shell=True)
+            run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True)
+            run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True)
+
+        run_cmd(f'ncdump -h {sstice_tmp_file_name}')
+
         if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
 
-        # Map the SST data
+        # remap the SST data onto the target grid for the model
         cmd =  f'ncremap {ncremap_alg} '
-        cmd += f' --vars={self.sst_name} '
+        cmd += f' --vars={self.sst_name},{self.ice_name} '
         cmd += f' --map_file={self.sstice_map_file} '
-        cmd += f' --in_file={self.sst_file} '
+        cmd += f' --in_file={sstice_tmp_file_name} '
         cmd += f' --out_file={output_file_name} '
         run_cmd(cmd,verbose,shell=True)
 
+        # delete the temporary file
+        run_cmd(f'rm {sstice_tmp_file_name}',verbose)
+
         return
-    # --------------------------------------------------------------------------
-    # def sstice_remap_data(self, output_file_name, output_grid_spacing=1,
-    #                       force_grid_and_map_generation=False,
-    #                       verbose=None):
-    #     """
-    #     Create horizontally remapped sst and sea ice data file. 
-    #     The sst/ice data needs to be on a uniform (equiangular) grid, so this 
-    #     routine automatically remaps the input data. The SST and ice data are 
-    #     assumed to exist on the same grid and, hence, use the same grid file.
-    #     """
-    #     if verbose is None : verbose = hiccup_verbose
-    #     if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
-
-    #     check_dependency('ncremap')
-    #     check_dependency('ncks')
-
-    #     if self.sst_file is None: raise ValueError('sst_file cannot be None!')
-    #     if self.ice_file is None: raise ValueError('ice_file cannot be None!')
-
-    #     # Load the SST file as xarray datasets to read the grid dimensions
-    #     ds_sst = xr.open_dataset(self.sst_file)
-
-    #     # Determine input grid 
-    #     if self.sstice_name=='NOAA': lat_name, lon_name = 'lat', 'lon'
-    #     if self.sstice_name=='ERA5': lat_name, lon_name = 'latitude', 'longitude'
-    #     nlat_src = len( ds_sst[lat_name].values )
-    #     nlon_src = len( ds_sst[lon_name].values )
-
-    #     # Close the dataset
-    #     ds_sst.close()
-
-    #     # Define output grid dimensions
-    #     nlat_dst = int( 180/output_grid_spacing )
-    #     nlon_dst = int( 360/output_grid_spacing )
-
-    #     # Define grid and map file names
-    #     src_grid_file = f'{default_grid_dir}scrip_{nlat_src}x{nlon_src}.nc'
-    #     dst_grid_file = f'{default_grid_dir}scrip_{nlat_dst}x{nlon_dst}_s2n.nc'
-
-    #     map_file = f'{default_map_dir}map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}_s2n.nc'
-
-    #     # Define temporary file for regridded data (these will be deleted)
-    #     sst_tmp_file_name = './tmp_sst_data.nc'
-    #     ice_tmp_file_name = './tmp_ice_data.nc'
-
-    #     # Create the source grid file
-    #     if src_grid_file not in glob.glob(src_grid_file) or force_grid_and_map_generation :
-    #         cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
-    #         cmd += f' -G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'' 
-    #         cmd += f'#latlon={nlat_src},{nlon_src}'
-    #         cmd +=  '#lat_typ=uni'
-    #         cmd +=  '#lon_typ=grn_ctr'
-    #         if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
-    #         if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
-    #         cmd += f' -g {src_grid_file} '
-    #         run_cmd(cmd,verbose,shell=True,prepend_line=False)
-        
-    #     # Create the destination grid file
-    #     if dst_grid_file not in glob.glob(dst_grid_file) or force_grid_and_map_generation :
-    #         cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
-    #         cmd += f' -G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'' 
-    #         cmd += f'#latlon={nlat_dst},{nlon_dst}'
-    #         cmd +=  '#lat_typ=uni'
-    #         cmd +=  '#lon_typ=grn_ctr'
-    #         cmd +=  '#lat_drc=s2n'
-    #         cmd += f' -g {dst_grid_file} '
-    #         run_cmd(cmd,verbose,shell=True)
-
-    #     # Generate mapping file
-    #     if map_file not in glob.glob(map_file) or force_grid_and_map_generation :
-    #         cmd  = f'ncremap {ncremap_alg} '
-    #         cmd +=  ' -a fv2fv '
-    #         cmd += f' --src_grd={src_grid_file}'
-    #         cmd += f' --dst_grd={dst_grid_file}'
-    #         cmd += f' --map_file={map_file}'
-    #         run_cmd(cmd,verbose,shell=True,prepend_line=False)
-
-    #     # Specify time slice - DOES NOT WORK FOR SOME REASON???
-    #     # datetime = '\"2018-01-01 00:00:0.0\"'
-    #     # datetime = 0
-
-    #     # Map the SST data
-    #     var_list = ','.join(self.atm_var_name_dict.values())
-    #     cmd =  f'ncremap {ncremap_alg} '
-    #     # cmd += f' --nco_opt=\'-d time,{datetime}\' '
-    #     cmd += f' --vars={self.sst_name} '
-    #     cmd += f' --map_file={map_file} '
-    #     cmd += f' --in_file={self.sst_file} '
-    #     cmd += f' --out_file={sst_tmp_file_name} '
-    #     run_cmd(cmd,verbose,shell=True)
-
-    #     # Map the sea ice data
-    #     var_list = ','.join(self.sfc_var_name_dict.values())
-    #     cmd =  f'ncremap {ncremap_alg} '
-    #     # cmd += f' --nco_opt=\'-d time,{datetime}\' '
-    #     cmd += f' --vars={self.ice_name} '
-    #     cmd += f' --map_file={map_file} '
-    #     cmd += f' --in_file={self.ice_file} '
-    #     cmd += f' --out_file={ice_tmp_file_name} '
-    #     run_cmd(cmd,verbose,shell=True)
-
-    #     # Remove output file if it already exists
-    #     if output_file_name in glob.glob(output_file_name) : 
-    #         run_cmd(f'rm {output_file_name} ',verbose)
-
-    #     # Add sst temporary file data into the final output file
-    #     run_cmd(f'ncks -A {sst_tmp_file_name} {output_file_name} ',
-    #             verbose,prepend_line=False)
-
-    #     # Add ice temporary file data into the final output file
-    #     run_cmd(f'ncks -A {ice_tmp_file_name} {output_file_name} ',
-    #             verbose,prepend_line=False)
-
-    #     # delete the temporary files
-    #     run_cmd(f'rm {sst_tmp_file_name} {ice_tmp_file_name} ',
-    #             verbose,prepend_line=False)
-
-    #     return
     # --------------------------------------------------------------------------
     def sstice_rename_vars(self, output_file_name, new_sst_name='SST_cpl',
                            new_ice_name='ice_cov', verbose=None):
@@ -947,18 +909,15 @@ class hiccup_data(object):
         # Also limit ice values slightly above 1 that might result from remap
         ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']<=1, 1)
 
-
-        # deal with time coordinate
-        # ??????
-
         # Write back to final file
         ds.to_netcdf(output_file_name,format=hiccup_nc_format)
         ds.close()
-        
 
         return
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Subclasses
+# ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 class ERA5(hiccup_data):
     @classmethod
