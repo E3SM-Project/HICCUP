@@ -1,4 +1,4 @@
-Hindcast Initial Condition Creation Utility/Processor (HICCUP)
+git Hindcast Initial Condition Creation Utility/Processor (HICCUP)
 
 This is a tool for creating E3SM initial condition files from reanalysis with 
 a focus on simplicity and portability.
@@ -49,6 +49,17 @@ easiest to extract it from a pre-existing model data file as follows:
   3. Generate a new netcdf file from the edited text file using ncgen:
      ncgen vert_coord.txt -o vert_coord.nc
 
+--------------------------------------------------------------------------------
+
+SST AND SEA ICE DATA
+
+HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
+typically used for this, but HICCUP also currently supports using ERA5 data. 
+The NOAA data comes in yearly files of daily averages, and the default behavior 
+of the sstice_slice_and_remap() method is to find the time that matches the 
+provided atmosphere initial condition file. We plan to implement other methods
+for handling the time of SST data, such as producing a weekly average centered 
+on the initialization day. 
 
 --------------------------------------------------------------------------------
 
