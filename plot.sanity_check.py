@@ -11,7 +11,7 @@ def main(fig_file='sanity_check',fig_type='png'):
 
    # specify level to use for data with "lev" dimension
    # starts at TOA, but negative values can be used to start from surface
-   klev = -20
+   klev = -5
 
    # Make plot subtitle font size vary with number of plot panels
    font_height = 0.015/np.sqrt(len(var))
@@ -40,11 +40,19 @@ def main(fig_file='sanity_check',fig_type='png'):
    #----------------------------------------------------------------------------
    # load data and create plot
    for v in range(len(var)):
+      
       data = ds[var[v]].isel(time=0)
+      
       lev_str = ''
+
       if 'lev' in data.dims : 
          data = data.isel(lev=klev)
          plev = ds['lev'].isel(lev=klev).values
+         lev_str = f'{plev:6.2f} hPa'
+
+      if 'plev' in data.dims : 
+         data = data.isel(plev=klev)
+         plev = ds['plev'].isel(plev=klev).values
          lev_str = f'{plev:6.2f} hPa'
 
       # Print some statistics of the data
@@ -52,6 +60,7 @@ def main(fig_file='sanity_check',fig_type='png'):
       print(f'  min : {data.min().values} ')
       print(f'  avg : {data.mean().values} ')
       print(f'  max : {data.max().values} ')
+      # print(f'  shp : {data.shape} ')
 
       # Create map plot
       plot.append( ngl.contour_map(wks,data.values,res) )
