@@ -219,23 +219,34 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev' ):
+def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev', 
+                            debug=False ):
   """
   Adjust the surface temperature based on new surace height assumed lapse rate 
     ncol            # columns
     qv              specific humidity
     temperature     temperature at layer mid-points [k]
-    pressure        pressure at layer mid-points    [Pa]
+    pressure        pressure at layer mid-points    (convert to hPa for qv_sat calculation)
   """
+  if debug: print('remove_supersaturation: DEBUG MODE ENABLED')
+
   qv_min = 1.0e-9   # minimum specific humidity value allowed
 
   if hybrid_lev :
-    pressure = get_pressure_from_hybrid(ds)
+    pressure = get_pressure_from_hybrid(ds)/1e2
   else :
     pressure = ds[pressure_var_name]
 
+  if debug:
+    print(); print_stat(pressure,name='pressure in remove_supersaturation')
+    print(); print_stat(ds['Q'],name='qv in remove_supersaturation')
+    print(); print_stat(ds['T'],name='T in remove_supersaturation')
+
   # Calculate saturation specific humidity
   qv_sat = calculate_qv_sat_liq(ds['T'],pressure)
+  
+  if debug:
+    print(); print_stat(qv_sat,name='qv_sat in remove_supersaturation')
 
   # The following check is to avoid the generation of negative values
   # that can occur in the upper stratosphere and mesosphere
@@ -243,6 +254,9 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev' ):
 
   # Calculate relative humidity for limiter
   rh = ds['Q'].values / qv_sat.values
+
+  if debug:
+    print(); print_stat(rh,name='rh in remove_supersaturation')
 
   # save attributes to restore later
   tmp_attrs = ds['Q'].attrs
@@ -253,6 +267,9 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev' ):
 
   # restore attributes
   ds['Q'].attrs = tmp_attrs
+
+  if debug:
+    print(); print_stat(ds['Q'],name='qv in remove_supersaturation after adjustment')
 
   return
 
