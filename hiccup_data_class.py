@@ -8,6 +8,8 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import subprocess as sp
+import datetime
+import cftime
 import shutil 
 import re
 import glob
@@ -484,12 +486,12 @@ class hiccup_data(object):
         time_dim   = ['time']
 
         # Use the pandas library to parse the time/date information
-        datetime = pd.DatetimeIndex( ds['time'].values )
-        year  = datetime.year.values
-        month = datetime.month.values
-        day   = datetime.day.values
-        hour  = datetime.hour.values
-        sec   = datetime.second.values
+        datetimeindex = pd.DatetimeIndex( ds['time'].values )
+        year  = datetimeindex.year.values
+        month = datetimeindex.month.values
+        day   = datetimeindex.day.values
+        hour  = datetimeindex.hour.values
+        sec   = datetimeindex.second.values
 
         # Change time attributes
         ds['time'].attrs['calendar'] = 'noleap'       # this might cause xarray to throw an error
@@ -677,7 +679,7 @@ class hiccup_data(object):
         if sst_file is None : sst_file = self.sst_file
         if sst_file is None : raise ValueError('No valid sst data file found!')
         return sst_file
-
+    # --------------------------------------------------------------------------
     def open_combined_sstice_dataset(self):
         """
         Return xarray dataset of combined SST and sea ice dataset
@@ -893,6 +895,8 @@ class hiccup_data(object):
         - make sure SST units are Celsius
         - limit sea ice fraction  
         - interpolate to fill in missing SST data, extrapolate where necessary (i.e. Antarctica)
+        - make sure time is a coordinate
+        - add date and datesec variables
         """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdjusting SST and sea ice data values...')
@@ -901,14 +905,14 @@ class hiccup_data(object):
         ds = xr.open_dataset(output_file_name).load()
 
         # Convert units to Celsius
+        if 'units' not in ds['SST_cpl'].attrs:
+            ds['SST_cpl'].attrs['units'] = 'degrees_C'
         if ds['SST_cpl'].attrs['units'] in ['K','degrees_K','Kelvin'] :
             ds['SST_cpl'] = ds['SST_cpl']-tk_zero
             ds['SST_cpl'].attrs['units'] = 'degrees_C'
 
         # Set invalid values to np.nan before using interpolate_na()
         ds['SST_cpl'] = xr.where( np.fabs(ds['SST_cpl'].values) < 999, ds['SST_cpl'], np.nan)
-        # finite_ind = np.isfinite(ds['SST_cpl'].values)
-        # ds['SST_cpl'][finite_ind] = np.where( np.fabs(ds['SST_cpl'][finite_ind].values) < 999, np.nan)
 
         # fill in missing SST values over continents by linearly interpolating
         ds['SST_cpl'] = ds['SST_cpl'].interpolate_na(dim='lon',period=360)
@@ -924,8 +928,63 @@ class hiccup_data(object):
         # Also limit ice values slightly above 1 that might result from remap
         ds['ice_cov'] = ds['ice_cov'].where( ds['ice_cov']<=1, 1)
 
+        # Make sure time is a coordinate and dimension of the dataset
+        if 'time' not in ds.dims : ds = ds.expand_dims('time',axis=0)
+        if 'time' not in ds.coords : ds = ds.assign_coords(coords={'time':ds['time']})
+
+        # # For single time value, append extra dummy time for temporal interpolation
+        # # STILL NOT SURE IF WE NEED THIS OR NOT
+        # if ds['time'].size == 1:
+        #     ds_dummy = ds.copy(deep=True)
+        #     ds_dummy['time'] = ds_dummy['time']+np.timedelta64(1,'D')
+        #     ds = xr.concat([ds,ds_dummy],dim='time')
+        #     ds_dummy.close()
+
+        # Create date and datesec variables
+        time_index = pd.DatetimeIndex( ds['time'].values )
+        date = np.array( time_index.year*1e4+time_index.month*1e2+time_index.day, dtype=np.int )
+        datesec = np.array( time_index.second, dtype=np.int )
+
+        # # Create alternate time index - doesn't work
+        # cftime_index = pd.to_datetime(time_index).astype('cftime.DatetimeNoLeap')
+        # cftime_index = pd.to_datetime(time_index)
+        
+        # # Create cftime index - doesn't work
+        # cftime_index = cftime.DatetimeIndex(year=time_index.year
+        #                               ,month=time_index.month
+        #                               ,day=time_index.day
+        #                               ,hour=time_index.hour
+        #                               ,minute=time_index.minute
+        #                               ,second=time_index.second
+        #                               )
+
+        # Add date and datesec variables to dataset
+        ds['date'] = xr.DataArray( date, coords={'time':ds['time'].values}, dims=['time'] )
+        ds['date'].attrs['long_name'] = 'current date (YYYYMMDD)'
+        ds['datesec'] = xr.DataArray( datesec, coords={'time':ds['time'].values}, dims=['time'] )
+        ds['datesec'].attrs['long_name'] = 'current seconds of current date'
+
+        # ----------------------------------------------------------------------
+        # Experimental - Open climatological data and use it to replace time coordinate
+        # ----------------------------------------------------------------------
+        # ds2 = xr.open_dataset('/global/cfs/cdirs/acme/inputdata/atm/cam/sst/sst_HadOIBl_bc_1x1_clim_c101029.nc')
+        # # ds.drop('time')
+        # ds = ds.assign_coords(coords={'time':ds2['time'][0:2]})
+        # # ds['time'] = ds2['time'][0:1]
+        # if 'time' not in ds.dims : ds = ds.expand_dims('time',axis=0)
+        # if 'time' not in ds.coords : ds = ds.assign_coords(coords={'time':ds['time']})
+        # ds['date'] = ds2['date'][0:2]
+        # ds['datesec'] = ds2['datesec'][0:2]
+        # ds2.close()
+        # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
+
+
         # Write back to final file
-        ds.to_netcdf(output_file_name,format=hiccup_nc_format)
+        ds.to_netcdf(output_file_name
+                    ,unlimited_dims=['time'] 
+                    ,encoding={'time':{'dtype':'float64'}}
+                    ,format='NETCDF4_CLASSIC' )
         ds.close()
 
         return
