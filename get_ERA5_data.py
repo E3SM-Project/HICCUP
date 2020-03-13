@@ -27,15 +27,25 @@ time_list = ['00:00']
 #       ,'400','450','500','550','600','650','700','750','775','800','825'
 #       ,'850','875','900','925','950','975','1000']
 
+# All available pressure levels
+lev = [  '1',  '2',  '3',  '5',  '7', '10', '20', '30', '50', '70'
+      ,'100','125','150','175','200','225','250','300','350','400'
+      ,'450','500','550','600','650','700','750','775','800','825'
+      ,'850','875','900','925','950','975','1000']
+
 # Small level set for testing
-lev = [ '50','100','150','200','300','400','500','600'
-      ,'700','750','800','850','900','950','1000']
+# lev = [ '50','100','150','200','300','400','500','600'
+#       ,'700','750','800','850','900','950','1000']
 
-output_path = os.getenv('PWD')+'/data/'
+output_path = os.getenv('PWD')+'/data_scratch/'
 
-output_file_plv = output_path+'HICCUP_TEST.ERA5.atm.nc'
-output_file_sfc = output_file_plv.replace('atm.nc','sfc.nc')
-output_file_lnd = output_file_plv.replace('atm.nc','lnd.nc')
+# output_file_plv = output_path+'HICCUP_TEST.ERA5.atm.nc'
+# output_file_sfc = output_file_plv.replace('atm.nc','sfc.nc')
+# output_file_lnd = output_file_plv.replace('atm.nc','lnd.nc')
+
+output_file_plv = output_path+f'ERA5.atm.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+output_file_sfc = output_file_plv.replace('.atm.','.sfc.')
+output_file_lnd = output_file_plv.replace('.atm.','.lnd.')
 
 #-------------------------------------------------------------------------------
 # atmossphere pressure level data
