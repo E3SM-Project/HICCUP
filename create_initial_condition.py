@@ -32,11 +32,11 @@ verbose = True
 
 # Logical flags for debugging
 unpack_nc_files = False
-create_map_file = False    # flag for grid and map file creation
-remap_data_horz = False    # toggle horizontal remap, variable renaming, and reference pressure
-do_state_adjst1 = False    # toggle for post vertical interpolation adjustment calculations
-remap_data_vert = False    # toggle vertical remap
-do_state_adjst2 = False    # toggle for post vertical interpolation adjustment calculations
+create_map_file = True    # flag for grid and map file creation
+remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
+do_state_adjst1 = True    # toggle for post vertical interpolation adjustment calculations
+remap_data_vert = True    # toggle vertical remap
+do_state_adjst2 = True    # toggle for post vertical interpolation adjustment calculations
 create_sst_data = True    # sst/sea ice file creation
 
 output_atm_file_name = 'data/HICCUP_TEST.output.atm.nc'
@@ -58,8 +58,8 @@ nc_format = 'NETCDF3_64BIT'
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     # ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
                                     # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    ,atm_file='data_scratch/HICCUP_TEST.ERA5.atm.upack.nc'
-                                    ,sfc_file='data_scratch/HICCUP_TEST.ERA5.sfc.upack.nc'
+                                    ,atm_file='data_scratch/ERA5.atm.2018-01-01.nc'
+                                    ,sfc_file='data_scratch/ERA5.sfc.2018-01-01.nc'
                                     ,sstice_name='NOAA'
                                     ,sst_file='data_scratch/sst.day.mean.2018.nc'
                                     ,ice_file='data_scratch/icec.day.mean.2018.nc'

@@ -152,18 +152,20 @@ class hiccup_data(object):
         self.sstice_nlat_dst = None
         self.sstice_nlon_dst = None
 
-        # Make sure directory strings are formatted correctly
+        # Set output paths for data, grid, and map files
         if output_dir=='' or output_dir==None : output_dir = './'
-        if not output_dir.endswith('/'): output_dir += '/'
         self.output_dir = output_dir
 
-        if grid_dir=='' or grid_dir==None : grid_dir = './'
-        if not grid_dir.endswith('/'): grid_dir += '/'
+        if grid_dir=='' or grid_dir==None : grid_dir = default_grid_dir
         self.grid_dir = grid_dir
 
-        if map_dir=='' or map_dir==None : map_dir = './'
-        if not map_dir.endswith('/'): map_dir += '/'
+        if map_dir=='' or map_dir==None : map_dir = default_map_dir
         self.map_dir = map_dir
+
+        # Make sure directory strings are formatted with trailing slash
+        if not output_dir.endswith('/'): output_dir += '/'
+        if not grid_dir.endswith('/'): grid_dir += '/'
+        if not map_dir.endswith('/'): map_dir += '/'
 
         # Check if sst/ice dataset is supported
         # if self.sstice_name not in [None,'NOAA']: 
