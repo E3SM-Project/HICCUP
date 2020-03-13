@@ -1,9 +1,7 @@
-git Hindcast Initial Condition Creation Utility/Processor (HICCUP)
+HINDCAST INITIAL CONDITION CREATION UTILITY/PROCESSOR (HICCUP)
 
 This is a tool for creating E3SM initial condition files from reanalysis with 
 a focus on simplicity and portability.
-
---------------------------------------------------------------------------------
 
 The initial design discussion can be found here:
 https://confluence.exascaleproject.org/display/ADSE15/Creating+Hindcast+Initial+Conditions
@@ -11,24 +9,63 @@ https://confluence.exascaleproject.org/display/ADSE15/Creating+Hindcast+Initial+
 The tool is used by editing and running:
   create_initial_condition.py
 
+--------------------------------------------------------------------------------
+
+SETUP NOTES
+
 Dependencies:
   NCO
   TempestRemap
   Python modules:
     xarray
+    pandas
     numpy
+    scipy
+    netcdf4
+    cdsapi (for ECMWF data)
+    ftplib (for NOAA sst/ice data)
 
-A plotting script is also included (plot.sanity_check.py), but it requires PyNGL
-to be installed in the python environment. This was done becase PyNGL has 
-excellent support for plotting data on unstructured grids. In the future we hope 
-to add another plotting script that uses MatPlotLib.
+It is useful to create a conda environment that includes the python dependencies.
+This can be created with the following command:
+
+  conda create --name hiccup_env -c conda-forge xarray pandas scipy netcdf4 cdsapi
+
+TempestRemap and NCO may be locally available if you are working with a machine
+at a super-computing center (such as NERSC), but otherwise these libraries need 
+to be installed manually. 
+
+To install NCO:
+  If using Mac OSX then we recommend using homebrew to install NCO (see https://brew.sh/)
+  Otherwise installation information can be found at http://nco.sourceforge.net/
+
+To install TempestRemap(:
+  TempestRemap can be easily downloaded and build from a public github repository
+  (https://github.com/ClimateGlobalChange/tempestremap)
+  using the following commands:
+    git clone https://github.com/paullric/tempestgecore.git
+    <edit the Makefile to customize the NetCDF paths>
+    make -f Makefile.gmake all
+
+--------------------------------------------------------------------------------
+
+OBTAINING INPUT DATA
 
 Currently, ERA5 realanysis and NOAA SST is the only supported input data option.
 To aquire new ERA5 data, be sure to use conda to install the "cdsapi" module 
 and set up your ECMWF API key in ~/.ecmwfapirc,then edit and run:
   get_ERA5_data.py
+
 To aquire NOAA OI daily SST and sea ice data, edit and run:
   get_NOAA_SST+ICE_data.py
+
+--------------------------------------------------------------------------------
+
+PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
+
+A plotting script is also included (plot.sanity_check.py), but it requires PyNGL
+to be installed in the python environment. This was done becase PyNGL has 
+excellent support for plotting data on unstructured grids. In the future we hope 
+to add another plotting script that uses MatPlotLib.
 
 --------------------------------------------------------------------------------
 
@@ -51,7 +88,7 @@ easiest to extract it from a pre-existing model data file as follows:
 
 --------------------------------------------------------------------------------
 
-SST AND SEA ICE DATA
+SST AND SEA ICE INITIAL CONDITONS
 
 HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
 typically used for this, but HICCUP also currently supports using ERA5 data. 
