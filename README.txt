@@ -28,18 +28,25 @@ Dependencies:
 It is useful to create a conda environment that includes the python dependencies.
 This can be created with the following command:
 
-  conda create --name hiccup_env -c conda-forge xarray pandas scipy netcdf4 cdsapi
+  conda create --name hiccup_env -c conda-forge xarray pandas scipy netcdf4 tempest-remap nco cdsapi 
+
+After creating the env it can be activated via:
+  source activate hiccup_env
+  
+To exit the env simply type: conda deactivate
 
 TempestRemap and NCO may be locally available if you are working with a machine
-at a super-computing center (such as NERSC), but otherwise these libraries need 
-to be installed manually. 
+at a super-computing center (such as NERSC). 
 
-To install NCO:
-  If using Mac OSX then we recommend using homebrew to install NCO (see https://brew.sh/)
+To install NCO manually:
+  TempestRemap can be easily installed as part of the conda environment above,
+  but it can also be installed manually. If using Mac OSX then we recommend 
+  using homebrew to install NCO (see https://brew.sh/)
   Otherwise installation information can be found at http://nco.sourceforge.net/
 
-To install TempestRemap(:
-  TempestRemap can be easily downloaded and build from a public github repository
+To install TempestRemap manually:
+  TempestRemap can be easily installed as part of the conda environment above,
+  But it can aslo be downloaded and built from a public github repository
   (https://github.com/ClimateGlobalChange/tempestremap)
   using the following commands:
     git clone https://github.com/paullric/tempestgecore.git
