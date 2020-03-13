@@ -11,15 +11,17 @@ year = 2018
 host = 'ftp.cdc.noaa.gov'
 path = 'Datasets/noaa.oisst.v2.highres/'
 
-sst_file_name = f'data/sst.day.mean.{year}.nc'
-ice_file_name = f'data/icec.day.mean.{year}.nc'
+output_path = 'data_scratch/'
+
+sst_file_name = f'sst.day.mean.{year}.nc'
+ice_file_name = f'icec.day.mean.{year}.nc'
 
 ftp = ftplib.FTP(host)
 ftp.login()
 ftp.cwd(path)
 
 for file_name in [sst_file_name,ice_file_name] :
-  with open(file_name, 'wb') as file_pointer :
+  with open(output_path+file_name, 'wb') as file_pointer :
     print(f'Retrieving file: {file_name}')
     ftp.retrbinary(f'RETR {file_name}', file_pointer.write)
 
