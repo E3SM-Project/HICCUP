@@ -3,9 +3,6 @@ HINDCAST INITIAL CONDITION CREATION UTILITY/PROCESSOR (HICCUP)
 This is a tool for creating E3SM initial condition files from reanalysis with 
 a focus on simplicity and portability.
 
-The initial design discussion can be found here:
-https://confluence.exascaleproject.org/display/ADSE15/Creating+Hindcast+Initial+Conditions
-
 The tool is used by editing and running:
   create_initial_condition.py
 
@@ -22,21 +19,17 @@ Dependencies:
     numpy
     scipy
     netcdf4
-    cdsapi (for ECMWF data)
-    ftplib (for NOAA sst/ice data)
+    cdsapi (for obtaining ECMWF data)
+    ftplib (for obtaining NOAA sst/ice data)
 
-It is useful to create a conda environment that includes the python dependencies.
-This can be created with the following command:
-
+It is convenient to create a conda environment that includes these dependencies:
   conda create --name hiccup_env -c conda-forge xarray pandas scipy netcdf4 tempest-remap nco cdsapi 
 
-After creating the env it can be activated via:
+After creating the environment it can be activated via:
   source activate hiccup_env
-  
-To exit the env simply type: conda deactivate
 
-TempestRemap and NCO may be locally available if you are working with a machine
-at a super-computing center (such as NERSC). 
+TempestRemap and NCO may already be locally available if you are working on 
+a machine at a super-computing center. They can also be installed manually.
 
 To install NCO manually:
   TempestRemap can be easily installed as part of the conda environment above,
