@@ -229,6 +229,8 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nUnpacking data files...')
 
+        check_dependency('ncpdq')
+
         for f in [ self.atm_file, self.sfc_file, 
                    self.sst_file, self.ice_file,
                    self.sstice_combined_file ]:
