@@ -69,10 +69,10 @@ To aquire NOAA OI daily SST and sea ice data, edit and run:
 
 PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
 
-A plotting script is also included (plot.sanity_check.py), but it requires PyNGL
-to be installed in the python environment. This was done becase PyNGL has 
-excellent support for plotting data on unstructured grids. In the future we hope 
-to add another plotting script that uses MatPlotLib.
+A plotting script is also included (plot.sanity_check.py), but it requires 
+PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
+This was done becase PyNGL has excellent support for plotting data on 
+unstructured grids. In the future we may add a plotting script for MatPlotLib.
 
 --------------------------------------------------------------------------------
 
@@ -81,8 +81,13 @@ VERTICAL GRID FILES
 The current E3SM vertical grid was created through an iterative process 
 involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
 and Po-Lun Ma who did not document the process, so there is no recipe to 
-recreate the grid from scratch. To create the vertical coordinate file it is 
-easiest to extract it from a pre-existing model data file as follows:
+recreate the grid from scratch. 
+
+A vertical grid file for the L72 grid is included in the HICCUP repository.
+  vert_coord_L72.nc
+
+To create a new vertical coordinate file it must be extracted from a 
+pre-existing model data file as follows:
 
   1. Dump the vertical grid data into a text file using ncdump:
      ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
