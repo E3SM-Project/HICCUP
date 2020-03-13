@@ -131,10 +131,11 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.1
   condition = np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
-  alpha = xr.where(condition, Rdair/ds_topo['PHIS']*(T_ref1-Tstar) ,alpha)
+  alpha = xr.where(condition, Rdair/ds_topo['PHIS']*(T_ref1-Tstar) , alpha)
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.2
   condition = np.logical_and( Tstar > T_ref1,  T0 > T_ref1 )
+  alpha = xr.where(condition, 0, alpha)
   Tstar = xr.where(condition, (T_ref1+Tstar)*0.5 ,Tstar)
 
   # inhibit unduly high pressure below elevated cold terrain                     pg 9 eq 14.3
@@ -144,8 +145,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   del_phis = ds_data['PHIS'] - ds_topo['PHIS']
 
   # Calculate new surface pressure
-  beta = del_phis/(gravit*Tstar)
-  temp = del_phis/(Rdair*Tstar)*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
+  beta = del_phis/(Rdair*Tstar)
+  temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
   ps_new = ds_data['PS'].values * np.exp( temp.values )                         # pg 9 eq 12
 
   # save attributes to restore later
