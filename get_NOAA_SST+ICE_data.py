@@ -12,7 +12,7 @@ year = 2018
 host = 'ftp.cdc.noaa.gov'
 path = 'Datasets/noaa.oisst.v2.highres/'
 
-output_path = 'data_scratch/'
+output_path = 'data/'
 os.makedirs(output_path, exist_ok=True)  # create output_path if it doesn't exist
 
 sst_file_name = f'sst.day.mean.{year}.nc'
