@@ -9,7 +9,7 @@ import xarray as xr
 import pandas as pd
 import subprocess as sp
 import datetime
-import cftime
+# import cftime
 import shutil 
 import re
 import glob
@@ -222,10 +222,13 @@ class hiccup_data(object):
 
         return
     # --------------------------------------------------------------------------
-    def unpack_data_files(self):
+    def unpack_data_files(self,verbose=None):
         """
         Make sure data files are unpacked
         """
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nUnpacking data files...')
+
         for f in [ self.atm_file, self.sfc_file, 
                    self.sst_file, self.ice_file,
                    self.sstice_combined_file ]:
@@ -697,6 +700,7 @@ class hiccup_data(object):
         else:
             # Open combined sst/ice data file
             ds_out = xr.open_dataset(self.sstice_combined_file)
+
         return ds_out
     # --------------------------------------------------------------------------
     def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False,
@@ -935,8 +939,11 @@ class hiccup_data(object):
         # # For single time value, append extra dummy time for temporal interpolation
         # # STILL NOT SURE IF WE NEED THIS OR NOT
         # if ds['time'].size == 1:
+        #     dt = np.timedelta64(10,'D')
         #     ds_dummy = ds.copy(deep=True)
-        #     ds_dummy['time'] = ds_dummy['time']+np.timedelta64(1,'D')
+        #     ds_dummy['time'] = ds_dummy['time']-dt
+        #     ds = xr.concat([ds_dummy,ds],dim='time')
+        #     ds_dummy['time'] = ds_dummy['time']+dt*2
         #     ds = xr.concat([ds,ds_dummy],dim='time')
         #     ds_dummy.close()
 
@@ -948,15 +955,15 @@ class hiccup_data(object):
         # # Create alternate time index - doesn't work
         # cftime_index = pd.to_datetime(time_index).astype('cftime.DatetimeNoLeap')
         # cftime_index = pd.to_datetime(time_index)
-        
+
         # # Create cftime index - doesn't work
-        # cftime_index = cftime.DatetimeIndex(year=time_index.year
-        #                               ,month=time_index.month
-        #                               ,day=time_index.day
-        #                               ,hour=time_index.hour
-        #                               ,minute=time_index.minute
-        #                               ,second=time_index.second
-        #                               )
+        # cftime_index = cftime.datetime(year=time_index.year[0]
+        #                               ,month=time_index.month[0]
+        #                               ,day=time_index.day[0]
+        #                               ,hour=time_index.hour[0]
+        #                               ,minute=time_index.minute[0]
+        #                               ,second=time_index.second [0] )
+
 
         # Add date and datesec variables to dataset
         ds['date'] = xr.DataArray( date, coords={'time':ds['time'].values}, dims=['time'] )
@@ -979,13 +986,18 @@ class hiccup_data(object):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
 
-
         # Write back to final file
         ds.to_netcdf(output_file_name
                     ,unlimited_dims=['time'] 
                     ,encoding={'time':{'dtype':'float64'}}
                     ,format='NETCDF4_CLASSIC' )
         ds.close()
+
+        run_cmd(f'ncatted --hst -A -a calendar,time,m,c,\'365_day\' {output_file_name}',
+                verbose,prepend_line=False,shell=True)
+
+        run_cmd(f'ncatted -O -a _FillValue,time,d,, {output_file_name}',
+                verbose,prepend_line=False)
 
         return
 # ------------------------------------------------------------------------------
