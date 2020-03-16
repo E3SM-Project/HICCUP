@@ -1,23 +1,8 @@
 #!/usr/bin/env python
 # ==================================================================================================
 # HICCUP - Hindcast Initial Condition Creation Utility/Processor
-# This tool automates the creation of atmospheric initial condition files
-# for E3SM using a user supplied reanalysis file, such as EAR5 data.
-# Requires NCO, TempestRemap, numpy, and xarray.
-# 
-# NOTE ABOUT VERTICAL GRID FILES: 
-# The current E3SM vertical grid was created through an iterative process 
-# involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
-# and Po-Lun Ma who did not document the process, so there is no recipe to 
-# recreate the grid from scratch. To create the vertical coordinate file it is 
-# easiest to extract it from a pre-existing model data file as follows:
-#   1. Dump the vertical grid data into a text file using ncdump:
-#      ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
-#   2. manually edit the file to remove extra header info,
-#      but keep the general CDL format created by ncdump
-#   3. Generate a new netcdf file from the edited text file using ncgen:
-#      ncgen vert_coord.txt -o vert_coord.nc
-# 
+# This tool automates the creation of atmospheric initial condition files for 
+# E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
 import os
 import glob
@@ -37,20 +22,28 @@ remap_data_horz = True    # toggle horizontal remap, variable renaming, and refe
 do_state_adjst1 = True    # toggle for post vertical interpolation adjustment calculations
 remap_data_vert = True    # toggle vertical remap
 do_state_adjst2 = True    # toggle for post vertical interpolation adjustment calculations
-create_sst_data = True    # sst/sea ice file creation
+create_sst_data = False    # sst/sea ice file creation
 
-output_atm_file_name = 'data/HICCUP_TEST.output.atm.nc'
-output_sst_file_name = 'data/HICCUP_TEST.output.sst.nc'
+dst_horz_grid = 'ne120np4'     # ne30np4 / ne120np4 / ne1024np4
+
+output_atm_file_name = 'data_scratch/HICCUP_TEST.output.atm.nc'
+output_sst_file_name = 'data_scratch/HICCUP_TEST.output.sst.nc'
+
+topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
+if dst_horz_grid=='ne1024np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+if dst_horz_grid=='ne120np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+if dst_horz_grid=='ne30np4'   : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+# topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+# topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
 vert_file_name = 'vert_coord_L72.nc'
-
-# topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
-# topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
-topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
 nc_format = 'NETCDF3_64BIT'
+
+# put tmp files in scratch space
+hdc.hiccup_tmp_dir = '/global/homes/w/whannah/HICCUP/data_scratch/'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
@@ -65,7 +58,8 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,ice_file='data_scratch/icec.day.mean.2018.nc'
                                     # ,sstice_name='ERA5'
                                     # ,sstice_combined_file='data_scratch/HICCUP_TEST.ERA5.sfc.upack.nc'
-                                    ,dst_horz_grid='ne30np4'
+                                    # ,dst_horz_grid='ne30np4'
+                                    ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid='L72'
                                     ,output_dir='/global/homes/w/whannah/HICCUP/data_scratch/'
                                     ,verbose=verbose)

@@ -19,6 +19,7 @@ import os
 default_output_dir  = './data/'
 default_grid_dir    = './grid_files/'
 default_map_dir     = './map_files/'
+hiccup_tmp_dir      = './tmp/'
 
 # algorithm flag for ncremap
 ncremap_alg         = ' --alg_typ=tempest '        
@@ -154,18 +155,17 @@ class hiccup_data(object):
 
         # Set output paths for data, grid, and map files
         if output_dir=='' or output_dir==None : output_dir = './'
-        self.output_dir = output_dir
-
         if grid_dir=='' or grid_dir==None : grid_dir = default_grid_dir
-        self.grid_dir = grid_dir
-
         if map_dir=='' or map_dir==None : map_dir = default_map_dir
-        self.map_dir = map_dir
 
         # Make sure directory strings are formatted with trailing slash
         if not output_dir.endswith('/'): output_dir += '/'
         if not grid_dir.endswith('/'): grid_dir += '/'
         if not map_dir.endswith('/'): map_dir += '/'
+
+        self.output_dir = output_dir
+        self.grid_dir = grid_dir
+        self.map_dir = map_dir
 
         # Check if sst/ice dataset is supported
         # if self.sstice_name not in [None,'NOAA']: 
@@ -395,8 +395,8 @@ class hiccup_data(object):
         if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
         # Define temporary files that will be deleted at the end
-        atm_tmp_file_name = './tmp_atm_data.nc'
-        sfc_tmp_file_name = './tmp_sfc_data.nc'
+        atm_tmp_file_name = f'{hiccup_tmp_dir}tmp_atm_data.nc'
+        sfc_tmp_file_name = f'{hiccup_tmp_dir}tmp_sfc_data.nc'
 
         check_dependency('ncremap')
         check_dependency('ncks')
@@ -666,7 +666,7 @@ class hiccup_data(object):
         file_does_not_exist = self.sstice_src_grid_file not in glob.glob(self.sstice_src_grid_file) 
         if file_does_not_exist or force_overwrite :
             if verbose : print(f'\nCreating source grid file for SST and sea ice data...')
-            cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
+            cmd  = f'ncremap {ncremap_alg} --tmp_dir={hiccup_tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
             cmd += f'#latlon={self.sstice_nlat_src},{self.sstice_nlon_src}'
             cmd +=  '#lat_typ=uni'
@@ -729,7 +729,7 @@ class hiccup_data(object):
         file_does_not_exist = self.sstice_dst_grid_file not in glob.glob(self.sstice_dst_grid_file)
         if file_does_not_exist or force_overwrite :
             if verbose : print(f'\nCreating target grid file for SST and sea ice data...')
-            cmd  = f'ncremap {ncremap_alg} --tmp_dir=./tmp'
+            cmd  = f'ncremap {ncremap_alg} --tmp_dir={hiccup_tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {dst_grid}\'' 
             cmd += f'#latlon={self.sstice_nlat_dst},{self.sstice_nlon_dst}'
             cmd +=  '#lat_typ=uni'
@@ -784,7 +784,7 @@ class hiccup_data(object):
         check_dependency('ncremap')
 
         # Define temporary file to hold the time sliced data for regridding
-        sstice_tmp_file_name = './tmp_sstice_timeslice_data.nc'
+        sstice_tmp_file_name = f'{hiccup_tmp_dir}tmp_sstice_timeslice_data.nc'
 
         # Check that the time_slice_method is supported
         if time_slice_method not in ['initial','match_atmos'] :
@@ -1089,7 +1089,7 @@ class ERA5(hiccup_data):
         check_dependency('ncremap')
 
         cmd  = f'ncremap {ncremap_alg} ' 
-        cmd += f' --tmp_dir=./tmp'
+        cmd += f' --tmp_dir={hiccup_tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
         cmd += f'#latlon={self.nlat},{self.nlon}'                    
         cmd +=  '#lat_typ=uni'
