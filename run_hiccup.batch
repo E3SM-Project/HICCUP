@@ -1,0 +1,12 @@
+#!/bin/bash
+#SBATCH -C knl
+#SBATCH -p regular
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --job-name=hiccup_1024
+
+module load python
+
+source activate hiccup_env
+
+time ./create_initial_condition.py --hgrid=ne1024np4

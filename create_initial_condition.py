@@ -12,6 +12,13 @@ import xarray as xr
 import subprocess as sp
 import hiccup_data_class as hdc
 import hiccup_state_adjustment as hsa
+from optparse import OptionParser
+
+# Parse the command line options
+parser = OptionParser()
+parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
+parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
+(opts, args) = parser.parse_args()
 
 # Global verbosity flag
 verbose = True
@@ -25,17 +32,28 @@ remap_data_vert = True    # toggle vertical remap
 do_state_adjst2 = True    # toggle for post vertical interpolation adjustment calculations
 create_sst_data = False    # sst/sea ice file creation
 
-# Output atmosphere grid
-dst_horz_grid = 'ne120np4'     # ne30np4 / ne120np4 / ne1024np4
-vert_file_name = 'vert_coord_L72.nc'
+# Specify output atmosphere horizontal grid
+if opts.horz_grid is not None : 
+    dst_horz_grid = opts.horz_grid
+else :    
+    dst_horz_grid = 'ne120np4'     # ne30np4 / ne120np4 / ne1024np4
 
-output_atm_file_name = 'data_scratch/HICCUP_TEST.output.atm.nc'
-output_sst_file_name = 'data_scratch/HICCUP_TEST.output.sst.nc'
+# Specify output atmosphere vertical grid
+if opts.vert_grid is not None : 
+    dst_vert_grid = opts.vert_grid
+else : 
+    dst_vert_grid = 'L72'
+vert_file_name = f'vert_coord_{dst_vert_grid}.nc'
+
+# Specify the output file names
+data_path = '/global/cscratch1/sd/whannah/HICCUP/data/'
+output_atm_file_name = f'{data_path}HICCUP_TEST.output.atm.{dst_horz_grid}.{dst_vert_grid}.nc'
+output_sst_file_name = f'{data_path}HICCUP_TEST.output.sst.{dst_horz_grid}.{dst_vert_grid}.nc'
 
 topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
-if dst_horz_grid=='ne1024np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
-if dst_horz_grid=='ne120np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
-if dst_horz_grid=='ne30np4'   : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+if dst_horz_grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+if dst_horz_grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 # topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 # topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
@@ -44,7 +62,7 @@ if dst_horz_grid=='ne30np4'   : topo_file_name = f'{topo_file_path}USGS-gtopo30_
 nc_format = 'NETCDF3_64BIT'
 
 # put tmp files in scratch space
-hdc.hiccup_tmp_dir = '/global/homes/w/whannah/HICCUP/data_scratch/'
+hdc.hiccup_tmp_dir = data_path
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
@@ -52,17 +70,17 @@ hdc.hiccup_tmp_dir = '/global/homes/w/whannah/HICCUP/data_scratch/'
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     # ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
                                     # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    ,atm_file='data_scratch/ERA5.atm.2018-01-01.nc'
-                                    ,sfc_file='data_scratch/ERA5.sfc.2018-01-01.nc'
+                                    ,atm_file=f'{data_path}ERA5.atm.2018-01-01.nc'
+                                    ,sfc_file=f'{data_path}ERA5.sfc.2018-01-01.nc'
                                     ,sstice_name='NOAA'
-                                    ,sst_file='data_scratch/sst.day.mean.2018.nc'
-                                    ,ice_file='data_scratch/icec.day.mean.2018.nc'
+                                    ,sst_file=f'{data_path}sst.day.mean.2018.nc'
+                                    ,ice_file=f'{data_path}icec.day.mean.2018.nc'
                                     # ,sstice_name='ERA5'
                                     # ,sstice_combined_file='data_scratch/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     # ,dst_horz_grid='ne30np4'
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid='L72'
-                                    ,output_dir='/global/homes/w/whannah/HICCUP/data_scratch/'
+                                    ,output_dir=data_path
                                     ,verbose=verbose)
 
 # ------------------------------------------------------------------------------
@@ -102,9 +120,9 @@ if remap_data_horz :
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
 
     # Add time/date information
-    ds_data = xr.open_dataset(output_atm_file_name).load()
+    ds_data = xr.open_dataset(output_atm_file_name)
     hiccup_data.add_time_date_variables( ds_data )
-    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format,mode='a')
     ds_data.close()
 
 # ------------------------------------------------------------------------------
@@ -113,7 +131,7 @@ if remap_data_horz :
 if do_state_adjst1 :
 
     # Load the file into an xarray dataset
-    ds_data = xr.open_dataset(output_atm_file_name).load()
+    ds_data = xr.open_dataset(output_atm_file_name)
     ds_topo = xr.open_dataset(topo_file_name)
 
     # Adjust surface temperature to match new surface height
@@ -125,7 +143,7 @@ if do_state_adjst1 :
                                 ,pressure_var_name='plev' )
 
     # Write the adjusted dataset back to the file
-    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format,mode='a')
     ds_data.close()
 
 # ------------------------------------------------------------------------------
@@ -144,7 +162,7 @@ if remap_data_vert :
 if do_state_adjst2 :
 
     # Load the file into an xarray dataset
-    ds_data = xr.open_dataset(output_atm_file_name).load()
+    ds_data = xr.open_dataset(output_atm_file_name)
 
     # adjust water vapor to eliminate supersaturation
     hsa.remove_supersaturation( ds_data, hybrid_lev=True )
@@ -162,7 +180,7 @@ if do_state_adjst2 :
     # hiccup_data.add_extra_data_variables( ds_data )
 
     # Write the final dataset back to the file
-    ds_data.to_netcdf(output_atm_file_name,format=nc_format)
+    ds_data.to_netcdf(output_atm_file_name,format=nc_format,mode='a')
     ds_data.close()
 
 # ------------------------------------------------------------------------------
