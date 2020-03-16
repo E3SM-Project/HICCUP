@@ -13,9 +13,10 @@ import subprocess as sp
 import hiccup_data_class as hdc
 import hiccup_state_adjustment as hsa
 
+# Global verbosity flag
 verbose = True
 
-# Logical flags for debugging
+# Logical flags for controlling what sections to run
 unpack_nc_files = False
 create_map_file = True    # flag for grid and map file creation
 remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
@@ -24,7 +25,9 @@ remap_data_vert = True    # toggle vertical remap
 do_state_adjst2 = True    # toggle for post vertical interpolation adjustment calculations
 create_sst_data = False    # sst/sea ice file creation
 
+# Output atmosphere grid
 dst_horz_grid = 'ne120np4'     # ne30np4 / ne120np4 / ne1024np4
+vert_file_name = 'vert_coord_L72.nc'
 
 output_atm_file_name = 'data_scratch/HICCUP_TEST.output.atm.nc'
 output_sst_file_name = 'data_scratch/HICCUP_TEST.output.sst.nc'
@@ -35,8 +38,6 @@ if dst_horz_grid=='ne120np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_
 if dst_horz_grid=='ne30np4'   : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 # topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
 # topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
-
-vert_file_name = 'vert_coord_L72.nc'
 
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
@@ -63,7 +64,6 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,dst_vert_grid='L72'
                                     ,output_dir='/global/homes/w/whannah/HICCUP/data_scratch/'
                                     ,verbose=verbose)
-
 
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
