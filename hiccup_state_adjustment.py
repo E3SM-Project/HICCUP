@@ -18,6 +18,8 @@ T_ref2    = 255.0       # reference temperature for sfc adjustments
 phis_threshold = 1e-3   # threshold for determining if 2 phis values are different
 z_min = 150.            # min distance [m] from sfc to minimize effects radiation
 
+default_verbose = False
+
 #-------------------------------------------------------------------------------
 # Simple routine for chcecking variable values - useful for debugging
 #-------------------------------------------------------------------------------
@@ -54,7 +56,7 @@ def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  '):
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
 def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
-                             lev_coord_name='lev', debug=False ):
+                             lev_coord_name='lev', debug=False, verbose=None ):
   """ 
   Adjust the surface pressure based on surace height difference 
   and assumed standard atmosphere lapse rate. Input datasets must
@@ -68,6 +70,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     <pressure_var_name>   pressure on level centers       [Pa]
   the target surface geopotential (PHIS) must also be included in ds_topo
   """
+  if verbose is None : verbose = default_verbose
+  if verbose: print('\nAdjusting surface pressure...')
+  if debug: print('adjust_surface_pressure: DEBUG MODE ENABLED')
 
   # Check for required variables in input datasets
   for var in ['time','ncol',lev_coord_name] :
@@ -176,7 +181,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 # Part VI: Technical and Computational Procedures, 
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
-def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
+def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
   """ 
   Adjust the surface temperature based on surace height difference 
   and assumed standard atmosphere lapse rate 
@@ -185,6 +190,9 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
     ds_topo   xarray dataset containing smoothed model topography 
               (i.e. target topo)
   """
+  if verbose is None : verbose = default_verbose
+  if verbose: print('\nAdjusting surface temperature...')
+  if debug: print('adjust_surface_temperature: DEBUG MODE ENABLED')
   
   # Check for required variables in input datasets
   if 'TS'   not in ds_data.variables : 
@@ -221,7 +229,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False ):
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev', 
-                            debug=False ):
+                            debug=False, verbose=None ):
   """
   Adjust the surface temperature based on new surace height assumed lapse rate 
     ncol            # columns
@@ -229,6 +237,8 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
     temperature     temperature at layer mid-points [k]
     pressure        pressure at layer mid-points    (convert to hPa for qv_sat calculation)
   """
+  if verbose is None : verbose = default_verbose
+  if verbose: print('\nRemoving super saturated data points...')
   if debug: print('remove_supersaturation: DEBUG MODE ENABLED')
 
   qv_min = 1.0e-9   # minimum specific humidity value allowed
@@ -276,20 +286,26 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def adjust_cld_wtr( ds ):
+def adjust_cld_wtr( ds, verbose=None ):
   """
   Adjust cloud water to remove negative values
   """
+  if verbose is None : verbose = default_verbose
+  if verbose: print('\nAdjusting cloud water...')
+
   ds['CLDLIQ'] = xr.where(ds['CLDLIQ']>=0, ds['CLDLIQ'], 0. )
   ds['CLDICE'] = xr.where(ds['CLDICE']>=0, ds['CLDICE'], 0. )
   return
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def adjust_cloud_fraction( ds, frac_var_name='FRAC'):
+def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None):
   """
   Adjust cloud fraction to remove values outside of [0,1]
   """
+  if verbose is None : verbose = default_verbose
+  if verbose: print('\nAdjusting cloud fraction...')
+
   ds[frac_var_name] = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
   ds[frac_var_name] = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
   return
@@ -342,7 +358,7 @@ def get_pressure_from_hybrid( ds, a_coeff_name='hyam', b_coeff_name='hybm' ):
   following the formulation for CESM/E3SM
   """
   pressure = ds[a_coeff_name] * ds['P0'] + ds[b_coeff_name] * ds['PS']
-  
+
   # Make sure dimensions are in correct order for mid-point levels
   if a_coeff_name=='hyam' and all(d in ds.dims for d in ['time','lev','ncol']):
     pressure = pressure.transpose('time','lev','ncol')

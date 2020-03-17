@@ -464,7 +464,7 @@ class hiccup_data(object):
 
         # Specify temporary file for vertically interpolated output
         # This allows for input and output files to be the same
-        vert_tmp_file_name = output_file_name.replace('.nc',f'.{self.dst_vert_grid}.nc')
+        vert_tmp_file_name = output_file_name.replace('.nc',f'.vert_remap_tmp.nc')
 
         # Build variable list from the input file if not supplied
         if vert_remap_var_list is None :
@@ -473,7 +473,7 @@ class hiccup_data(object):
             for key in ds.variables.keys(): 
                 vert_remap_var_list.append(key)
                 # only remap variables with lev coord in order to
-                # ignore other variables (i.e. TS, PS)
+                # ignore other variables (i.e. TS, PS) - not necessary?
                 # if self.lev_name in ds[key].dims and key!=self.lev_name :
                 #     vert_remap_var_list.append(key)
         vert_remap_var_list = ','.join(vert_remap_var_list)

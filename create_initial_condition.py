@@ -128,12 +128,13 @@ if do_state_adjst1 :
     ds_topo = xr.open_dataset(topo_file_name)
 
     # Adjust surface temperature to match new surface height
-    hsa.adjust_surface_temperature( ds_data, ds_topo )
+    hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
 
     # Adjust surface pressure to match new surface height
     hsa.adjust_surface_pressure( ds_data, ds_topo \
                                 ,lev_coord_name='plev' \
-                                ,pressure_var_name='plev' )
+                                ,pressure_var_name='plev'
+                                ,verbose=verbose )
 
     # Write the adjusted dataset back to the file
     ds_data.to_netcdf(output_atm_file_name,format=nc_format,mode='a')
@@ -158,13 +159,13 @@ if do_state_adjst2 :
     ds_data = xr.open_dataset(output_atm_file_name)
 
     # adjust water vapor to eliminate supersaturation
-    hsa.remove_supersaturation( ds_data, hybrid_lev=True )
+    hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
 
     # adjust cloud water to remove negative values?
-    hsa.adjust_cld_wtr( ds_data )
+    hsa.adjust_cld_wtr( ds_data, verbose=verbose )
 
     # adjust cloud fraction to remove values outside of [0,1] - DO WE NEED THIS?
-    # hsa.adjust_cloud_fraction( ds_data )
+    # hsa.adjust_cloud_fraction( ds_data, verbose=verbose )
 
     # adjust surface pressure to retain dry mass of atmosphere - NOT TESTED
     # hsa.dry_mass_fixer( ds_data )

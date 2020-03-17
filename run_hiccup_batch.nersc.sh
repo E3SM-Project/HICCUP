@@ -1,5 +1,7 @@
 #!/bin/bash
 #SBATCH -C knl
+###SBATCH -p debug
+###SBATCH --time=0:30:00
 #SBATCH -p regular
 #SBATCH --time=4:00:00
 #SBATCH --nodes=1
@@ -12,7 +14,7 @@
 # to set the output grid from the command line:
 # NE ~ number of spectral elements on a cube edge 
 # (NE=30 roughly corresponds 1 degree grid)
-# NE=30 ; sbatch --job-name=hiccup_$NE --export=ALL,NE=$NE ./run_hiccup_batch.nersc.sh
+# NE=120 ; sbatch --job-name=hiccup_$NE --export=ALL,NE=$NE ./run_hiccup_batch.nersc.sh
 
 module load python
 
