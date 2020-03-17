@@ -13,56 +13,43 @@ import subprocess as sp
 import hiccup_data_class as hdc
 import hiccup_state_adjustment as hsa
 from optparse import OptionParser
-
-# Parse the command line options
-parser = OptionParser()
-parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
-parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
-(opts, args) = parser.parse_args()
-
-# Global verbosity flag
-verbose = True
-
-# Logical flags for controlling what sections to run
-unpack_nc_files = False
+# ------------------------------------------------------------------------------
+# Logical flags for controlling what this script will do
+verbose = True            # Global verbosity flag
+unpack_nc_files = False    # unpack data files (convert short to float)
 create_map_file = True    # flag for grid and map file creation
 remap_data_horz = True    # toggle horizontal remap, variable renaming, and reference pressure
 do_state_adjst1 = True    # toggle for post vertical interpolation adjustment calculations
 remap_data_vert = True    # toggle vertical remap
 do_state_adjst2 = True    # toggle for post vertical interpolation adjustment calculations
 create_sst_data = False    # sst/sea ice file creation
+# ------------------------------------------------------------------------------
+# Parse the command line options
+parser = OptionParser()
+parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
+parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
+(opts, args) = parser.parse_args()
+# ------------------------------------------------------------------------------
 
-# Specify output atmosphere horizontal grid
-if opts.horz_grid is not None : 
-    dst_horz_grid = opts.horz_grid
-else :    
-    dst_horz_grid = 'ne120np4'     # ne30np4 / ne120np4 / ne1024np4
+# Specify output atmosphere horizontal grid ( ne30np4 / ne120np4 / ne1024np4 )
+dst_horz_grid = opts.horz_grid if opts.horz_grid is not None else 'ne30np4'
 
 # Specify output atmosphere vertical grid
-if opts.vert_grid is not None : 
-    dst_vert_grid = opts.vert_grid
-else : 
-    dst_vert_grid = 'L72'
+dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L72'
 vert_file_name = f'vert_coord_{dst_vert_grid}.nc'
 
 # Specify the output file names
-data_path = '/global/cscratch1/sd/whannah/HICCUP/data/'
-output_atm_file_name = f'{data_path}HICCUP_TEST.output.atm.{dst_horz_grid}.{dst_vert_grid}.nc'
-output_sst_file_name = f'{data_path}HICCUP_TEST.output.sst.{dst_horz_grid}.{dst_vert_grid}.nc'
+data_root = '/global/cscratch1/sd/whannah/HICCUP/data/'
+hdc.hiccup_tmp_dir = data_root # put tmp files in data scratch space
+output_atm_file_name = f'{data_root}HICCUP_TEST.output.atm.{dst_horz_grid}.{dst_vert_grid}.nc'
+output_sst_file_name = f'{data_root}HICCUP_TEST.output.sst.{dst_horz_grid}.{dst_vert_grid}.nc'
 
-topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'            # path for NERSC 
+# set topo file
+topo_file_path = data_root
+topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/' # path for NERSC
 if dst_horz_grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
 if dst_horz_grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
 if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
-# topo_file_name = 'data/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
-# topo_file_name = 'data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
-
-# override the xarray default netcdf format of 
-# NETCDF4 to avoid file permission issue
-nc_format = 'NETCDF3_64BIT'
-
-# put tmp files in scratch space
-hdc.hiccup_tmp_dir = data_path
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
@@ -70,18 +57,22 @@ hdc.hiccup_tmp_dir = data_path
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     # ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
                                     # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    ,atm_file=f'{data_path}ERA5.atm.2018-01-01.nc'
-                                    ,sfc_file=f'{data_path}ERA5.sfc.2018-01-01.nc'
+                                    ,atm_file=f'{data_root}ERA5.atm.2018-01-01.nc'
+                                    ,sfc_file=f'{data_root}ERA5.sfc.2018-01-01.nc'
                                     ,sstice_name='NOAA'
-                                    ,sst_file=f'{data_path}sst.day.mean.2018.nc'
-                                    ,ice_file=f'{data_path}icec.day.mean.2018.nc'
+                                    ,sst_file=f'{data_root}sst.day.mean.2018.nc'
+                                    ,ice_file=f'{data_root}icec.day.mean.2018.nc'
                                     # ,sstice_name='ERA5'
                                     # ,sstice_combined_file='data_scratch/HICCUP_TEST.ERA5.sfc.upack.nc'
                                     # ,dst_horz_grid='ne30np4'
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid='L72'
-                                    ,output_dir=data_path
+                                    ,output_dir=data_root
                                     ,verbose=verbose)
+
+# override the xarray default netcdf format of 
+# NETCDF4 to avoid file permission issue
+nc_format = 'NETCDF3_64BIT'
 
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
