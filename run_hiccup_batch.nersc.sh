@@ -24,3 +24,8 @@ source activate hiccup_env
 if [ -z ${NE+x} ]; then NE=30; fi
 
 time python -u ./create_initial_condition.py --hgrid=ne${NE}np4
+
+# Notes:
+# "time" is added to add the execution time to the log file.
+# the "-u" option allows the log file to update in real time 
+# which is useful for montioring the batch job.
