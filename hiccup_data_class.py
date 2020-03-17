@@ -316,14 +316,21 @@ class hiccup_data(object):
         # speciic special options depending on target atmos grid
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
-        else:
+            ne = re.search('ne(.*)np', self.dst_horz_grid).group(1)
+        elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
             self.map_opts = self.map_opts+' --out_type fv --out_np 1 --volumetric '
+            ne = re.search('ne(.*)pg', self.dst_horz_grid).group(1)
+        else:
+            raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
         
+
         cmd = f'ncremap {ncremap_alg} '
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
         cmd += f' --wgt_opt=\'{self.map_opts}\' '
+        # Add special flag for "very fine" grids
+        if int(ne) > 100 : cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
         return
