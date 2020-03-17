@@ -12,13 +12,13 @@
 # to set the output grid from the command line:
 # NE ~ number of spectral elements on a cube edge 
 # (NE=30 roughly corresponds 1 degree grid)
-# NE=30 ; sbatch --job-name=hiccup_$NE --export=ALL,NE=$NE ./run_hiccup.batch
+# NE=30 ; sbatch --job-name=hiccup_$NE --export=ALL,NE=$NE ./run_hiccup_batch.nersc.sh
 
 module load python
 
 source activate hiccup_env
 
 # Set NE if not set on the command line
-if [ -z ${var+x} ]; NE=30; fi
+if [ -z ${NE+x} ]; then NE=30; fi
 
 time python -u ./create_initial_condition.py --hgrid=ne${NE}np4
