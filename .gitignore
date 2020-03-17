@@ -8,3 +8,4 @@ map_*
 *.png
 grid_files/*
 data/*
+slurm*out
