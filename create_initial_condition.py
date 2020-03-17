@@ -40,7 +40,6 @@ vert_file_name = f'vert_coord_{dst_vert_grid}.nc'
 
 # Specify the output file names
 data_root = '/global/cscratch1/sd/whannah/HICCUP/data/'
-hdc.hiccup_tmp_dir = data_root # put tmp files in data scratch space
 output_atm_file_name = f'{data_root}HICCUP_TEST.output.atm.{dst_horz_grid}.{dst_vert_grid}.nc'
 output_sst_file_name = f'{data_root}HICCUP_TEST.output.sst.{dst_horz_grid}.{dst_vert_grid}.nc'
 
@@ -68,6 +67,9 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid='L72'
                                     ,output_dir=data_root
+                                    ,grid_dir=data_root
+                                    ,map_dir=data_root
+                                    ,tmp_dir=data_root
                                     ,verbose=verbose)
 
 # override the xarray default netcdf format of 
