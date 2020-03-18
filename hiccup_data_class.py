@@ -22,7 +22,8 @@ default_map_dir     = './map_files/'
 default_tmp_dir     = './tmp/'
 
 # algorithm flag for ncremap
-ncremap_alg         = ' --alg_typ=tempest '        
+ncremap_alg         = ' --alg_typ=tempest '    
+ncremap_fl_fmt      = 'netcdf4_classic'    
 
 # log file for Tempest output
 tempest_log_file    = 'TempestRemap.log'
@@ -421,6 +422,7 @@ class hiccup_data(object):
         cmd += f' --in_file={self.atm_file} '
         cmd += f' --out_file={atm_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
+        cmd += f' --fl_fmt={ncremap_fl_fmt} '
         run_cmd(cmd,verbose)
 
         # Horzontally remap surface data
@@ -430,6 +432,7 @@ class hiccup_data(object):
         cmd += f' --in_file={self.sfc_file} '
         cmd += f' --out_file={sfc_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
+        cmd += f' --fl_fmt={ncremap_fl_fmt} '
         run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
@@ -479,11 +482,12 @@ class hiccup_data(object):
         vert_remap_var_list = ','.join(vert_remap_var_list)
 
         # Perform the vertical remapping
-        cmd = 'ncremap'
-        cmd+= f' --vrt_fl={vert_file_name}'
-        cmd+= f' --var_lst={vert_remap_var_list}'
-        cmd+= f' --in_fl={input_file_name}'
-        cmd+= f' --out_fl={vert_tmp_file_name}'
+        cmd  = 'ncremap'
+        cmd += f' --vrt_fl={vert_file_name}'
+        cmd += f' --var_lst={vert_remap_var_list}'
+        cmd += f' --in_fl={input_file_name}'
+        cmd += f' --out_fl={vert_tmp_file_name}'
+        cmd += f' --fl_fmt={ncremap_fl_fmt} '
         run_cmd(cmd,verbose,shell=True)
 
         # Overwrite the output file with the vertically interpolated data
