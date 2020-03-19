@@ -23,7 +23,7 @@ Dependencies:
     ftplib (for obtaining NOAA sst/ice data)
 
 It is convenient to create a conda environment that includes these dependencies:
-  conda create --name hiccup_env -c conda-forge xarray pandas scipy netcdf4 tempest-remap nco cdsapi 
+  conda create --name hiccup_env -c conda-forge xarray pandas scipy netcdf4 hdf5 tempest-remap nco cdsapi 
 
 After creating the environment it can be activated via:
   source activate hiccup_env
