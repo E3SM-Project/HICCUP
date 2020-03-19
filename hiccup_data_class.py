@@ -23,14 +23,14 @@ default_tmp_dir     = './tmp/'
 
 # algorithm flag for ncremap
 ncremap_alg         = ' --alg_typ=tempest '    
-ncremap_fl_fmt      = 'netcdf4_classic'    
 
 # log file for Tempest output
 tempest_log_file    = 'TempestRemap.log'
 
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
-hiccup_nc_format = 'NETCDF3_64BIT'
+hiccup_sst_nc_format = 'NETCDF3_64BIT'
+ncremap_fl_fmt = '64bit_data' # netcdf4_classic / 64bit_data / 64bit_offset
 
 # Global verbosity default
 hiccup_verbose = False
@@ -384,7 +384,7 @@ class hiccup_data(object):
         check_dependency('ncatted')
 
         # Add the variable
-        run_cmd(f"ncap2 --create_ram --no_tmp_fl --hst -A -s 'P0=100000.' {file_name} {file_name}",
+        run_cmd(f"ncap2 --hst -A -s 'P0=100000.' {file_name} {file_name}",
                 verbose,prepend_line=False,shell=True)
 
         # add long_name attribute
@@ -411,6 +411,12 @@ class hiccup_data(object):
         # Define temporary files that will be deleted at the end
         atm_tmp_file_name = f'{self.tmp_dir}tmp_atm_data.nc'
         sfc_tmp_file_name = f'{self.tmp_dir}tmp_sfc_data.nc'
+
+        # Remove temporary files if they exist
+        if atm_tmp_file_name in glob.glob(atm_tmp_file_name):
+            run_cmd(f'rm {atm_tmp_file_name} ',verbose)
+        if sfc_tmp_file_name in glob.glob(sfc_tmp_file_name):
+            run_cmd(f'rm {sfc_tmp_file_name} ',verbose)
 
         check_dependency('ncremap')
         check_dependency('ncks')
@@ -492,6 +498,12 @@ class hiccup_data(object):
 
         # Overwrite the output file with the vertically interpolated data
         run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
+
+        # The command above was causing a strange issue where the file was
+        # not completely written when the next step happened. Adding the lines
+        # below to fixes the problem, but I do not understand why...
+        ds = xr.open_dataset(output_file_name)
+        ds.close()
 
         return
 
@@ -830,7 +842,7 @@ class hiccup_data(object):
             if var not in [self.sst_name,self.ice_name] and var not in ds_out.coords : 
                 ds_out = ds_out.drop_vars(var)
         # write out to temporary file
-        ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+        ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_sst_nc_format)
         ds_out.close()
 
         # Replace nan values with missing_value to avoid remapping issues
@@ -838,7 +850,7 @@ class hiccup_data(object):
             missing_value = 1e36
             # ds = xr.open_dataset(sstice_tmp_file_name).load()
             # ds[self.sst_name] = ds[self.sst_name].where( ds[self.sst_name].values != np.nan, missing_value )
-            # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+            # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_sst_nc_format)
             # ds.close()
             cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
             run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True,prepend_line=False)
@@ -849,7 +861,7 @@ class hiccup_data(object):
         #     missing_value = 1e36
         #     # ds = xr.open_dataset(sstice_tmp_file_name).load()
         #     # ds.fillna(value=missing_value)
-        #     # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_nc_format)
+        #     # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_sst_nc_format)
         #     # ds.close()
         #     cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
         #     run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True,prepend_line=False)
