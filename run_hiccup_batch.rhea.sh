@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=CLI115
-#SBATCH --time=8:00:00
+#SBATCH --time=20:00:00
 #SBATCH --partition=batch
 #SBATCH --nodes=1
 #SBATCH --output=slurm-%x-%j.out
