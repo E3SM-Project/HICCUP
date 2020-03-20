@@ -73,11 +73,12 @@ def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
         sp.check_call(cmd.split())
     return
 # ------------------------------------------------------------------------------
-# Method for printing individual timer information
+# Print individual timer information
 # ------------------------------------------------------------------------------
 def print_timer(timer_start,use_color=True,prefix='\n'):
     """
     Print the final timer result based on input start time
+    Also update timer_msg_all for use in print_timer_summary
     """
     caller = sys._getframe(1).f_code.co_name
     etime = perf_counter()-timer_start
@@ -88,10 +89,11 @@ def print_timer(timer_start,use_color=True,prefix='\n'):
     print(prefix+msg)
     return
 # ------------------------------------------------------------------------------
+# Print a summary of timer information
 # ------------------------------------------------------------------------------
 def print_timer_summary():
     """
-    Print a summary of timer information
+    Print timer summary based on information compiled by print_timer()
     """
     if do_timers:
         print('HICCUP Timer results:')
