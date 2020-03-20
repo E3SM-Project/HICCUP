@@ -14,6 +14,8 @@ import shutil
 import re
 import glob
 import os
+import sys
+from time import perf_counter
 
 # default output paths
 default_output_dir  = './data/'
@@ -38,6 +40,10 @@ hiccup_verbose = False
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
 
+# Enable timers
+do_timers = True
+timer_msg_all = []
+
 # Numeric parameters
 tk_zero = 273.15 # value for converting between celsius and Kelvin
 
@@ -46,8 +52,6 @@ class tcolor:
     ENDC, BLACK, RED     = '\033[0m','\033[30m','\033[31m'
     GREEN, YELLOW, BLUE  = '\033[32m','\033[33m','\033[34m'
     MAGENTA, CYAN, WHITE = '\033[35m','\033[36m','\033[37m'
-
-
 
 # ------------------------------------------------------------------------------
 # Common method for printing and running commands
@@ -67,6 +71,20 @@ def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
         sp.check_call(cmd,shell=True)
     else:
         sp.check_call(cmd.split())
+    return
+# ------------------------------------------------------------------------------
+# Method for printing timer information
+# ------------------------------------------------------------------------------
+def print_timer(timer_start,use_color=True,prefix='\n'):
+    """
+    Print the final timer result based on input start time
+    """
+    caller = sys._getframe(1).f_code.co_name
+    etime = perf_counter()-timer_start
+    msg = f'{caller:30} elapsed time: {etime:10.2f} sec '
+    timer_msg_all.append(msg)
+    if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
+    print(prefix+msg)
     return
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -235,6 +253,7 @@ class hiccup_data(object):
         """
         Make sure data files are unpacked
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nUnpacking data files...')
 
@@ -245,12 +264,14 @@ class hiccup_data(object):
                    self.sstice_combined_file ]:
             if f is not None :
                 run_cmd(f'ncpdq -U --ovr {f} {f}',verbose,prepend_line=False)
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=None):
         """ 
         Generate destination model grid file 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating dst grid file...')
 
@@ -300,12 +321,14 @@ class hiccup_data(object):
         else:
             raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
 
+        if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
     def create_map_file(self,verbose=None):
         """ 
         Generate mapping file after grid files have been created 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating mapping file...')
 
@@ -340,17 +363,20 @@ class hiccup_data(object):
         if int(ne) > 100 : cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def rename_vars(self,file_name,verbose=None):
         """ 
         Rename variables in file according to variable name dictionaries 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming variables to match model variable names...')
 
         check_dependency('ncrename')
 
+        # # original approach - rename one at a time
         # def rename_proc(key,var_name_dict):
         #     # Skip over entries that are blank
         #     if key == '' : return
@@ -362,10 +388,8 @@ class hiccup_data(object):
         #     if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
         #     # print the command and execute
         #     run_cmd(cmd,verbose,prepend_line=False,shell=True)
-
         # if verbose : print('\n Renaming ATM vars... \n')
         # for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
-
         # if verbose : print('\n Renaming SFC vars... \n')
         # for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
 
@@ -374,10 +398,19 @@ class hiccup_data(object):
         var_dict_all.update(self.sfc_var_name_dict)
         cmd = f'ncrename --hst '
         for key in var_dict_all : 
-            cmd += f' -v {var_dict_all[key]},{key} '
-        cmd += f' {file_name} '
-        run_cmd(cmd,verbose,prepend_line=False,shell=True)
+            tmp_cmd = f' -v {var_dict_all[key]},{key} '
+            if tmp_cmd not in cmd :
+                # coords are often already renamed by the remapping step, 
+                # so make them optional by adding a preceeding dot
+                if key in ['lat','lon']: 
+                    tmp_cmd = tmp_cmd.replace(f'{var_dict_all[key]}',f'.{var_dict_all[key]}')
+                cmd += tmp_cmd
+        run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
 
+        # Stop timer here before calling rename_vars_special
+        if do_timers: print_timer(timer_start)
+
+        # Do additional variable/attribute renaming specific to the input data
         self.rename_vars_special(file_name,verbose)
 
         return
@@ -386,6 +419,7 @@ class hiccup_data(object):
         """ 
         Add P0 variable 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdding reference pressure (P0)...')
 
@@ -404,12 +438,14 @@ class hiccup_data(object):
         run_cmd(f"ncatted --hst -A -a units,P0,a,c,'Pa' {file_name}",
                 verbose,prepend_line=False,shell=True)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None):
         """  
         Horizontally remap data and combine into single file 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nHorizontally remapping the data to temporary files...')
 
@@ -467,6 +503,7 @@ class hiccup_data(object):
         run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',
                 verbose,prepend_line=False)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def remap_vertical(self,input_file_name,output_file_name,
@@ -475,6 +512,7 @@ class hiccup_data(object):
         """  
         Vertically remap data and combine into single file 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nVertically remapping the data...')
 
@@ -514,6 +552,7 @@ class hiccup_data(object):
         ds = xr.open_dataset(output_file_name)
         ds.close()
 
+        if do_timers: print_timer(timer_start)
         return
 
     # --------------------------------------------------------------------------
@@ -521,7 +560,7 @@ class hiccup_data(object):
         """
         Check final output file and add necessary time and date information
         """
-
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nEditing time and date variables...')
 
@@ -605,6 +644,7 @@ class hiccup_data(object):
         #     ds['time_written'] = xr.DataArray( np.full(time_shape,0.), coords=time_coord, dims=time_dim )
         #     ds['time_written'].attrs['long_name'] = ''
 
+        if do_timers: print_timer(timer_start)
         return
 
     # --------------------------------------------------------------------------
@@ -612,6 +652,7 @@ class hiccup_data(object):
         """
         Check final output file and add other data variables needed by the model
         """
+        if do_timers: timer_start = perf_counter()
         shape_2D = ( len(ds['time']), len(ds['ncol']) )
         shape_3D = ( len(ds['time']), len(ds['lev']), len(ds['ncol']) )
         coord_2D = {'time':ds['time'], 'ncol':ds['ncol'] }
@@ -636,12 +677,14 @@ class hiccup_data(object):
         # SOAG
         # SO2
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def clean_global_attributes(self,file_name,verbose=None):
         """ 
         Remove messy global attributes of the file 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose: print('\nCleaning up excessive global attributes...')
         
@@ -659,6 +702,9 @@ class hiccup_data(object):
         # Also reset the history attribute
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prepend_line=False)
+
+        if do_timers: print_timer(timer_start)
+        return
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
     # SST and sea ice methods
@@ -679,6 +725,7 @@ class hiccup_data(object):
         Create a source grid file to use for remapping the SST and sea ice data.
         The SST and ice data are assumed to exist on the same grid.
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
 
         if diagnose_grid:
@@ -723,12 +770,14 @@ class hiccup_data(object):
             cmd += f' -g {self.sstice_src_grid_file} '
             run_cmd(cmd,verbose,shell=True,prepend_line=False)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def open_combined_sstice_dataset(self):
         """
         Return xarray dataset of combined SST and sea ice dataset
         """
+        if do_timers: timer_start = perf_counter()
         if self.sstice_combined_file is None :
             # if sstice_combined_file is not defined then we need to 
             # combine the individual SST and sea ice data files
@@ -743,6 +792,7 @@ class hiccup_data(object):
             # Open combined sst/ice data file
             ds_out = xr.open_dataset(self.sstice_combined_file)
 
+        if do_timers: print_timer(timer_start)
         return ds_out
     # --------------------------------------------------------------------------
     def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False,
@@ -751,6 +801,7 @@ class hiccup_data(object):
         Create a target grid file to use for remapping the SST and sea ice data.
         The SST and ice data are assumed to exist on the same grid.
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
 
         # Define output grid dimensions
@@ -776,12 +827,14 @@ class hiccup_data(object):
             cmd += f' -g {self.sstice_dst_grid_file} '
             run_cmd(cmd,verbose,shell=True)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def sstice_create_map_file(self,force_overwrite=False,verbose=None):
         """
         Create a mapping file to be used for SST and sea ice data
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
 
         src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
@@ -800,6 +853,7 @@ class hiccup_data(object):
             cmd += f' --map_file={self.sstice_map_file}'
             run_cmd(cmd,verbose,shell=True,prepend_line=False)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def sstice_slice_and_remap(self,output_file_name,time_slice_method='initial',
@@ -815,6 +869,7 @@ class hiccup_data(object):
         - date_range_avg    produce an average over a specified date range
         - use_all           one output file per time slice
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print(f'\nTime slicing {self.sstice_name} SST and sea ice data...')
 
@@ -895,6 +950,7 @@ class hiccup_data(object):
         # delete the temporary file
         run_cmd(f'rm {sstice_tmp_file_name}',verbose)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def sstice_rename_vars(self, output_file_name, new_sst_name='SST_cpl',
@@ -902,6 +958,7 @@ class hiccup_data(object):
         """
         Rename sst and sea icea variables and remove unnecessary variables
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming SST and sea ice variables...')
 
@@ -910,15 +967,18 @@ class hiccup_data(object):
         check_dependency('ncatted')
 
         # rename variables
-        cmd = f'ncrename --hst --variable {self.sst_name},{new_sst_name} {output_file_name}'
-        run_cmd(cmd,verbose,shell=True)
-
-        cmd = f'ncrename --hst --variable {self.ice_name},{new_ice_name} {output_file_name}'
+        cmd = f'ncrename --hst'
+        cmd+= f' --variable {self.sst_name},{new_sst_name}'
+        cmd+= f' --variable {self.ice_name},{new_ice_name}'
+        cmd+= f' {output_file_name}'
         run_cmd(cmd,verbose,shell=True)
 
         # Make sure dimensions names are correct
-        run_cmd(f'ncrename --hst --dimension .longitude,lon {output_file_name}',verbose,shell=True)
-        run_cmd(f'ncrename --hst --dimension .latitude,lat  {output_file_name}',verbose,shell=True)
+        cmd = f'ncrename --hst'
+        cmd+= f' --dimension .longitude,lon'
+        cmd+= f' --dimension .latitude,lat'
+        cmd+= f' {output_file_name}'
+        run_cmd(cmd,verbose,shell=True)
 
         # Drop unnecessary variables
         run_cmd(f'ncks -C -O -x -v area,gw,lat_bnds,lon_bnds {output_file_name} {output_file_name}',
@@ -934,6 +994,7 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -O -a history,global,o,c, {output_file_name} {output_file_name}',
                 verbose,prepend_line=False)
 
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
     def sstice_adjustments(self, output_file_name, verbose=None):
@@ -945,6 +1006,7 @@ class hiccup_data(object):
         - make sure time is a coordinate
         - add date and datesec variables
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdjusting SST and sea ice data values...')
 
@@ -1062,6 +1124,7 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -O -a history,global,o,c, {output_file_name} {output_file_name}',
                 verbose,prepend_line=False)
 
+        if do_timers: print_timer(timer_start)
         return
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -1140,6 +1203,7 @@ class ERA5(hiccup_data):
         """ 
         Generate source grid file 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating src grid file...')
 
@@ -1159,12 +1223,14 @@ class ERA5(hiccup_data):
         cmd += f' -g {self.src_grid_file} '
         run_cmd(cmd,verbose,shell=True)
 
+        if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
     def rename_vars_special(self,file_name,verbose=None):
         """ 
         Rename file vars specific to this subclass 
         """
+        if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         
         new_lev_name = 'plev'
@@ -1185,20 +1251,20 @@ class ERA5(hiccup_data):
         run_cmd(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}",
                 verbose,prepend_line=False,shell=True)
 
-        # change units attribute
-        run_cmd(f"ncatted --hst -A -a units,{new_lev_name},a,c,'Pa' {file_name}",
-                verbose,prepend_line=False,shell=True)
+        cmd = 'ncatted --hst -O '
+        # change units attribute of the level variable
+        cmd += f" -a units,{new_lev_name},a,c,'Pa' "
+        # also remove "bounds" attribute
+        cmd += f' -a bounds,lat,d,,'
+        cmd += f' -a bounds,lon,d,,'
+        cmd += f' {file_name} {file_name}'
+        run_cmd(cmd,verbose,prepend_line=False,shell=True)
 
         # Remove lat/lon vertices variables since they are not needed
         run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
                 verbose,prepend_line=False,shell=True)
 
-        # also remove "bounds" attribute
-        run_cmd(f'ncatted -O -a bounds,lat,d,, {file_name} {file_name}',
-                verbose,prepend_line=False,shell=True)
-        run_cmd(f'ncatted -O -a bounds,lon,d,, {file_name} {file_name}',
-                verbose,shell=True)
-
+        if do_timers: print_timer(timer_start)
         return
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
