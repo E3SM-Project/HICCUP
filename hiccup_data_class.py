@@ -75,17 +75,24 @@ def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
 # ------------------------------------------------------------------------------
 # Print individual timer information
 # ------------------------------------------------------------------------------
-def print_timer(timer_start,use_color=True,prefix='\n'):
+def print_timer(timer_start,use_color=True,prefix='\n',caller=None):
     """
     Print the final timer result based on input start time
     Also update timer_msg_all for use in print_timer_summary
     """
-    caller = sys._getframe(1).f_code.co_name
+    # if caller is not provider get name of parent routine
+    if caller is None: caller = sys._getframe(1).f_code.co_name
+    # calculate elapsed time
     etime = perf_counter()-timer_start
+    # create the timer result message
     msg = f'{caller:30} elapsed time: {etime:10.2f} sec'
-    if etime>60 : msg += f' ({(etime/60):10.2f} min)'
+    # add minutes if longer than 60 sec
+    if etime>60 : msg += f' ({(etime/60):.2f} min)'
+    # add message to list of messages for print_timer_summary
     timer_msg_all.append(msg)
+    # Apply color
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
+    # print the message
     print(prefix+msg)
     return
 # ------------------------------------------------------------------------------
