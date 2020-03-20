@@ -351,23 +351,32 @@ class hiccup_data(object):
 
         check_dependency('ncrename')
 
-        def rename_proc(key,var_name_dict):
-            # Skip over entries that are blank
-            if key == '' : return
-            if var_name_dict[key] == '' : return
-            # set up the ncrename command
-            cmd = f'ncrename --hst --variable {var_name_dict[key]},{key} {file_name}'
-            # coords are often already renamed by the remapping step, 
-            # so make them optional by adding a preceeding dot
-            if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
-            # print the command and execute
-            run_cmd(cmd,verbose,prepend_line=False,shell=True)
+        # def rename_proc(key,var_name_dict):
+        #     # Skip over entries that are blank
+        #     if key == '' : return
+        #     if var_name_dict[key] == '' : return
+        #     # set up the ncrename command
+        #     cmd = f'ncrename --hst --variable {var_name_dict[key]},{key} {file_name}'
+        #     # coords are often already renamed by the remapping step, 
+        #     # so make them optional by adding a preceeding dot
+        #     if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
+        #     # print the command and execute
+        #     run_cmd(cmd,verbose,prepend_line=False,shell=True)
 
-        if verbose : print('\n Renaming ATM vars... \n')
-        for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
+        # if verbose : print('\n Renaming ATM vars... \n')
+        # for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
 
-        if verbose : print('\n Renaming SFC vars... \n')
-        for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
+        # if verbose : print('\n Renaming SFC vars... \n')
+        # for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
+
+        # Alternate approach - build a single large command to rename all at once
+        var_dict_all = self.atm_var_name_dict.copy()
+        var_dict_all.update(self.sfc_var_name_dict)
+        cmd = f'ncrename --hst '
+        for key in var_dict_all : 
+            cmd += f' -v {var_dict_all[key]},{key} '
+        cmd += f' {file_name} '
+        run_cmd(cmd,verbose,prepend_line=False,shell=True)
 
         self.rename_vars_special(file_name,verbose)
 
@@ -655,6 +664,15 @@ class hiccup_data(object):
     # SST and sea ice methods
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
+    def get_sst_file(self):
+        """
+        Return file name that contains input SST data
+        """
+        sst_file = self.sstice_combined_file
+        if sst_file is None : sst_file = self.sst_file
+        if sst_file is None : raise ValueError('No valid sst data file found!')
+        return sst_file
+    # --------------------------------------------------------------------------
     def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None,
                                     force_overwrite=False,verbose=None):
         """
@@ -689,7 +707,7 @@ class hiccup_data(object):
         src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
 
         # Define the source grid file to be created
-        self.sstice_src_grid_file = f'{default_grid_dir}scrip_{src_grid}.nc'
+        self.sstice_src_grid_file = f'{self.grid_dir}scrip_{src_grid}.nc'
 
         # Create the source grid file
         file_does_not_exist = self.sstice_src_grid_file not in glob.glob(self.sstice_src_grid_file) 
@@ -706,15 +724,6 @@ class hiccup_data(object):
             run_cmd(cmd,verbose,shell=True,prepend_line=False)
 
         return
-    # --------------------------------------------------------------------------
-    def get_sst_file(self):
-        """
-        Return file name that contains input SST data
-        """
-        sst_file = self.sstice_combined_file
-        if sst_file is None : sst_file = self.sst_file
-        if sst_file is None : raise ValueError('No valid sst data file found!')
-        return sst_file
     # --------------------------------------------------------------------------
     def open_combined_sstice_dataset(self):
         """
@@ -752,7 +761,7 @@ class hiccup_data(object):
 
         # Define the destination grid file to be created
         # (add 's2n' in case input data is same grid with opposite orientation)
-        self.sstice_dst_grid_file = f'{default_grid_dir}scrip_{dst_grid}_s2n.nc'
+        self.sstice_dst_grid_file = f'{self.grid_dir}scrip_{dst_grid}_s2n.nc'
 
         # Create the destination grid file
         file_does_not_exist = self.sstice_dst_grid_file not in glob.glob(self.sstice_dst_grid_file)
@@ -778,7 +787,7 @@ class hiccup_data(object):
         src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
         dst_grid = f'{self.sstice_nlat_dst}x{self.sstice_nlon_dst}'
 
-        self.sstice_map_file = f'{default_map_dir}map_{src_grid}_to_{dst_grid}_s2n.nc'
+        self.sstice_map_file = f'{self.map_dir}map_{src_grid}_to_{dst_grid}_s2n.nc'
 
         # Generate mapping file
         file_does_not_exist = self.sstice_map_file not in glob.glob(self.sstice_map_file)
@@ -880,6 +889,7 @@ class hiccup_data(object):
         cmd += f' --map_file={self.sstice_map_file} '
         cmd += f' --in_file={sstice_tmp_file_name} '
         cmd += f' --out_file={output_file_name} '
+        cmd += f' --fl_fmt={ncremap_fl_fmt} '
         run_cmd(cmd,verbose,shell=True)
 
         # delete the temporary file
@@ -943,10 +953,10 @@ class hiccup_data(object):
 
         # Convert units to Celsius
         if 'units' not in ds['SST_cpl'].attrs:
-            ds['SST_cpl'].attrs['units'] = 'degrees_C'
-        if ds['SST_cpl'].attrs['units'] in ['K','degrees_K','Kelvin'] :
+            ds['SST_cpl'].attrs['units'] = 'deg_C'
+        if ds['SST_cpl'].attrs['units'] in ['K','degrees_K','deg_K','Kelvin'] :
             ds['SST_cpl'] = ds['SST_cpl']-tk_zero
-            ds['SST_cpl'].attrs['units'] = 'degrees_C'
+            ds['SST_cpl'].attrs['units'] = 'deg_C'
 
         # Set invalid values to np.nan before using interpolate_na()
         ds['SST_cpl'] = xr.where( np.fabs(ds['SST_cpl'].values) < 999, ds['SST_cpl'], np.nan)
@@ -1019,17 +1029,37 @@ class hiccup_data(object):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
 
+        # reset attributes to avoid error reading file during model run
+        ds['SST_cpl'].attrs = {'long_name':'Sea Surface Temperature','units':'deg_C'}
+        ds['ice_cov'].attrs = {'long_name':'Sea Ice Fraction','units':'fraction'}
+        ds['lat'].attrs = {'long_name':'latitude','units':'degrees_north'}
+        ds['lon'].attrs = {'long_name':'longitude','units':'degrees_east'}
+
         # Write back to final file
         ds.to_netcdf(output_file_name
                     ,unlimited_dims=['time'] 
                     ,encoding={'time':{'dtype':'float64'}}
-                    ,format='NETCDF4_CLASSIC' )
+                    ,format=hiccup_sst_nc_format
+                    )
         ds.close()
 
         run_cmd(f'ncatted --hst -A -a calendar,time,m,c,\'365_day\' {output_file_name}',
                 verbose,prepend_line=False,shell=True)
 
         run_cmd(f'ncatted -O -a _FillValue,time,d,, {output_file_name}',
+                verbose,prepend_line=False)
+
+        # A confusing issue occurs with the dimension ordering 
+        # the commands below provide a clunky workaround
+        tmp_file = output_file_name.replace('.nc','.ncpdq_tmp.nc')
+        cmd1 = f'ncpdq --permute=lon,lat,time --overwrite {output_file_name} {tmp_file}'
+        cmd2 = f'ncpdq --permute=time,lat,lon --overwrite {tmp_file} {output_file_name}'
+        run_cmd(cmd1,verbose)
+        run_cmd(cmd2,verbose,prepend_line=False)
+        run_cmd(f'rm {tmp_file} ',verbose,prepend_line=False)
+
+        # Reset the history attribute
+        run_cmd(f'ncatted -h -O -a history,global,o,c, {output_file_name} {output_file_name}',
                 verbose,prepend_line=False)
 
         return

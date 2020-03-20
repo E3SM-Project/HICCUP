@@ -60,15 +60,6 @@ To aquire NOAA OI daily SST and sea ice data, edit and run:
 
 --------------------------------------------------------------------------------
 
-PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
-
-A plotting script is also included (plot.sanity_check.py), but it requires 
-PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
-This was done becase PyNGL has excellent support for plotting data on 
-unstructured grids. In the future we may add a plotting script for MatPlotLib.
-
---------------------------------------------------------------------------------
-
 VERTICAL GRID FILES
 
 The current E3SM vertical grid was created through an iterative process 
@@ -117,5 +108,14 @@ the data with the following command:
 followed by running (check to make sure file names match):
   remap.test_data.ERA5.py
 which is a simple script for reducing the resolution of the test data
+
+--------------------------------------------------------------------------------
+
+PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
+
+A plotting script is also included (plot.sanity_check.py), but it requires 
+PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
+This was done becase PyNGL has excellent support for plotting data on 
+unstructured grids. In the future we may add a plotting script for MatPlotLib.
 
 --------------------------------------------------------------------------------
