@@ -73,7 +73,7 @@ def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
         sp.check_call(cmd.split())
     return
 # ------------------------------------------------------------------------------
-# Method for printing timer information
+# Method for printing individual timer information
 # ------------------------------------------------------------------------------
 def print_timer(timer_start,use_color=True,prefix='\n'):
     """
@@ -85,6 +85,17 @@ def print_timer(timer_start,use_color=True,prefix='\n'):
     timer_msg_all.append(msg)
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
     print(prefix+msg)
+    return
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+def print_timer_summary():
+    """
+    Print a summary of timer information
+    """
+    if do_timers:
+        print('HICCUP Timer results:')
+        for msg in timer_msg_all:
+            print(f'  {msg}')
     return
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
