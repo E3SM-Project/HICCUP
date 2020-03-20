@@ -390,23 +390,6 @@ class hiccup_data(object):
 
         check_dependency('ncrename')
 
-        # # original approach - rename one at a time
-        # def rename_proc(key,var_name_dict):
-        #     # Skip over entries that are blank
-        #     if key == '' : return
-        #     if var_name_dict[key] == '' : return
-        #     # set up the ncrename command
-        #     cmd = f'ncrename --hst --variable {var_name_dict[key]},{key} {file_name}'
-        #     # coords are often already renamed by the remapping step, 
-        #     # so make them optional by adding a preceeding dot
-        #     if key in ['lat','lon']: cmd = cmd.replace(f'{var_name_dict[key]}',f'.{var_name_dict[key]}')
-        #     # print the command and execute
-        #     run_cmd(cmd,verbose,prepend_line=False,shell=True)
-        # if verbose : print('\n Renaming ATM vars... \n')
-        # for key in self.atm_var_name_dict : rename_proc(key,self.atm_var_name_dict)
-        # if verbose : print('\n Renaming SFC vars... \n')
-        # for key in self.sfc_var_name_dict : rename_proc(key,self.sfc_var_name_dict)
-
         # Alternate approach - build a single large command to rename all at once
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
