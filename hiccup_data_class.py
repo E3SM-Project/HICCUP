@@ -412,13 +412,14 @@ class hiccup_data(object):
         var_dict_all.update(self.sfc_var_name_dict)
         cmd = f'ncrename --hst '
         for key in var_dict_all : 
-            tmp_cmd = f' -v {var_dict_all[key]},{key} '
-            if tmp_cmd not in cmd :
-                # coords are often already renamed by the remapping step, 
-                # so make them optional by adding a preceeding dot
-                if key in ['lat','lon']: 
-                    tmp_cmd = tmp_cmd.replace(f'{var_dict_all[key]}',f'.{var_dict_all[key]}')
-                cmd += tmp_cmd
+            if key != var_dict_all[key]:
+                tmp_cmd = f' -v {var_dict_all[key]},{key} '
+                if tmp_cmd not in cmd :
+                    # coords are often already renamed by the remapping step, 
+                    # so make them optional by adding a preceeding dot
+                    if key in ['lat','lon']: 
+                        tmp_cmd = tmp_cmd.replace(f'{var_dict_all[key]}',f'.{var_dict_all[key]}')
+                    cmd += tmp_cmd
         run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
 
         # Stop timer here before calling rename_vars_special
