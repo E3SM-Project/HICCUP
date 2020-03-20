@@ -81,7 +81,8 @@ def print_timer(timer_start,use_color=True,prefix='\n'):
     """
     caller = sys._getframe(1).f_code.co_name
     etime = perf_counter()-timer_start
-    msg = f'{caller:30} elapsed time: {etime:10.2f} sec '
+    msg = f'{caller:30} elapsed time: {etime:10.2f} sec'
+    if etime>60 : msg += f' ({(etime/60):10.2f} min)'
     timer_msg_all.append(msg)
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
     print(prefix+msg)
