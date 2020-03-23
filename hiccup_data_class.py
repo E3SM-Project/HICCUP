@@ -224,6 +224,12 @@ class hiccup_data(object):
         if self.sstice_name=='NOAA': self.sst_name,self.ice_name = 'sst','icec'
         if self.sstice_name=='ERA5': self.sst_name,self.ice_name = 'sst','siconc'
 
+        # Check that input files exist
+        for file_name in [self.atm_file,self.sfc_file,self.sst_file,self.ice_file]
+            if file_name is not None:
+                if not os.path.exists(file_name):
+                    raise ValueError(f'input file does not exist: {file_name}')
+
         # Load input files into xarray datasets
         self.ds_atm = xr.open_dataset(self.atm_file)
         self.ds_sfc = xr.open_dataset(self.sfc_file)
