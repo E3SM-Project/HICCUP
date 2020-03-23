@@ -16,7 +16,7 @@ from optparse import OptionParser
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do
 verbose = True            # Global verbosity flag
-unpack_nc_files = True    # unpack data files (convert short to float)
+unpack_nc_files = False    # unpack data files (convert short to float)
 create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horizontal remap and variable renaming
 do_state_adjst1 = True    # post horizontal interpolation adjustments
@@ -196,7 +196,7 @@ if create_sst_data :
 
     # Remap the sst/ice data after time slicing and combining (if necessary)
     hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,
-                                       time_slice_method='initial',
+                                       time_slice_method='match_atmos',
                                        atm_file=output_atm_file_name)
 
     # Rename the variables and remove unnecessary variables and attributes

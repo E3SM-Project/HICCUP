@@ -309,7 +309,7 @@ class hiccup_data(object):
             self.dst_grid_file = self.grid_dir+f'exodus_ne{ne}.g'
             
             check_dependency('GenerateCSMesh')
-            cmd = f'GenerateCSMesh --res {ne} --file {self.dst_grid_file}'
+            cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file}'
             cmd += f' >> {tempest_log_file}'
             run_cmd(cmd,verbose,shell=True)
 
@@ -322,7 +322,7 @@ class hiccup_data(object):
 
             # First create exodus file
             check_dependency('GenerateCSMesh')
-            cmd = f'GenerateCSMesh --res {ne} --file {exodus_file}'
+            cmd = f'GenerateCSMesh --alt --res {ne} --file {exodus_file}'
             cmd += f' >> {tempest_log_file}'
             run_cmd(cmd,verbose,shell=True)
             
@@ -367,8 +367,8 @@ class hiccup_data(object):
         if self.dst_grid_file == None : 
             raise ValueError('dst_grid_file is not defined for hiccup_data object')
 
-        # Set the map options
-        self.map_opts = '--in_type fv --in_np 1 --mono --out_double '
+        # Set the map options (do we need the --mono flag?)
+        self.map_opts = '--in_type fv --in_np 2 --out_double ' 
 
         # speciic special options depending on target atmos grid
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 

@@ -3,24 +3,29 @@ import xarray as xr
 import numpy as np
 import ngl
 import os
+from optparse import OptionParser
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+def main(fig_file='sanity_check',fig_type='png',ifile=None):
 
-def main(fig_file='sanity_check',fig_type='png'):
+   if ifile is None: ifile = 'data/HICCUP_TEST.output.atm.nc'
 
    # Specify list of variables to plot
    var = ['PS','TS','T','Q','U','CLDLIQ']
+   # var = ['T','Q','U','V']
+   # var = ['t','q','u','v']
 
    # specify level to use for data with "lev" dimension
    # starts at TOA, but negative values can be used to start from surface
-   klev = -5
+   klev = -20
 
    # Make plot subtitle font size vary with number of plot panels
    font_height = 0.015/np.sqrt(len(var))
 
    #----------------------------------------------------------------------------
    # Create dataset objects
-   ds = xr.open_dataset('data/HICCUP_TEST.output.atm.nc')
+   ds = xr.open_dataset(ifile)
    scrip_ds = xr.open_dataset('grid_files/scrip_ne30np4.nc')
-
    #----------------------------------------------------------------------------
    # Set up plot stuff
    plot = []
@@ -44,15 +49,13 @@ def main(fig_file='sanity_check',fig_type='png'):
       data = ds[var[v]].isel(time=0)
       
       lev_str = ''
-
-      if 'lev' in data.dims : 
-         data = data.isel(lev=klev)
-         plev = ds['lev'].isel(lev=klev).values
-         lev_str = f'{plev:6.2f} hPa'
-
-      if 'plev' in data.dims : 
-         data = data.isel(plev=klev)
-         plev = ds['plev'].isel(plev=klev).values
+      lev_name = None
+      if 'lev' in data.dims : lev_name = 'lev'
+      if 'plev' in data.dims : lev_name = 'plev'
+      if 'level' in data.dims : lev_name = 'level'
+      if lev_name is not None:
+         data = data.isel({lev_name:klev})
+         plev = ds[lev_name].isel({lev_name:klev}).values
          lev_str = f'{plev:6.2f} hPa'
 
       # Print some statistics of the data
@@ -60,7 +63,6 @@ def main(fig_file='sanity_check',fig_type='png'):
       print(f'  min : {data.min().values} ')
       print(f'  avg : {data.mean().values} ')
       print(f'  max : {data.max().values} ')
-      # print(f'  shp : {data.shape} ')
 
       # Create map plot
       plot.append( ngl.contour_map(wks,data.values,res) )
@@ -254,4 +256,10 @@ def bin_YbyX (Vy,Vx,bins=[],bin_min=0,bin_max=1,bin_spc=1,wgt=[],keep_time=False
    return bin_ds
 #---------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------------
-if __name__ == '__main__': main()
+if __name__ == '__main__': 
+   # Parse the command line options
+   parser = OptionParser()
+   parser.add_option('-i',dest='ifile',default=None,help='input file name')
+   (opts, args) = parser.parse_args()
+
+   main(ifile=opts.ifile)
