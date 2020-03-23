@@ -178,8 +178,8 @@ class hiccup_data(object):
         self.atm_var_name_dict = {}
         self.sfc_var_name_dict = {}
         self.lnd_var_name_dict = {}
-        self.nlat = -1
-        self.nlon = -1
+        self.src_nlat = -1
+        self.src_nlon = -1
         self.dst_horz_grid = dst_horz_grid
         self.dst_vert_grid = dst_vert_grid
         self.src_grid_name = ''
@@ -1201,10 +1201,10 @@ class ERA5(hiccup_data):
         # self.sfc_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
         # self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
 
-        self.nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
-        self.nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
+        self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
+        self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
 
-        self.src_grid_name = f'{self.nlat}x{self.nlon}'
+        self.src_grid_name = f'{self.src_nlat}x{self.src_nlon}'
         self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
 
         self.map_file = self.map_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
@@ -1227,7 +1227,7 @@ class ERA5(hiccup_data):
         cmd  = f'ncremap {ncremap_alg} ' 
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
-        cmd += f'#latlon={self.nlat},{self.nlon}'                    
+        cmd += f'#latlon={self.src_nlat},{self.src_nlon}'                    
         cmd +=  '#lat_typ=uni'
         cmd +=  '#lat_drc=n2s'
         cmd +=  '#lon_typ=grn_ctr '
