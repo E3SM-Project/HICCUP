@@ -12,7 +12,6 @@ import datetime
 # import cftime
 import shutil 
 import re
-import glob
 import os
 import sys
 from time import perf_counter
@@ -509,10 +508,8 @@ class hiccup_data(object):
         sfc_tmp_file_name = f'{self.tmp_dir}tmp_sfc_data.nc'
 
         # Remove temporary files if they exist
-        if atm_tmp_file_name in glob.glob(atm_tmp_file_name):
-            run_cmd(f'rm {atm_tmp_file_name} ',verbose)
-        if sfc_tmp_file_name in glob.glob(sfc_tmp_file_name):
-            run_cmd(f'rm {sfc_tmp_file_name} ',verbose)
+        if os.path.isfile(atm_tmp_file_name): run_cmd(f'rm {atm_tmp_file_name} ',verbose)
+        if os.path.isfile(sfc_tmp_file_name): run_cmd(f'rm {sfc_tmp_file_name} ',verbose)
 
         check_dependency('ncremap')
         check_dependency('ncks')
@@ -538,7 +535,7 @@ class hiccup_data(object):
         run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
-        if output_file_name in glob.glob(output_file_name) : run_cmd(f'rm {output_file_name} ',verbose)
+        if os.path.isfile(output_file_name): run_cmd(f'rm {output_file_name} ',verbose)
 
         if verbose : print('\nCombining temporary remapped files...')
 
@@ -592,7 +589,7 @@ class hiccup_data(object):
                     tmp_file_name = f'{self.tmp_dir}tmp_atm_data.{key}.nc'
                 tmp_file_dict.update({key:tmp_file_name})
                 # Remove temporary files if they exist
-                if tmp_file_name in glob.glob(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
+                if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
                 # Remap the data
                 cmd  = f'ncremap {ncremap_alg} '
                 cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={header_padding}' "
@@ -860,8 +857,7 @@ class hiccup_data(object):
         self.sstice_src_grid_file = f'{self.grid_dir}scrip_{src_grid}.nc'
 
         # Create the source grid file
-        file_does_not_exist = self.sstice_src_grid_file not in glob.glob(self.sstice_src_grid_file) 
-        if file_does_not_exist or force_overwrite :
+        if force_overwrite or not os.path.isfile(self.sstice_src_grid_file) :
             if verbose : print(f'\nCreating source grid file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} --tmp_dir={self.tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
@@ -918,8 +914,7 @@ class hiccup_data(object):
         self.sstice_dst_grid_file = f'{self.grid_dir}scrip_{dst_grid}_s2n.nc'
 
         # Create the destination grid file
-        file_does_not_exist = self.sstice_dst_grid_file not in glob.glob(self.sstice_dst_grid_file)
-        if file_does_not_exist or force_overwrite :
+        if force_overwrite or not os.path.isfile(self.sstice_dst_grid_file) :
             if verbose : print(f'\nCreating target grid file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} --tmp_dir={self.tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {dst_grid}\'' 
@@ -946,8 +941,7 @@ class hiccup_data(object):
         self.sstice_map_file = f'{self.map_dir}map_{src_grid}_to_{dst_grid}_s2n.nc'
 
         # Generate mapping file
-        file_does_not_exist = self.sstice_map_file not in glob.glob(self.sstice_map_file)
-        if file_does_not_exist or force_overwrite :
+        if force_overwrite or not os.path.isfile(self.sstice_map_file) :
             if verbose : print(f'\nCreating mapping file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} '
             cmd +=  ' -a fv2fv '
@@ -1312,8 +1306,7 @@ class ERA5(hiccup_data):
         if verbose : print('\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
-        if self.src_grid_file in glob.glob(self.src_grid_file) : 
-            run_cmd(f'rm {self.src_grid_file} ',verbose)
+        if os.path.isfile(self.src_grid_file): run_cmd(f'rm {self.src_grid_file} ',verbose)
 
         check_dependency('ncremap')
 
