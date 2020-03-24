@@ -746,39 +746,6 @@ class hiccup_data(object):
 
         if do_timers: print_timer(timer_start)
         return
-
-    # --------------------------------------------------------------------------
-    def add_extra_data_variables(self,ds) :
-        """
-        Check final output file and add other data variables needed by the model
-        """
-        if do_timers: timer_start = perf_counter()
-        shape_2D = ( len(ds['time']), len(ds['ncol']) )
-        shape_3D = ( len(ds['time']), len(ds['lev']), len(ds['ncol']) )
-        coord_2D = {'time':ds['time'], 'ncol':ds['ncol'] }
-        coord_3D = {'time':ds['time'], 'lev':ds['lev'], 'ncol':ds['ncol'] }
-        dims_2D  = ['time','ncol']
-        dims_3D  = ['time','lev','ncol']
-
-        if 'NUMICE' not in ds.variables :
-            ds['NUMICE'] = xr.DataArray( np.full(shape_3D,0.), coords=coord_3D, dims=dims_3D )
-            ds['NUMICE'].attrs['units'] = 'kg/kg'
-            ds['NUMICE'].attrs['long_name'] = 'Grid box averaged cloud ice number'
-
-        if 'NUMLIQ' not in ds.variables :
-            ds['NUMLIQ'] = xr.DataArray( np.full(shape_3D,0.), coords=coord_3D, dims=dims_3D )
-            ds['NUMLIQ'].attrs['units'] = 'kg/kg'
-            ds['NUMLIQ'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
-        
-        # Other variables that might be needed:
-        # H2SO4
-        # H2O2
-        # DMS
-        # SOAG
-        # SO2
-
-        if do_timers: print_timer(timer_start)
-        return
     # --------------------------------------------------------------------------
     def clean_global_attributes(self,file_name,verbose=None):
         """ 
