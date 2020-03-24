@@ -96,6 +96,31 @@ on the initialization day.
 
 --------------------------------------------------------------------------------
 
+RUNNING A HINDCAST
+
+After using HICCUP to generate the atmosphere and SST/ice files, an E3SM 
+hindcast can be run by following the steps to run a typical "F-compset" run, 
+using the compsets such as FC5AV1C-L. The initialization data needs to be copied 
+to the scratch space of the machine to ensure they are accessible to the compute 
+nodes. 
+
+The atmospheric initial condition file is specified by editing the "user_nl_cam"
+file found in the case directory to include:
+  
+  ncdata = < path to hiccup atmos initial condition file >
+
+The SST file and start date values also need to be specified by modifying the 
+env_run.xml file in the case directory. The preferred method for doing this is 
+to use the xmlchange command from the case directory as in the example below:
+
+  ./xmlchange -file env_run.xml SSTICE_DATA_FILENAME=<path to SST file>
+  ./xmlchange -file env_run.xml RUN_STARTDATE=2016-08-01
+  ./xmlchange -file env_run.xml SSTICE_YEAR_ALIGN=2016
+  ./xmlchange -file env_run.xml SSTICE_YEAR_START=2016
+  ./xmlchange -file env_run.xml SSTICE_YEAR_END=2017
+
+--------------------------------------------------------------------------------
+
 LAND MODEL INITIAL CONDITONS
 
 HICCUP does not currently support the generation of land model initial condition
