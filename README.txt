@@ -96,6 +96,16 @@ on the initialization day.
 
 --------------------------------------------------------------------------------
 
+LAND MODEL INITIAL CONDITONS
+
+HICCUP does not currently support the generation of land model initial condition
+files. This might be possible with the data available from ERA5, but the current
+recommendation is to spin up the land model for 5-10 years leading up to the 
+desired initialization date using the standalone land model forced by the data
+atmosphere component. 
+
+--------------------------------------------------------------------------------
+
 DATA FOR TESTING AND DEVELOPMENT
 
 a low-resolution version of ERA5 pressure level data is included in this repo:
