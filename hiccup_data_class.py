@@ -52,6 +52,7 @@ tk_zero = 273.15 # value for converting between celsius and Kelvin
 
 # Set up terminal colors
 class tcolor:
+    """ simple class for coloring terminal text """
     ENDC, BLACK, RED     = '\033[0m','\033[30m','\033[31m'
     GREEN, YELLOW, BLUE  = '\033[32m','\033[33m','\033[34m'
     MAGENTA, CYAN, WHITE = '\033[35m','\033[36m','\033[37m'
@@ -385,7 +386,7 @@ class hiccup_data(object):
         else:
             raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
         
-
+        # Create the map file
         cmd = f'ncremap {ncremap_alg} '
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
@@ -548,8 +549,7 @@ class hiccup_data(object):
                 verbose,prepend_line=False)
 
         # delete the temporary files
-        run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',
-                verbose,prepend_line=False)
+        run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',verbose,prepend_line=False)
 
         if do_timers: print_timer(timer_start)
         return
