@@ -788,13 +788,31 @@ class hiccup_data(object):
         check_dependency('ncatted')
 
         # Remove the attributes listed in global_att_list
-        for att in global_att_list:
-            run_cmd(f'ncatted -O -a {att},global,d,, {file_name} {file_name}',
-                    verbose,prepend_line=False)
+        cmd = 'ncatted -O '
+        for att in global_att_list: cmd += f' -a {att},global,d,, '
+        cmd += f' {file_name} {file_name} '
+        run_cmd(cmd,verbose)
 
         # Also reset the history attribute
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prepend_line=False)
+
+        if do_timers: print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
+    def combine_files(self,file_dict,output_file_name):
+        """
+        Combine files in file_dict into single output file
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print('\nCleaning up excessive global attributes...')
+
+        check_dependency('ncks')
+
+        for var,file_name in file_dict.items() :
+            cmd = f'ncks -A --hdr_pad={header_padding} {file_name} {output_file_name} '
+            run_cmd(cmd,verbose,prepend_line=False)
 
         if do_timers: print_timer(timer_start)
         return
