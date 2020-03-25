@@ -43,7 +43,7 @@ hiccup_verbose = False
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
 
-# Enable timers
+# Enable timers by default
 do_timers = True
 timer_msg_all = []
 
@@ -454,12 +454,12 @@ class hiccup_data(object):
                 cmd  = f'ncrename --hst '
                 cmd += f' -v {var_dict_all[var]},{var} '
                 # coords are often renamed by the remap step, so make them optional
-                cmd += f" -v .{var_dict_all['lat']},lat "
-                cmd += f" -v .{var_dict_all['lon']},lon "
+                # cmd += f" -v .{var_dict_all['lat']},lat "
+                # cmd += f" -v .{var_dict_all['lon']},lon "
                 run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
 
             # Do additional variable/attribute renaming specific to the input data
-            self.rename_vars_special(file_name,verbose)
+            # self.rename_vars_special(file_name,verbose)
 
         if do_timers: print_timer(timer_start)
 
@@ -561,7 +561,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nHorizontally remapping the data to temporary files...')
+        if verbose : print('\nHorizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -619,7 +619,10 @@ class hiccup_data(object):
 
         # Specify temporary file for vertically interpolated output
         # This allows for input and output files to be the same
-        vert_tmp_file_name = output_file_name.replace('.nc',f'.vert_remap_tmp.nc')
+        if input_file_name==output_file_name:
+            vert_tmp_file_name = output_file_name.replace('.nc',f'.vert_remap_tmp.nc')
+        else:
+            vert_tmp_file_name = output_file_name
 
         # Build variable list from the input file if not supplied
         if vert_remap_var_list is None :
@@ -644,7 +647,8 @@ class hiccup_data(object):
         run_cmd(cmd,verbose,shell=True)
 
         # Overwrite the output file with the vertically interpolated data
-        run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
+        if input_file_name==output_file_name:
+            run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
 
         # The command above was causing a strange issue where the file was
         # not completely written when the next step happened. Adding the lines
@@ -654,7 +658,29 @@ class hiccup_data(object):
 
         if do_timers: print_timer(timer_start)
         return
+    # --------------------------------------------------------------------------
+    def remap_vertical_multifile(self,file_dict,vert_file_name,
+                                 verbose=None):
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nVertically remapping the multi-file data...')
 
+        # temporarily disable timers and put a timer around the vertical remap loop
+        if do_timers: timer_start = perf_counter()
+        prev_do_timers = do_timers
+        do_timers = False
+
+        for var,file_name in file_dict.items() :
+            # Do the vertical interpolation for this file
+            self.remap_vertical(input_file_dict=file_name
+                               ,output_file_name=file_name
+                               ,vert_file_name=vert_file_name
+                               ,vert_remap_var_list=var)
+        
+        # Re-set do_timers to previous value
+        do_timers = prev_do_timers
+
+        if do_timers: hdc.print_timer(timer_start)
+        return
     # --------------------------------------------------------------------------
     def add_time_date_variables(self,ds,verbose=None):
         """
@@ -1309,7 +1335,7 @@ class ERA5(hiccup_data):
             verbose,shell=True)
 
         # Reset the level variable name 
-        self.lev_name = new_lev_name
+        # self.lev_name = new_lev_name
 
         # change pressure variable type to double and units to Pascals (needed for vertical remap)
         run_cmd(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}",
