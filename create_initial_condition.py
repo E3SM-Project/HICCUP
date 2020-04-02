@@ -14,21 +14,20 @@ import hiccup_data_class as hdc
 import hiccup_state_adjustment as hsa
 from optparse import OptionParser
 # ------------------------------------------------------------------------------
-# Logical flags for controlling what this script will do
-verbose = True            # Global verbosity flag
-unpack_nc_files = False    # unpack data files (convert short to float)
-create_map_file = True    # grid and map file creation
-remap_data_horz = True    # horizontal remap and variable renaming
-do_state_adjst1 = True    # post horizontal interpolation adjustments
-remap_data_vert = True    # vertical remap
-do_state_adjst2 = True    # post vertical interpolation adjustments
-create_sst_data = True    # sst/sea ice file creation
-# ------------------------------------------------------------------------------
 # Parse the command line options
 parser = OptionParser()
 parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
 parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
 (opts, args) = parser.parse_args()
+# ------------------------------------------------------------------------------
+# Logical flags for controlling what this script will do
+verbose = True            # Global verbosity flag
+unpack_nc_files = False    # unpack data files (convert short to float)
+create_map_file = False    # grid and map file creation
+remap_data_horz = False    # horz remap, variable renaming, and sfc adjustment
+remap_data_vert = False    # vertical remap
+do_state_adjust = False    # post vertical interpolation adjustments
+create_sst_data = False    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
 
 # Specify output atmosphere horizontal grid
@@ -39,16 +38,13 @@ dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L72'
 vert_file_name = f'vert_coord_{dst_vert_grid}.nc'
 
 # Specify the output file names
-data_root = '/global/cscratch1/sd/whannah/HICCUP/data/'
-# data_root = '/gpfs/alpine/scratch/hannah6/cli115/HICCUP/data/'
+data_root = f'{os.getenv('HOME')}/HICCUP/data/'
 init_date = '2016-08-01'
 output_atm_file_name = f'{data_root}HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
 output_sst_file_name = f'{data_root}HICCUP.sst_noaa.{init_date}.nc'
 
 # set topo file
-# topo_file_path = data_root
-topo_file_path = '/project/projectdirs/acme/inputdata/atm/cam/topo/'  # NERSC
-# topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata/atm/cam/topo/' # OLCF
+topo_file_path = data_root
 if dst_horz_grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
 if dst_horz_grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
 if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
@@ -57,10 +53,8 @@ if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_n
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    # ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
-                                    # ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                                    ,atm_file=f'{data_root}ERA5.atm.{init_date}.nc'
-                                    ,sfc_file=f'{data_root}ERA5.sfc.{init_date}.nc'
+                                    ,atm_file='data/HICCUP_TEST.ERA5.atm.low-res.nc'
+                                    ,sfc_file='data/HICCUP_TEST.ERA5.sfc.low-res.nc'
                                     ,sstice_name='NOAA'
                                     ,sst_file=f'{data_root}sst.day.mean.2016.nc'
                                     ,ice_file=f'{data_root}icec.day.mean.2016.nc'
@@ -75,11 +69,8 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,tmp_dir=data_root
                                     ,verbose=verbose)
 
-# override the xarray default netcdf format of 
-# NETCDF4 to avoid file permission issue
-nc_format = 'NETCDF3_64BIT'
-# nc_format = 'NETCDF4_CLASSIC'
-# nc_format = 'NETCDF4'
+# override the xarray default format of NETCDF4 to avoid file permission issue
+nc_format = 'NETCDF4'   # NETCDF4 / NETCDF4_CLASSIC / NETCDF3_64BIT
 
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
@@ -175,9 +166,6 @@ if do_state_adjst2 :
 
     # adjust surface pressure to retain dry mass of atmosphere - NOT TESTED
     # hsa.dry_mass_fixer( ds_data )
-
-    # Add extra variable that weren't included in input data - DO WE NEED THIS?
-    # hiccup_data.add_extra_data_variables( ds_data )
 
     # Write the final dataset back to the file
     ds_data.to_netcdf(output_atm_file_name,format=nc_format,mode='a')
