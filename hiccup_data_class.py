@@ -30,12 +30,16 @@ tempest_log_file    = 'TempestRemap.log'
 
 # override the xarray default netcdf format of 
 # NETCDF4 to avoid file permission issue
+# NETCDF4 / NETCDF4_CLASSIC / NETCDF3_64BIT
 hiccup_sst_nc_format = 'NETCDF3_64BIT'
-ncremap_fl_fmt = '64bit_data' # netcdf4_classic / 64bit_data / 64bit_offset
+hiccup_atm_nc_format = 'NETCDF3_64BIT'
+# Also set the ncremap file type to be consistent
+# netcdf4 / netcdf4_classic / 64bit_data / 64bit_offset
+ncremap_file_fmt = '64bit_data' 
 
 # use 100k header padding for improved performance when editing metadata
 # see http://nco.sourceforge.net/nco.html#hdr_pad
-header_padding = 100000
+hdr_pad = 100000
 
 # Global verbosity default
 hiccup_verbose = False
@@ -46,6 +50,7 @@ np.seterr(over='ignore')
 # Enable timers by default
 do_timers = True
 timer_msg_all = []
+timer_start_total = None
 
 # Numeric parameters
 tk_zero = 273.15 # value for converting between celsius and Kelvin
@@ -79,7 +84,7 @@ def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
 # ------------------------------------------------------------------------------
 # Print individual timer information
 # ------------------------------------------------------------------------------
-def print_timer(timer_start,use_color=True,prefix='\n',caller=None):
+def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=True):
     """
     Print the final timer result based on input start time
     Also update timer_msg_all for use in print_timer_summary
@@ -108,6 +113,9 @@ def print_timer_summary():
     """
     Print timer summary based on information compiled by print_timer()
     """
+    # Add timer info for all if timer_start_total was set
+    if timer_start_total is not None: 
+        print_timer(timer_start_total,caller=f'Total',print_msg=False)
     if do_timers:
         print('HICCUP Timer results:')
         for msg in timer_msg_all:
@@ -154,7 +162,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                       ,map_dir=map_dir
                       ,tmp_dir=tmp_dir
                       ,lev_type=lev_type)
-            
+
             # Check input files for for required variables
             obj.check_file_vars()
 
@@ -162,6 +170,9 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
             if not os.path.exists(output_dir) : os.makedirs(output_dir)
             if not os.path.exists(grid_dir)   : os.makedirs(grid_dir)
             if not os.path.exists(map_dir)    : os.makedirs(map_dir)
+
+            global timer_start_total
+            timer_start_total = perf_counter()
 
             # Return the object if everything checks out
             return obj
@@ -259,6 +270,19 @@ class hiccup_data(object):
 
         return str_out
     # --------------------------------------------------------------------------
+    def get_grid_ne(self):
+        """
+        Return number of elements of target model grid
+        """
+        return re.search('ne(.*)np', self.dst_horz_grid).group(1)
+    # --------------------------------------------------------------------------
+    def get_grid_npg(self):
+        """
+        Return number of FV physgrid cells (npg) of target model grid
+        """
+        if 'pg' in self.dst_horz_grid : 
+            return re.search('pg(.*)', self.dst_horz_grid).group(1)
+    # --------------------------------------------------------------------------
     def check_file_vars(self):
         """ 
         Check that required variables are in the input files 
@@ -311,7 +335,7 @@ class hiccup_data(object):
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
             # Spectral element grid with physics on GLL nodes
-            ne = re.search('ne(.*)np', self.dst_horz_grid).group(1)
+            ne = self.get_grid_ne()
             self.dst_grid_file = self.grid_dir+f'exodus_ne{ne}.g'
             
             check_dependency('GenerateCSMesh')
@@ -322,8 +346,8 @@ class hiccup_data(object):
         elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid : 
             
             # Spectral element grid with FV physics grid (ex. ne30pg2)
-            ne  = re.search('ne(.*)pg', self.dst_horz_grid).group(1)
-            npg = re.search('pg(.*)', self.dst_horz_grid).group(1)
+            ne  = self.get_grid_ne()
+            npg = self.get_grid_npg()
             exodus_file = self.grid_dir+f'exodus_ne{ne}.g'
 
             # First create exodus file
@@ -377,12 +401,11 @@ class hiccup_data(object):
         self.map_opts = '--in_type fv --in_np 2 --out_double ' 
 
         # speciic special options depending on target atmos grid
+        ne = self.get_grid_ne()
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
-            ne = re.search('ne(.*)np', self.dst_horz_grid).group(1)
         elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
-            self.map_opts = self.map_opts+' --out_type fv --out_np 1 --volumetric '
-            ne = re.search('ne(.*)pg', self.dst_horz_grid).group(1)
+            self.map_opts = self.map_opts+' --out_type fv --out_np 2 --volumetric '
         else:
             raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
         
@@ -412,7 +435,7 @@ class hiccup_data(object):
         # Alternate approach - build a single large command to rename all at once
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
-        cmd = f'ncrename --hst '
+        cmd = f'ncrename --hst'
         for key in var_dict_all : 
             if key != var_dict_all[key]:
                 tmp_cmd = f' -v {var_dict_all[key]},{key} '
@@ -449,6 +472,9 @@ class hiccup_data(object):
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
 
+        new_lev_name = None
+        if self.lev_name=='level': new_lev_name = 'plev'
+
         # for file_name in file_list :
         for var, file_name in file_dict.items():
             if var not in [lat_var,lon_var]:
@@ -457,10 +483,23 @@ class hiccup_data(object):
                 # coords are often renamed by the remap step, so make them optional
                 # cmd += f" -v .{var_dict_all['lat']},lat "
                 # cmd += f" -v .{var_dict_all['lon']},lon "
+                if new_lev_name is not None and '_sfc_' not in file_name:
+                    cmd += f' -d .{self.lev_name},{new_lev_name}'
+                    cmd += f' -v .{self.lev_name},{new_lev_name}'
                 run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
 
             # Do additional variable/attribute renaming specific to the input data
-            # self.rename_vars_special(file_name,verbose)
+            if new_lev_name is not None and '_sfc_' not in file_name:
+                adjust_pressure_units = True
+            else:
+                adjust_pressure_units = False
+            self.rename_vars_special(file_name,verbose,do_timers=False
+                                    ,adjust_pressure_units=adjust_pressure_units
+                                    ,change_pressure_name=False
+                                    ,new_lev_name=new_lev_name)
+
+        # Reset the level variable name 
+        if new_lev_name is not None: self.lev_name = new_lev_name
 
         if do_timers: print_timer(timer_start)
 
@@ -481,14 +520,10 @@ class hiccup_data(object):
         run_cmd(f"ncap2 --hst -A -s 'P0=100000.' {file_name} {file_name}",
                 verbose,prepend_line=False,shell=True)
 
-        # add long_name attribute
-        run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' {file_name}",
+        # add long_name and units attributes
+        run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' -a units,P0,a,c,'Pa' {file_name}",
                 verbose,prepend_line=False,shell=True)
         
-        # add units attribute
-        run_cmd(f"ncatted --hst -A -a units,P0,a,c,'Pa' {file_name}",
-                verbose,prepend_line=False,shell=True)
-
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
@@ -522,7 +557,7 @@ class hiccup_data(object):
         cmd += f' --in_file={self.atm_file} '
         cmd += f' --out_file={atm_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
-        cmd += f' --fl_fmt={ncremap_fl_fmt} '
+        cmd += f' --fl_fmt={ncremap_file_fmt} '
         run_cmd(cmd,verbose)
 
         # Horzontally remap surface data
@@ -532,7 +567,7 @@ class hiccup_data(object):
         cmd += f' --in_file={self.sfc_file} '
         cmd += f' --out_file={sfc_tmp_file_name} '
         cmd += f' --var_lst={var_list} '
-        cmd += f' --fl_fmt={ncremap_fl_fmt} '
+        cmd += f' --fl_fmt={ncremap_file_fmt} '
         run_cmd(cmd,verbose)
 
         # Remove output file if it already exists
@@ -541,11 +576,11 @@ class hiccup_data(object):
         if verbose : print('\nCombining temporary remapped files...')
 
         # Add atmosphere temporary file data into the final output file
-        run_cmd(f'ncks -A --hdr_pad={header_padding} {atm_tmp_file_name} {output_file_name} ',
+        run_cmd(f'ncks -A --hdr_pad={hdr_pad} {atm_tmp_file_name} {output_file_name} ',
                 verbose,prepend_line=False)
 
         # Add surface temporary file data into the final output file
-        run_cmd(f'ncks -A --hdr_pad={header_padding} {sfc_tmp_file_name} {output_file_name} ',
+        run_cmd(f'ncks -A --hdr_pad={hdr_pad} {sfc_tmp_file_name} {output_file_name} ',
                 verbose,prepend_line=False)
 
         # delete the temporary files
@@ -554,7 +589,36 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def remap_horizontal_multifile(self,verbose=None):
+    def get_multifile_dict(self,verbose=None):
+        """
+        Create dict of temporary file names associated with each variable
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nCreating list of temporary files...')
+
+        # define file list to be returned
+        tmp_file_dict = {}
+
+        lat_var = self.atm_var_name_dict['lat']
+        lon_var = self.atm_var_name_dict['lon']
+
+        var_dict_all = self.atm_var_name_dict.copy()
+        var_dict_all.update(self.sfc_var_name_dict)
+
+        # Horzontally remap atmospher and surface data to individual files
+        for key,var in var_dict_all.items() :
+            if var not in [lat_var,lon_var]:
+                tmp_file_name = None
+                if key in self.sfc_var_name_dict.keys(): 
+                    tmp_file_name = f'{self.tmp_dir}tmp_sfc_data.{self.dst_horz_grid}.{self.dst_vert_grid}.{key}.nc'
+                if key in self.atm_var_name_dict.keys(): 
+                    tmp_file_name = f'{self.tmp_dir}tmp_atm_data.{self.dst_horz_grid}.{self.dst_vert_grid}.{key}.nc'
+                if tmp_file_name is not None: tmp_file_dict.update({key:tmp_file_name})
+
+        return tmp_file_dict
+    # --------------------------------------------------------------------------
+    def remap_horizontal_multifile(self,file_dict,verbose=None):
         """  
         Horizontally remap data into seperate files for each variable
         This approach was developed specifically for very fine grids like ne1024
@@ -569,41 +633,32 @@ class hiccup_data(object):
 
         check_dependency('ncremap')
 
-        # define file list to be returned
-        tmp_file_dict = {}
-
         lat_var = self.atm_var_name_dict['lat']
         lon_var = self.atm_var_name_dict['lon']
 
-        var_dict_all = self.atm_var_name_dict.copy()
-        var_dict_all.update(self.sfc_var_name_dict)
-
         # Horzontally remap atmospher and surface data to individual files
-        for key,var in var_dict_all.items() :
-            if var not in [lat_var,lon_var]:
-                if key in self.sfc_var_name_dict.keys(): 
-                    in_file = self.sfc_file
-                    tmp_file_name = f'{self.tmp_dir}tmp_sfc_data.{key}.nc'
-                if key in self.atm_var_name_dict.keys(): 
-                    in_file = self.atm_file
-                    tmp_file_name = f'{self.tmp_dir}tmp_atm_data.{key}.nc'
-                tmp_file_dict.update({key:tmp_file_name})
-                # Remove temporary files if they exist
-                if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
-                # Remap the data
-                cmd  = f'ncremap {ncremap_alg} '
-                cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={header_padding}' "
-                cmd += f' --map_file={self.map_file}'
-                cmd += f' --in_file={in_file}'
-                cmd += f' --out_file={tmp_file_name}'
-                cmd += f' --var_lst={var},{lat_var},{lon_var}'
-                cmd += f' --fl_fmt={ncremap_fl_fmt}'
-                run_cmd(cmd,verbose,shell=True)
+        for var,tmp_file_name in file_dict.items():
+            if var in self.sfc_var_name_dict.keys(): 
+                in_var = self.sfc_var_name_dict[var]
+                in_file = self.sfc_file
+            if var in self.atm_var_name_dict.keys(): 
+                in_var = self.atm_var_name_dict[var]
+                in_file = self.atm_file
+            # Remove temporary files if they exist
+            if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
+            # Remap the data
+            cmd  = f'ncremap {ncremap_alg} '
+            cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
+            cmd += f' --map_file={self.map_file}'
+            cmd += f' --in_file={in_file}'
+            cmd += f' --out_file={tmp_file_name}'
+            cmd += f' --var_lst={in_var},{lat_var},{lon_var}'
+            cmd += f' --fl_fmt={ncremap_file_fmt}'
+            run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
 
-        # return dict of file names associated with each variable
-        return tmp_file_dict
+        return 
     # --------------------------------------------------------------------------
     def remap_vertical(self,input_file_name,output_file_name,
                        vert_file_name,vert_remap_var_list=None,
@@ -636,14 +691,17 @@ class hiccup_data(object):
                 #     vert_remap_var_list.append(key)
         vert_remap_var_list = ','.join(vert_remap_var_list)
 
+        # Delete tmp file if it exists
+        if os.path.isfile(vert_tmp_file_name): run_cmd(f'rm {vert_tmp_file_name} ',verbose)
+
         # Perform the vertical remapping
-        cmd  = 'ncremap'
-        cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={header_padding}' "
+        cmd  = 'ncremap '
+        cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' " # doesn't work with vertical regridding?
         cmd += f' --vrt_fl={vert_file_name}'
         cmd += f' --var_lst={vert_remap_var_list}'
         cmd += f' --in_fl={input_file_name}'
         cmd += f' --out_fl={vert_tmp_file_name}'
-        cmd += f' --fl_fmt={ncremap_fl_fmt} '
+        cmd += f' --fl_fmt={ncremap_file_fmt} '
         run_cmd(cmd,verbose,shell=True)
 
         # Overwrite the output file with the vertically interpolated data
@@ -659,30 +717,40 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def remap_vertical_multifile(self,file_dict,vert_file_name,
-                                 verbose=None):
+    def remap_vertical_multifile(self,file_dict,vert_file_name,verbose=None):
+        """
+        wrapper around remap_vertical to support multi-file workflow
+        specifically needed for very fine grids like ne1024
+        """
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nVertically remapping the multi-file data...')
 
         # temporarily disable timers and put a timer around the vertical remap loop
+        global do_timers
         if do_timers: timer_start = perf_counter()
         prev_do_timers = do_timers
         do_timers = False
 
+        ps_file_name = file_dict['PS']
+
         for var,file_name in file_dict.items() :
-            # Do the vertical interpolation for this file
-            self.remap_vertical(input_file_dict=file_name
-                               ,output_file_name=file_name
-                               ,vert_file_name=vert_file_name
-                               ,vert_remap_var_list=var)
+            if '_sfc_' not in file_name :
+                # Append surface pressure for vertical interpolation
+                run_cmd(f'ncks -A --hdr_pad={hdr_pad} {ps_file_name} {file_name}'
+                        ,verbose,prepend_line=False)
+                # Do the vertical interpolation for this file
+                self.remap_vertical(input_file_name=file_name
+                                   ,output_file_name=file_name
+                                   ,vert_file_name=vert_file_name
+                                   ,vert_remap_var_list=var)
         
         # Re-set do_timers to previous value
         do_timers = prev_do_timers
 
-        if do_timers: hdc.print_timer(timer_start)
+        if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def add_time_date_variables(self,ds,verbose=None):
+    def add_time_date_variables(self,ds,verbose=None,do_timers=do_timers):
         """
         Check final output file and add necessary time and date information
         """
@@ -806,13 +874,19 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose: print('\nCleaning up excessive global attributes...')
 
         check_dependency('ncks')
 
+        # Append each file to the output file
+        if verbose: print('\nCombining temporary files into new file...')
         for var,file_name in file_dict.items() :
-            cmd = f'ncks -A --hdr_pad={header_padding} {file_name} {output_file_name} '
+            cmd = f'ncks -A --hdr_pad={hdr_pad} {file_name} {output_file_name} '
             run_cmd(cmd,verbose,prepend_line=False)
+
+        # Delete temp files
+        if verbose: print('\nDeleting temporary files...')
+        for file_name in file_dict.values() :
+            run_cmd(f'rm {file_name}',verbose,prepend_line=False)
 
         if do_timers: print_timer(timer_start)
         return
@@ -1048,12 +1122,12 @@ class hiccup_data(object):
 
         # remap the SST data onto the target grid for the model
         cmd =  f'ncremap {ncremap_alg} '
-        cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={header_padding}' "
+        cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
         cmd += f' --vars={self.sst_name},{self.ice_name} '
         cmd += f' --map_file={self.sstice_map_file} '
         cmd += f' --in_file={sstice_tmp_file_name} '
         cmd += f' --out_file={output_file_name} '
-        cmd += f' --fl_fmt={ncremap_fl_fmt} '
+        cmd += f' --fl_fmt={ncremap_file_fmt} '
         run_cmd(cmd,verbose,shell=True)
 
         # delete the temporary file
@@ -1270,30 +1344,31 @@ class ERA5(hiccup_data):
         self.atm_var_name_dict.update({'lon':'longitude'})
         self.atm_var_name_dict.update({'T':'t'})            # temperature
         self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
+        # self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+        # self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
+        # self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
+        # self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
+        # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
         # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
-        self.atm_var_name_dict.update({'U':'u'})            # zonal wind
-        self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
-        self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
-        self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
-        self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
 
         # Surface variables
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
         self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
-        # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
-        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
-        self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})    # Sea ice area fraction
-        self.sfc_var_name_dict.update({'SNOWHICE':'sd'})     # Snow depth 
+        # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        # self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        # self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+
+        # self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
+        # self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth 
         # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
         # self.sfc_var_name_dict.update({'':'rsn'})          # Snow density 
         # self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
         # self.sfc_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
         # self.sfc_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
         # self.sfc_var_name_dict.update({'':'src'})          # Skin reservoir content 
+        # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
         # self.sfc_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
         # self.sfc_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
         # self.sfc_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
@@ -1334,7 +1409,9 @@ class ERA5(hiccup_data):
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
-    def rename_vars_special(self,file_name,verbose=None):
+    def rename_vars_special(self,file_name,verbose=None,do_timers=do_timers
+                           ,new_lev_name='plev',change_pressure_name=True
+                           ,adjust_pressure_units=True):
         """ 
         Rename file vars specific to this subclass 
         """
@@ -1348,20 +1425,20 @@ class ERA5(hiccup_data):
         check_dependency('ncatted')
         check_dependency('ncks')
 
-        # Rename pressure variable (needed for vertical remap)
-        run_cmd(f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}',
-            verbose,shell=True)
+        # Rename pressure variable and reset the lev var name (needed for vertical remap)
+        if change_pressure_name:
+            cmd = f'ncrename -d {self.lev_name},{new_lev_name} -v level,{new_lev_name} {file_name}'
+            run_cmd(cmd,verbose,shell=True)
+            self.lev_name = new_lev_name
 
-        # Reset the level variable name 
-        # self.lev_name = new_lev_name
-
-        # change pressure variable type to double and units to Pascals (needed for vertical remap)
-        run_cmd(f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}",
-                verbose,prepend_line=False,shell=True)
+        # # change pressure variable type to double and units to Pascals (needed for vertical remap)
+        if adjust_pressure_units:
+            cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}"
+            run_cmd(cmd,verbose,prepend_line=False,shell=True)
 
         cmd = 'ncatted --hst -O '
         # change units attribute of the level variable
-        cmd += f" -a units,{new_lev_name},a,c,'Pa' "
+        if adjust_pressure_units: cmd += f" -a units,{new_lev_name},a,c,'Pa' "
         # also remove "bounds" attribute
         cmd += f' -a bounds,lat,d,,'
         cmd += f' -a bounds,lon,d,,'

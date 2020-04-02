@@ -20,7 +20,7 @@ source activate hiccup_env
 # Set NE if not set on the command line
 if [ -z ${NE+x} ]; then NE=30; fi
 
-python -u ./create_initial_condition.OLCF.mf.py --hgrid=ne${NE}np4
+python -u ./create_initial_condition_multifile.olcf.py --hgrid=ne${NE}np4
 
 # Notes:
 # the "-u" option allows the log file to update in real time, 
