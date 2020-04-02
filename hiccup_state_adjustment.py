@@ -109,13 +109,15 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # calculate z by integrating hydrostatic equation
   # And populate k index array for finding the bottom level
   z = dz.copy(deep=True)
-  k_ind = xr.full_like(z,-1,dtype=int)
+  k_ind = xr.full_like(z,-1,dtype=int).load()
   for k in range(nlev-1,0-1,-1) : 
-    k_ind[:,:,k] = k
-    if k <= nlev-2 : z[:,:,k] = z[:,:,k] + dz[:,:,k]
-    
+    k_ind[:,:,k] = np.full_like(k_ind[:,:,k].values,k)
+    # k_ind[:,:,k].values = np.full_like(k_ind[:,:,k].values,k)
+    if k <= nlev-2 : z[:,:,k].values = z[:,:,k] + dz[:,:,k]
+
   # Find the lowest height that exceeds the minimum
   kbot_ind = xr.where(z>=z_min,k_ind,-1).max(dim=lev_coord_name)
+  kbot_ind.load()
 
   # Check that there weren't problems finding the bottom level
   if np.any(kbot_ind.values==-1) : 
@@ -158,7 +160,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   ps_attrs = ds_data['PS'].attrs
 
   # Only update PHIS if phis difference is not negligible
-  ds_data['PS'] = xr.where( np.abs(del_phis) > phis_threshold, ps_new, ds_data['PS'].values )
+  ds_data['PS'].values = xr.where( np.abs(del_phis) > phis_threshold, ps_new, ds_data['PS'].values )
 
   # restore attributes
   ds_data['PS'].attrs = ps_attrs
@@ -214,7 +216,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
   # save attributes to restore later
   ts_attrs = ds_data['TS'].attrs
 
-  ds_data['TS'] = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse/gravit
+  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse/gravit
 
   # restore attributes
   ds_data['TS'].attrs = ts_attrs
