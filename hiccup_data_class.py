@@ -10,11 +10,9 @@ import pandas as pd
 import subprocess as sp
 import datetime
 # import cftime
-import shutil 
-import re
-import os
-import sys
+import os, sys, re, shutil
 from time import perf_counter
+import hiccup_state_adjustment as hsa
 
 # default output paths
 default_output_dir  = './data/'
@@ -32,10 +30,10 @@ tempest_log_file    = 'TempestRemap.log'
 # NETCDF4 to avoid file permission issue
 # NETCDF4 / NETCDF4_CLASSIC / NETCDF3_64BIT
 hiccup_sst_nc_format = 'NETCDF3_64BIT'
-hiccup_atm_nc_format = 'NETCDF3_64BIT'
+hiccup_atm_nc_format = 'NETCDF4'
 # Also set the ncremap file type to be consistent
 # netcdf4 / netcdf4_classic / 64bit_data / 64bit_offset
-ncremap_file_fmt = '64bit_data' 
+ncremap_file_fmt = 'netcdf4' 
 
 # use 100k header padding for improved performance when editing metadata
 # see http://nco.sourceforge.net/nco.html#hdr_pad
@@ -46,6 +44,10 @@ hiccup_verbose = False
 
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
+
+# Disable HDF file locking to prevent permission 
+# errors when writing data to files
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 # Enable timers by default
 do_timers = True
@@ -97,7 +99,7 @@ def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=Tru
     # add minutes if longer than 60 sec
     if etime>60 : time_str += f' ({(etime/60):.2f} min)'
     # create the timer result message
-    msg = f'{caller:30} elapsed time: {time_str}'
+    msg = f'{caller:35} elapsed time: {time_str}'
     # msg = f'  {time_str:20} sec    {caller} '
     # add message to list of messages for print_timer_summary
     timer_msg_all.append(msg)
@@ -137,7 +139,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                        output_dir=default_output_dir,grid_dir=default_grid_dir,
                        map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                        sstice_combined_file=None,sstice_name=None,
-                       sst_file=None,ice_file=None,
+                       sst_file=None,ice_file=None,topo_file=None,
                        lev_type='',verbose=False):
     """ 
     Create HICCUP data class object, check for required input variables and 
@@ -155,6 +157,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                       ,sst_file=sst_file
                       ,ice_file=ice_file
                       ,sstice_combined_file=sstice_combined_file
+                      ,topo_file=topo_file
                       ,dst_horz_grid=dst_horz_grid
                       ,dst_vert_grid=dst_vert_grid
                       ,output_dir=output_dir
@@ -187,11 +190,12 @@ class hiccup_data(object):
     def __init__(self,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
-                 sstice_combined_file=None,sstice_name=None,
+                 sstice_combined_file=None,sstice_name=None,topo_file=None,
                  sst_file=None,ice_file=None,lev_type=''):
         self.lev_type = lev_type
         self.atm_file = atm_file
         self.sfc_file = sfc_file
+        self.topo_file = topo_file
         self.atm_var_name_dict = {}
         self.sfc_var_name_dict = {}
         self.lnd_var_name_dict = {}
@@ -242,7 +246,8 @@ class hiccup_data(object):
         if self.sstice_name=='ERA5': self.sst_name,self.ice_name = 'sst','siconc'
 
         # Check that input files exist
-        for file_name in [self.atm_file,self.sfc_file,self.sst_file,self.ice_file]:
+        for file_name in [self.atm_file,self.sfc_file,self.sst_file
+                         ,self.ice_file,self.topo_file]:
             if file_name is not None:
                 if not os.path.exists(file_name):
                     raise ValueError(f'input file does not exist: {file_name}')
@@ -280,8 +285,23 @@ class hiccup_data(object):
         """
         Return number of FV physgrid cells (npg) of target model grid
         """
-        if 'pg' in self.dst_horz_grid : 
+        if 'pg' in self.dst_horz_grid: 
             return re.search('pg(.*)', self.dst_horz_grid).group(1)
+        else:
+            return 0
+    # --------------------------------------------------------------------------
+    def get_chunks(self):
+        """
+        Return chunk number to use dask for certain special cases
+        """
+        # By default we do not want to use chunk, but for very fine grids
+        # it is useful to load into a dask array by setting the chunk size
+        chunks = None
+        ne,npg = int(self.get_grid_ne()),int(self.get_grid_npg())
+        # divide total physics column count by 2 for large grids
+        if ne>120 and npg==0: chunks = {'ncol':((ne*ne*54+2)/2)} 
+        if ne>120 and npg>0 : chunks = {'ncol':((ne*ne*6*npg)/2)} 
+        return chunks
     # --------------------------------------------------------------------------
     def check_file_vars(self):
         """ 
@@ -660,6 +680,54 @@ class hiccup_data(object):
 
         return 
     # --------------------------------------------------------------------------
+    def surface_adjustment_multifile(self,file_dict,verbose=None):
+        """
+        Perform surface temperature and pressure adjustments 
+        using a multifile xarray dataset
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print('\nPerforming surface adjustments...')
+
+        # build list of file names for variables needed for adjustment
+        file_list = []
+        var_list = ['TS','PS','PHIS','T']
+        for var,file_name in file_dict.items():
+            if var in var_list: file_list.append(file_name)
+
+        # Load topo data for surface adjustment
+        ds_topo = xr.open_dataset(self.topo_file)
+
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+
+            # Adjust surface temperature to match new surface height
+            timer_start_adj = perf_counter()
+            hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
+            ds_data.compute()
+            print_timer(timer_start_adj,caller='adjust_surface_temperature')
+
+        ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
+
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+
+            # Adjust surface pressure to match new surface height
+            timer_start_adj = perf_counter()
+            hsa.adjust_surface_pressure( ds_data, ds_topo \
+                                        ,pressure_var_name=self.lev_name
+                                        ,lev_coord_name=self.lev_name
+                                        ,verbose=verbose )
+            ds_data.compute()
+            print_timer(timer_start_adj,caller='adjust_surface_pressure')
+
+        ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
+
+        ds_data.close()
+
+        if do_timers: print_timer(timer_start)
+
+        return
+
+    # --------------------------------------------------------------------------
     def remap_vertical(self,input_file_name,output_file_name,
                        vert_file_name,vert_remap_var_list=None,
                        verbose=None):
@@ -742,10 +810,52 @@ class hiccup_data(object):
                 self.remap_vertical(input_file_name=file_name
                                    ,output_file_name=file_name
                                    ,vert_file_name=vert_file_name
-                                   ,vert_remap_var_list=var)
+                                   ,vert_remap_var_list=[var])
         
         # Re-set do_timers to previous value
         do_timers = prev_do_timers
+
+        if do_timers: print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
+    def state_adjustment_multifile(self,file_dict,verbose=None):
+        """
+        Perform post-remapping atmospheric state adjustments 
+        for the multifile workflow
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print('\nPerforming state adjustments...')
+
+        # build list of file names for variables needed for adjustment
+        file_list = []
+        var_list = ['Q','T','PS','CLDLIQ','CLDICE']
+        for var,file_name in file_dict.items():
+            if var in var_list: file_list.append(file_name)
+        
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+            
+            # adjust water vapor to eliminate supersaturation
+            timer_start_adj = perf_counter()
+            hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
+            ds_data.compute()
+            print_timer(timer_start_adj,caller='remove_supersaturation')
+
+        ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='w')
+
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+
+            # adjust cloud water to remove negative values
+            timer_start_adj = perf_counter()
+            hsa.adjust_cld_wtr( ds_data, verbose=verbose )
+            ds_data.compute()
+            print_timer(timer_start_adj,caller='adjust_cld_wtr')
+
+        # Write adjusted data back to the individual data files
+        for var in ['CLDLIQ','CLDICE']:
+            ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
+        
+        ds_data.close()
 
         if do_timers: print_timer(timer_start)
         return
@@ -841,6 +951,22 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
+    def add_time_date_variables_multifile(self,file_dict,verbose=None):
+        """
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nEditing time and date variables...')
+
+        for file_name in file_dict.values() :
+            with xr.open_dataset(file_name) as ds_data:
+                ds_data.load()
+                self.add_time_date_variables(ds_data,verbose=False,do_timers=False)
+            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
+            ds_data.close()
+        if do_timers: print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
     def clean_global_attributes(self,file_name,verbose=None):
         """ 
         Remove messy global attributes of the file 
@@ -868,17 +994,20 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def combine_files(self,file_dict,output_file_name):
+    def combine_files(self,file_dict,output_file_name,verbose=None):
         """
         Combine files in file_dict into single output file
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
+        if verbose: print('\nCombining temporary files into new file...')
 
         check_dependency('ncks')
 
+        if os.path.isfile(output_file_name): 
+            run_cmd(f'rm {output_file_name} ',verbose)
+
         # Append each file to the output file
-        if verbose: print('\nCombining temporary files into new file...')
         for var,file_name in file_dict.items() :
             cmd = f'ncks -A --hdr_pad={hdr_pad} {file_name} {output_file_name} '
             run_cmd(cmd,verbose,prepend_line=False)
@@ -886,7 +1015,8 @@ class hiccup_data(object):
         # Delete temp files
         if verbose: print('\nDeleting temporary files...')
         for file_name in file_dict.values() :
-            run_cmd(f'rm {file_name}',verbose,prepend_line=False)
+            print(f'rm {file_name}',)
+            # run_cmd(f'rm {file_name}',verbose,prepend_line=False)
 
         if do_timers: print_timer(timer_start)
         return
@@ -1320,7 +1450,7 @@ class ERA5(hiccup_data):
     def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
-                 sstice_name=None,sst_file=None,ice_file=None,
+                 sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
                  sstice_combined_file=None,lev_type=''):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
@@ -1330,6 +1460,7 @@ class ERA5(hiccup_data):
                         ,sst_file=sst_file
                         ,ice_file=ice_file
                         ,sstice_combined_file=sstice_combined_file
+                        ,topo_file = topo_file
                         ,output_dir=output_dir
                         ,grid_dir=grid_dir
                         ,map_dir=map_dir
@@ -1346,8 +1477,8 @@ class ERA5(hiccup_data):
         self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
         # self.atm_var_name_dict.update({'U':'u'})            # zonal wind
         # self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
-        # self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
-        # self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
+        self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
+        self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
         # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
         # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
 

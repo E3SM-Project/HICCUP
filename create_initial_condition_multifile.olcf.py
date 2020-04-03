@@ -20,19 +20,17 @@ from time import perf_counter
 parser = OptionParser()
 parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
 parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
-parser.add_option('--test_var',dest='test_var',default=None,help='')
-parser.add_option('--test_method',dest='test_method',default=None,help='')
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do
 verbose = True            # Global verbosity flag
 unpack_nc_files = False    # unpack data files (convert short to float)
 create_map_file = False    # grid and map file creation
-remap_data_horz = True    # horz remap, variable renaming
-do_sfc_adjust   = True    # perform surface T and P adjustments
-remap_data_vert = True    # vertical remap
-combine_files   = False    # combine temporary data files and delete
+remap_data_horz = False    # horz remap, variable renaming
+do_sfc_adjust   = False    # perform surface T and P adjustments
+remap_data_vert = False    # vertical remap
 do_state_adjust = False    # post vertical interpolation adjustments
+combine_files   = True    # combine temporary data files and delete
 create_sst_data = False    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
 
@@ -65,6 +63,7 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,sstice_name='NOAA'
                                     ,sst_file=f'{data_root}sst.day.mean.2016.nc'
                                     ,ice_file=f'{data_root}icec.day.mean.2016.nc'
+                                    ,topo_file=topo_file_name
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid=dst_vert_grid
                                     ,output_dir=data_root
@@ -72,9 +71,6 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,map_dir=data_root
                                     ,tmp_dir=data_root
                                     ,verbose=verbose)
-
-# override the xarray default format of NETCDF4 to avoid file permission issue
-hdc.hiccup_atm_nc_format = 'NETCDF4'   # NETCDF4 / NETCDF4_CLASSIC / NETCDF3_64BIT
 
 # Get dict of temporary files for each variable
 file_dict = hiccup_data.get_multifile_dict()
@@ -109,98 +105,23 @@ if remap_data_horz :
     # Rename variables to match what the model expects
     hiccup_data.rename_vars_multifile(file_dict=file_dict)
 
-    # # --------------------------------------------------------------------------
-    # # Add reference pressure and time/date variables
-    # if verbose: print(f'\nAdding reference pressure and time date variables...')
-    # timer_start = perf_counter()
-    # for var,file_name in file_dict.items():
+    # Add time/date information
+    hiccup_data.add_time_date_variables_multifile(file_dict=file_dict)
 
-    #     if verbose: print(f'  var: {var:10}    {file_name}')
-
-    #     timer_start_var = perf_counter()
-
-    #     # Load the file into an xarray dataset and add variables
-    #     with xr.open_dataset(file_name) as ds_data:
-    #         if verbose: print('    Loading dataset...')
-    #         ds_data.load()
-
-    #         # Add reference pressure
-    #         if verbose: print('    Adding reference pressure...')
-    #         ds_data['P0'] = xr.DataArray(100000.)
-    #         ds_data['P0'].attrs['long_name'] = 'reference pressure'
-    #         ds_data['P0'].attrs['units'] = 'Pa'
-
-    #         # Add time/date information
-    #         if verbose: print('    add_time_date_variables...')
-    #         hiccup_data.add_time_date_variables(ds_data,verbose=False,do_timers=False)
-
-    #     # Write the adjusted dataset back to the file
-    #     if verbose: print('    Writing dataset back to file...')
-    #     ds_data.to_netcdf(file_name,format=hdc.hiccup_atm_nc_format,mode='w')
-    #     ds_data.close()
-
-    #     # Print timer info for each temporary file
-    #     hdc.print_timer(timer_start_var,caller=f'- {var:10} ')
-
-    # # Print timer info for this whole section
-    # hdc.print_timer(timer_start,caller='Add P0 and time/date variables')
 # ------------------------------------------------------------------------------
 # Do surface adjustments
 # ------------------------------------------------------------------------------
 if do_sfc_adjust:
 
-    # --------------------------------------------------------------------------
-    # Perform surface adjustments
-    timer_start_adjust = perf_counter()
+    hiccup_data.lev_name = 'plev'
 
-    # reload the dataset using the files needed for adjustments
-    file_list = []
-    var_list = ['TS','PS','PHIS','T']
-    for var,file_name in file_dict.items():
-        if var in var_list: file_list.append(file_name)
+    # Perform surface temperature and pressure adjustments
+    hiccup_data.surface_adjustment_multifile(file_dict=file_dict)
 
-    # Load topo data for surface adjustment
-    ds_topo = xr.open_dataset(topo_file_name)
-
-    chunks = None
-    ne = int(hiccup_data.get_grid_ne())
-    # chunks = {'ncol':10000}
-    if ne > 50000: chunks = {'ncol':(ne*ne*6*4)}
-
-    if verbose: print('\n    Loading dataset for surface adjustments...')
-    with xr.open_mfdataset(file_list,combine='by_coords',chunks=chunks) as ds_data:
-        # ds_data.load()
-        # ds_data.compute()
-
-        if verbose: print('\n    Performing surface adjustments...')
-        # Adjust surface temperature to match new surface height
-        timer_start_adj = perf_counter()
-        hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
-        ds_data.compute()
-        hdc.print_timer(timer_start_adj,caller='adjust_surface_temperature')
-
-        # Adjust surface pressure to match new surface height
-        timer_start_adj = perf_counter()
-        hsa.adjust_surface_pressure( ds_data, ds_topo \
-                                    ,pressure_var_name=hiccup_data.lev_name
-                                    ,lev_coord_name=hiccup_data.lev_name
-                                    ,verbose=verbose )
-        ds_data.compute()
-        hdc.print_timer(timer_start_adj,caller='adjust_surface_pressure')
-
-    # Write adjusted data back to the individual data files
-    for var in ['TS','PS']:
-        ds_data[var].to_netcdf(file_dict[var],format=hdc.hiccup_atm_nc_format,mode='w')
-    ds_data.close()
-
-    hdc.print_timer(timer_start_adjust,caller='Surface adjustments' )
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 # ------------------------------------------------------------------------------
 if remap_data_vert :
-
-    # for var,file_name in file_dict.items():
-    #     hiccup_data.clean_global_attributes(file_name=file_name)
 
     hiccup_data.remap_vertical_multifile(file_dict=file_dict
                                         ,vert_file_name=vert_file_name)
@@ -210,40 +131,14 @@ if remap_data_vert :
 # ------------------------------------------------------------------------------
 if do_state_adjust :
 
-    timer_start = perf_counter()
-
-    for var,file_name in file_dict.items():
-
-        if verbose: print(f'  var: {var:10}    {file_name}')
-
-        timer_start_2 = perf_counter()
-
-        # # Load the file into an xarray dataset
-        # with xr.open_dataset(file_name) as ds_data:
-        #     ds_data.load()
-
-        # ds_data = xr.open_dataset(output_atm_file_name)
-
-        # adjust water vapor to eliminate supersaturation
-        hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
-
-        # adjust cloud water to remove negative values?
-        hsa.adjust_cld_wtr( ds_data, verbose=verbose )
-
-        # Add time/date information
-        hiccup_data.add_time_date_variables(ds_data,verbose=verbose)
-
-        # Write the final dataset back to the file
-        ds_data.to_netcdf(output_atm_file_name,format=hdc.hiccup_atm_nc_format,mode='a')
-        ds_data.close()
-
-    hdc.print_timer(timer_start,caller='after vert adjustments' )
+    hiccup_data.state_adjustment_multifile(file_dict=file_dict)
 
 # ------------------------------------------------------------------------------
 # Combine files
 # ------------------------------------------------------------------------------
 if combine_files :
 
+    # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict
                              ,output_file_name=output_atm_file_name)
 
