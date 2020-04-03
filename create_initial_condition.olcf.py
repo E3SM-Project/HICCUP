@@ -97,8 +97,8 @@ if remap_data_horz :
     # Rename variables to match what the model expects
     hiccup_data.rename_vars(file_name=output_atm_file_name)
 
-    # add P0 variable
-    hiccup_data.add_reference_pressure(file_name=output_atm_file_name)
+    # # add P0 variable
+    # hiccup_data.add_reference_pressure(file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
