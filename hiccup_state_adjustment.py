@@ -100,15 +100,17 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lon')
   pressure_with_ps = xr.concat( [ pressure, ps_tmp ], dim=lev_coord_name )
 
-  # calculate pressure thickness - reverse direction so sign is correct
+  # calculate pressure thickness
   dp = pressure_with_ps.isel({lev_coord_name:slice(None,None,-1)}).diff(dim=lev_coord_name)
+  dp = dp.isel({lev_coord_name:slice(None,None,-1)})
+  dp = dp*-1
 
   # Load dp and temperature here to prevent invalid value warnings
   dp.load()
   ds_data['T'].load()
 
   # calculate dz from hydrostatic formula
-  dz = ( dp / ( gravit * dp / (Rdair * ds_data['T']) ) )
+  dz = dp / ( gravit * pressure / (Rdair * ds_data['T']) )
 
   # Load dz here to prevent invalid value warnings
   dz.load()
@@ -117,13 +119,22 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # And populate k index array for finding the bottom level
   z = dz.copy(deep=True).load()
   k_ind = xr.full_like(z,-1,dtype=int).load()
-  for k in range(nlev-1,0-1,-1) : 
+  for k in range(nlev-1,0-1,-1) :
     k_ind[:,k,:] = np.full_like(k_ind[:,k,:],k)
     if k <= nlev-2 : z[:,k,:] = z[:,k,:] + dz[:,k,:]
 
   # Find the lowest height that exceeds the minimum
   kbot_ind = xr.where(z>=z_min,k_ind,-1).max(dim=lev_coord_name)
   kbot_ind.load()
+
+  # # Print table of values for debugging
+  # print()
+  # for k in range(nlev):
+  #   msg = f'k: {k:4}  '
+  #   msg += f'    p: {pressure[0,k,0].values:10}'
+  #   msg += f'    z: {z[0,k,0].values:10.2f}'
+  #   msg += f'    dp: {dp[0,k,0].values:10.2f}'
+  #   print(msg)
 
   # Check that there weren't problems finding the bottom level
   if np.any(kbot_ind.values==-1) : 

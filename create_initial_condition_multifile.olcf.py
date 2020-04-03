@@ -26,10 +26,10 @@ parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output 
 verbose = True            # Global verbosity flag
 unpack_nc_files = False    # unpack data files (convert short to float)
 create_map_file = False    # grid and map file creation
-remap_data_horz = False    # horz remap, variable renaming
-do_sfc_adjust   = False    # perform surface T and P adjustments
-remap_data_vert = False    # vertical remap
-do_state_adjust = False    # post vertical interpolation adjustments
+remap_data_horz = True    # horz remap, variable renaming
+do_sfc_adjust   = True    # perform surface T and P adjustments
+remap_data_vert = True    # vertical remap
+do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 create_sst_data = False    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
@@ -113,6 +113,7 @@ if remap_data_horz :
 # ------------------------------------------------------------------------------
 if do_sfc_adjust:
 
+    # Define new lev name if skipping previous variable rename step
     hiccup_data.lev_name = 'plev'
 
     # Perform surface temperature and pressure adjustments
@@ -140,6 +141,7 @@ if combine_files :
 
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict
+                             ,delete_files=False
                              ,output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
