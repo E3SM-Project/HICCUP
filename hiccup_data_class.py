@@ -496,9 +496,11 @@ class hiccup_data(object):
         new_lev_name = None
         if self.lev_name=='level': new_lev_name = 'plev'
 
-        # for file_name in file_list :
         for var, file_name in file_dict.items():
             if var not in [lat_var,lon_var]:
+                # To work around netcdf4 convert to netcdf3 64-bit data
+                if ncremap_file_fmt=='netcdf4':
+                    run_cmd(f'ncks -O -5 {file_name} {file_name}',verbose,prepend_line=False,shell=True)
                 cmd  = f'ncrename -O --hst --hdr_pad={hdr_pad}'
                 cmd += f' -v {var_dict_all[var]},{var} '
                 # coords are often renamed by the remap step, so make them optional
@@ -508,13 +510,9 @@ class hiccup_data(object):
                     cmd += f' -d {self.lev_name},{new_lev_name}'
                     cmd += f' -v {self.lev_name},{new_lev_name}'
                 run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
-
-                # # Use separate command to rename vertical dimension
-                # # to avoid issue with netcdf4/hdf file formats
-                # if new_lev_name is not None and '_sfc_' not in file_name:
-                #     cmd  = f'ncrename --hst --hdr_pad={hdr_pad}'
-                #     cmd += f' -d {self.lev_name},{new_lev_name}'
-                #     run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
+                # Now convert back to netcdf4
+                if ncremap_file_fmt=='netcdf4':
+                    run_cmd(f'ncks -O -4 {file_name} {file_name}',verbose,prepend_line=False,shell=True)
 
             # Do additional variable/attribute renaming specific to the input data
             if new_lev_name is not None and '_sfc_' not in file_name:
@@ -1564,7 +1562,7 @@ class ERA5(hiccup_data):
         check_dependency('ncatted')
         check_dependency('ncks')
 
-        if new_lev_name = None: new_lev_name = self.new_lev_name
+        if new_lev_name is None: new_lev_name = self.new_lev_name
 
         # Rename pressure variable and reset the lev var name (needed for vertical remap)
         if change_pressure_name:
