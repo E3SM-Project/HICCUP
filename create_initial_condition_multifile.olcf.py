@@ -113,10 +113,6 @@ if remap_data_horz :
 # ------------------------------------------------------------------------------
 if do_sfc_adjust:
 
-    # Define new lev name if skipping previous variable rename step
-    hiccup_data.lev_name = 'plev'
-
-    # Perform surface temperature and pressure adjustments
     hiccup_data.surface_adjustment_multifile(file_dict=file_dict)
 
 # ------------------------------------------------------------------------------

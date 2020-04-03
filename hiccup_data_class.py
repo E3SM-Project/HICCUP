@@ -695,6 +695,9 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose: print('\nPerforming surface adjustments...')
 
+        # update lev name in case it has not been updated previously
+        self.lev_name = self.new_lev_name
+
         # build list of file names for variables needed for adjustment
         file_list = []
         var_list = ['TS','PS','PHIS','T']
@@ -715,7 +718,6 @@ class hiccup_data(object):
         ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
 
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-
 
             # Adjust surface pressure to match new surface height
             timer_start_adj = perf_counter()
