@@ -94,7 +94,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   ps_tmp = ds_data['PS'].expand_dims({lev_coord_name:[ps_lev_coord]},axis=-1)
   pressure = ds_data[pressure_var_name]
   if 'time' not in pressure.dims : pressure = pressure.expand_dims(time=len(ps_tmp['time']),axis=0)
-  if 'ncol' not in pressure.dims : pressure = pressure.expand_dims(ncol=len(ps_tmp['ncol']),axis=1)
+  if 'ncol' not in pressure.dims : pressure = pressure.expand_dims(ncol=len(ps_tmp['ncol']),axis=2)
   # If ps_tmp has extra lat/lon coords they will cause an error, so just drop them
   if 'lat' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lat')
   if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lon')
@@ -103,17 +103,23 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # calculate pressure thickness - reverse direction so sign is correct
   dp = pressure_with_ps.isel({lev_coord_name:slice(None,None,-1)}).diff(dim=lev_coord_name)
 
-  # calculate dz from hydrostatic formula
-  dz = dp / ( gravit * dp / (Rdair * ds_data['T']) )
+  # Load dp and temperature here to prevent invalid value warnings
+  dp.load()
+  ds_data['T'].load()
 
+  # calculate dz from hydrostatic formula
+  dz = ( dp / ( gravit * dp / (Rdair * ds_data['T']) ) )
+
+  # Load dz here to prevent invalid value warnings
+  dz.load()
+  
   # calculate z by integrating hydrostatic equation
   # And populate k index array for finding the bottom level
-  z = dz.copy(deep=True)
+  z = dz.copy(deep=True).load()
   k_ind = xr.full_like(z,-1,dtype=int).load()
   for k in range(nlev-1,0-1,-1) : 
-    k_ind[:,:,k] = np.full_like(k_ind[:,:,k].values,k)
-    # k_ind[:,:,k].values = np.full_like(k_ind[:,:,k].values,k)
-    if k <= nlev-2 : z[:,:,k].values = z[:,:,k] + dz[:,:,k]
+    k_ind[:,k,:] = np.full_like(k_ind[:,k,:],k)
+    if k <= nlev-2 : z[:,k,:] = z[:,k,:] + dz[:,k,:]
 
   # Find the lowest height that exceeds the minimum
   kbot_ind = xr.where(z>=z_min,k_ind,-1).max(dim=lev_coord_name)
@@ -126,9 +132,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # Define temperature and pressure for "bottom" level
   tbot = ds_data['T'].isel({lev_coord_name:kbot_ind})
   pbot = pressure.isel({lev_coord_name:kbot_ind})
-
+  
   alpha = lapse*Rdair/gravit                                                    # pg 8 eq 6
-
+  
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
   T0    = Tstar + lapse*ds_data['PHIS']/gravit                                  # pg 9 eq 13
@@ -142,14 +148,15 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.2
   condition = np.logical_and( Tstar > T_ref1,  T0 > T_ref1 )
-  alpha = xr.where(condition, 0, alpha)
-  Tstar = xr.where(condition, (T_ref1+Tstar)*0.5 ,Tstar)
+  alpha.values = xr.where(condition, 0, alpha)
+  Tstar.values = xr.where(condition, (T_ref1+Tstar)*0.5 ,Tstar)
 
   # inhibit unduly high pressure below elevated cold terrain                     pg 9 eq 14.3
   condition = ( Tstar < T_ref2 )
-  Tstar = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
+  Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
 
   del_phis = ds_data['PHIS'] - ds_topo['PHIS']
+  del_phis.load()
 
   # Calculate new surface pressure
   beta = del_phis/(Rdair*Tstar)
@@ -266,7 +273,7 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   qv_sat = xr.where(qv_sat>=0.0,qv_sat,1.0)
 
   # Calculate relative humidity for limiter
-  rh = ds['Q'].values / qv_sat.values
+  rh = ds['Q'] / qv_sat
 
   if debug:
     print(); print_stat(rh,name='rh in remove_supersaturation')
@@ -275,8 +282,8 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   tmp_attrs = ds['Q'].attrs
 
   # Apply limiter conditions
-  ds['Q'] = xr.where(rh>1.,qv_sat,ds['Q'])
-  ds['Q'] = xr.where(rh<0.,qv_min,ds['Q'])
+  ds['Q'].values = xr.where(rh>1.,qv_sat,ds['Q'])
+  ds['Q'].values = xr.where(rh<0.,qv_min,ds['Q'])
 
   # restore attributes
   ds['Q'].attrs = tmp_attrs
@@ -295,8 +302,8 @@ def adjust_cld_wtr( ds, verbose=None ):
   if verbose is None : verbose = default_verbose
   if verbose: print('\nAdjusting cloud water...')
 
-  ds['CLDLIQ'] = xr.where(ds['CLDLIQ']>=0, ds['CLDLIQ'], 0. )
-  ds['CLDICE'] = xr.where(ds['CLDICE']>=0, ds['CLDICE'], 0. )
+  ds['CLDLIQ'].values = xr.where(ds['CLDLIQ'].values>=0, ds['CLDLIQ'], 0. )
+  ds['CLDICE'].values = xr.where(ds['CLDICE'].values>=0, ds['CLDICE'], 0. )
   return
 
 #-------------------------------------------------------------------------------
@@ -308,8 +315,8 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None):
   if verbose is None : verbose = default_verbose
   if verbose: print('\nAdjusting cloud fraction...')
 
-  ds[frac_var_name] = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
-  ds[frac_var_name] = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
+  ds[frac_var_name].values = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
+  ds[frac_var_name].values = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
   return
 
 #-------------------------------------------------------------------------------
