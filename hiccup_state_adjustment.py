@@ -286,6 +286,8 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   # Calculate relative humidity for limiter
   rh = ds['Q'] / qv_sat
 
+  rh.compute()
+
   if debug:
     print(); print_stat(rh,name='rh in remove_supersaturation')
 
