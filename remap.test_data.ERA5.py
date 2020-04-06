@@ -38,7 +38,7 @@ create_map  = True
 regrid_data = True
 
 # ------------------------------------------------------------------------------
-def run_cmd(cmd,prepend_line=True,use_color=True,shell=True,execute=True):
+def run_cmd(cmd,prepend_line=True,use_color=True,shell=True,execute=False):
     """
     Common method for printing and running commands
     """
