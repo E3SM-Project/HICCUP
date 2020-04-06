@@ -96,9 +96,9 @@ def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=Tru
     if caller is None: caller = sys._getframe(1).f_code.co_name
     # calculate elapsed time
     etime = perf_counter()-timer_start
-    time_str = f'{etime:10.2f} sec'
+    time_str = f'{etime:10.1f} sec'
     # add minutes if longer than 60 sec
-    if etime>60 : time_str += f' ({(etime/60):.2f} min)'
+    if etime>60 : time_str += f' ({(etime/60):.1f} min)'
     # create the timer result message
     msg = f'{caller:35} elapsed time: {time_str}'
     # msg = f'  {time_str:20} sec    {caller} '
