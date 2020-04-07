@@ -1018,7 +1018,7 @@ class hiccup_data(object):
 
         # Append each file to the output file
         for var,file_name in file_dict.items() :
-            cmd = f'ncks -A --hdr_pad={hdr_pad} {file_name} {output_file_name} '
+            cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl {file_name} {output_file_name} '
             run_cmd(cmd,verbose,prepend_line=False)
 
         # Delete temp files
@@ -1485,21 +1485,21 @@ class ERA5(hiccup_data):
         self.atm_var_name_dict.update({'lon':'longitude'})
         self.atm_var_name_dict.update({'T':'t'})            # temperature
         self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
-        # self.atm_var_name_dict.update({'U':'u'})            # zonal wind
-        # self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
+        self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+        self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
         self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
         self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
-        # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
+        self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
         # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
 
         # Surface variables
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
         self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
-        # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        # self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        # self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
 
         # self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
         # self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth 
