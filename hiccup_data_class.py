@@ -97,11 +97,11 @@ def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=Tru
     # calculate elapsed time
     etime = perf_counter()-timer_start
     time_str = f'{etime:10.1f} sec'
-    # add minutes if longer than 60 sec
-    if etime>60 : time_str += f' ({(etime/60):.1f} min)'
+    # add minutes if longer than 60 sec or 2 hours
+    if etime>60       : time_str += f' ({(etime/60):4.1f} min)'
+    # if etime>(2*3600) : time_str += f' ({(etime/3600):.1f} hr)'
     # create the timer result message
     msg = f'{caller:35} elapsed time: {time_str}'
-    # msg = f'  {time_str:20} sec    {caller} '
     # add message to list of messages for print_timer_summary
     timer_msg_all.append(msg)
     # Apply color
@@ -300,8 +300,8 @@ class hiccup_data(object):
         chunks = None
         ne,npg = int(self.get_grid_ne()),int(self.get_grid_npg())
         # divide total physics column count by 2 for large grids
-        if ne>120 and npg==0: chunks = {'ncol':((ne*ne*54+2)/2)} 
-        if ne>120 and npg>0 : chunks = {'ncol':((ne*ne*6*npg)/2)} 
+        if ne>120 and npg==0: chunks = {'ncol':int((ne*ne*54+2)/2)} 
+        if ne>120 and npg>0 : chunks = {'ncol':int((ne*ne*6*npg)/2)} 
         return chunks
     # --------------------------------------------------------------------------
     def check_file_vars(self):
@@ -713,7 +713,7 @@ class hiccup_data(object):
             timer_start_adj = perf_counter()
             hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
             ds_data.compute()
-            print_timer(timer_start_adj,caller='adjust_surface_temperature')
+            # print_timer(timer_start_adj,caller=' - adjust_surface_temperature')
 
         ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
 
@@ -726,7 +726,7 @@ class hiccup_data(object):
                                         ,lev_coord_name=self.lev_name
                                         ,verbose=verbose )
             ds_data.compute()
-            print_timer(timer_start_adj,caller='adjust_surface_pressure')
+            # print_timer(timer_start_adj,caller=' - adjust_surface_pressure')
 
         ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
 
