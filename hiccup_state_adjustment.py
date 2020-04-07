@@ -275,17 +275,17 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
 
   # Calculate saturation specific humidity
   qv_sat = calculate_qv_sat_liq(ds['T'],pressure)
+  qv_sat.compute()
   
   if debug:
     print(); print_stat(qv_sat,name='qv_sat in remove_supersaturation')
 
   # The following check is to avoid the generation of negative values
   # that can occur in the upper stratosphere and mesosphere
-  qv_sat = xr.where(qv_sat>=0.0,qv_sat,1.0)
+  qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0).compute()
 
   # Calculate relative humidity for limiter
   rh = ds['Q'] / qv_sat
-
   rh.compute()
 
   if debug:
@@ -295,9 +295,9 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   tmp_attrs = ds['Q'].attrs
 
   # Apply limiter conditions
-  ds['Q'].values = xr.where(rh>1.,qv_sat,ds['Q'])
-  ds['Q'].values = xr.where(rh<0.,qv_min,ds['Q'])
-
+  ds['Q'].values = xr.where(rh.values>1.,qv_sat,ds['Q']).compute()
+  ds['Q'].values = xr.where(rh.values<0.,qv_min,ds['Q']).compute()
+  
   # restore attributes
   ds['Q'].attrs = tmp_attrs
 
