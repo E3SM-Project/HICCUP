@@ -74,12 +74,18 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if verbose: print('\nAdjusting surface pressure...')
   if debug: print('adjust_surface_pressure: DEBUG MODE ENABLED')
 
+  # Make sure to use PHIS_d if file contains both
+  if 'PHIS_d' in ds_topo.variables : 
+    if 'ncol' in ds_topo.variables: ds_topo = ds_topo.drop(['ncol'])
+    if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
+    ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
+
   # Check for required variables in input datasets
   for var in ['time','ncol',lev_coord_name] :
     if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')
   for var in ['PHIS','PS','T',pressure_var_name] :
     if var not in ds_data.variables : raise KeyError(f'{var} is missing from ds_data')
-  if 'PHIS' not in ds_topo.variables : raise KeyError('PHIS is missing from ds_data')
+  if 'PHIS' not in ds_topo.variables : raise KeyError(f'PHIS is missing from ds_data')
 
   if debug :
     # Debugging print statements
@@ -213,16 +219,24 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
   if verbose is None : verbose = default_verbose
   if verbose: print('\nAdjusting surface temperature...')
   if debug: print('adjust_surface_temperature: DEBUG MODE ENABLED')
-  
+
+  # Make sure to use PHIS_d if file contains both
+  if 'PHIS_d' in ds_topo.variables : 
+    if 'ncol' in ds_topo.variables: ds_topo = ds_topo.drop(['ncol'])
+    if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
+    ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
+
   # Check for required variables in input datasets
   if 'TS'   not in ds_data.variables : 
     raise KeyError('sfc temperature (TS) variable is missing from ds_data')
   if 'PHIS' not in ds_data.variables : 
-    raise KeyError('sfc geopotential (PHIS) variable is missing from ds_data')
+    raise KeyError(f'sfc geopotential (PHIS) variable is missing from ds_data')
   if 'PHIS' not in ds_topo.variables : 
-    raise KeyError('sfc geopotential (PHIS) variable is missing from ds_topo')
-  if len(ds_data['ncol'].values) != len(ds_topo['ncol'].values) : 
-    raise IndexError('ncol dimensions of input datasets do not match')
+    raise KeyError(f'sfc geopotential (PHIS) variable is missing from ds_topo')
+  if ds_data.sizes['ncol'] != ds_topo.sizes['ncol'] : 
+    topo_ncol = ds_topo.sizes['ncol']
+    data_ncol = ds_data.sizes['ncol']
+    raise IndexError(f'dimensions of input datasets do not match: data_ncol={data_ncol} / topo_ncol={topo_ncol} ')
 
   if debug :
     # Debugging print statements
@@ -282,7 +296,10 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
 
   # The following check is to avoid the generation of negative values
   # that can occur in the upper stratosphere and mesosphere
-  qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0).compute()
+  qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0)
+
+  ds['Q'].compute()
+  qv_sat.compute()
 
   # Calculate relative humidity for limiter
   rh = ds['Q'] / qv_sat
@@ -315,8 +332,12 @@ def adjust_cld_wtr( ds, verbose=None ):
   if verbose is None : verbose = default_verbose
   if verbose: print('\nAdjusting cloud water...')
 
-  ds['CLDLIQ'].values = xr.where(ds['CLDLIQ'].values>=0, ds['CLDLIQ'], 0. )
-  ds['CLDICE'].values = xr.where(ds['CLDICE'].values>=0, ds['CLDICE'], 0. )
+  if 'CLDLIQ' in ds.data_vars:
+    ds['CLDLIQ'].values = xr.where(ds['CLDLIQ'].values>=0
+                                  ,ds['CLDLIQ'], 0. ).compute()
+  if 'CLDICE' in ds.data_vars:
+    ds['CLDICE'].values = xr.where(ds['CLDICE'].values>=0
+                                  ,ds['CLDICE'], 0. ).compute()
   return
 
 #-------------------------------------------------------------------------------
@@ -388,6 +409,8 @@ def get_pressure_from_hybrid( ds, a_coeff_name='hyam', b_coeff_name='hybm' ):
   # Make sure dimensions are in correct order for interface levels
   if a_coeff_name=='hyai' and all(d in ds.dims for d in ['time','ilev','ncol']):
     pressure = pressure.transpose('time','ilev','ncol')
+
+  pressure.compute()
   
   return pressure
 
