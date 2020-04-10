@@ -44,13 +44,16 @@ vert_file_name = os.getenv('HOME')+f'/HICCUP/vert_coord_E3SM_{dst_vert_grid}.nc'
 # Specify the output file names
 data_root = '/gpfs/alpine/scratch/hannah6/cli115/HICCUP/data/'  # OLCF 
 init_date = '2016-08-01'
+init_year = int(init_date.split('-')[0])
 output_atm_file_name = f'{data_root}HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
 output_sst_file_name = f'{data_root}HICCUP.sst_noaa.{init_date}.nc'
 
 # set topo file
 topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata/atm/cam/topo/' # OLCF
-if dst_horz_grid=='ne1024np4': topo_file_path = data_root
+if dst_horz_grid in ['ne1024np4','ne512np4','ne256np4']: topo_file_path = data_root
 if dst_horz_grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+if dst_horz_grid=='ne512np4' : topo_file_name = f'{topo_file_path}????'
+if dst_horz_grid=='ne256np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
 if dst_horz_grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
 if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
@@ -61,8 +64,8 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,atm_file=f'{data_root}ERA5.atm.{init_date}.nc'
                                     ,sfc_file=f'{data_root}ERA5.sfc.{init_date}.nc'
                                     ,sstice_name='NOAA'
-                                    ,sst_file=f'{data_root}sst.day.mean.2016.nc'
-                                    ,ice_file=f'{data_root}icec.day.mean.2016.nc'
+                                    ,sst_file=f'{data_root}sst.day.mean.{init_year}.nc'
+                                    ,ice_file=f'{data_root}icec.day.mean.{init_year}.nc'
                                     ,topo_file=topo_file_name
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid=dst_vert_grid
@@ -71,6 +74,14 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,map_dir=data_root
                                     ,tmp_dir=data_root
                                     ,verbose=verbose)
+
+# Print some informative stuff
+print()
+print(f'  output grid    : {hiccup_data.dst_horz_grid} {hiccup_data.dst_vert_grid}')
+print(f'  output atm file: {output_atm_file_name}')
+print(f'  output sst file: {output_sst_file_name}')
+hiccup_data.print_input_files()
+exit()
 
 # Get dict of temporary files for each variable
 file_dict = hiccup_data.get_multifile_dict()
@@ -99,7 +110,7 @@ if create_map_file :
 # ------------------------------------------------------------------------------
 if remap_data_horz :
 
-    # Horizontally regrid the data
+    # Horizontally regrid the data and rename variables
     hiccup_data.remap_horizontal_multifile(file_dict)
 
     # Rename variables to match what the model expects
@@ -128,7 +139,7 @@ if remap_data_vert :
 # ------------------------------------------------------------------------------
 if do_state_adjust :
 
-    hiccup_data.state_adjustment_multifile(file_dict=file_dict)
+    hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
 
 # ------------------------------------------------------------------------------
 # Combine files
@@ -137,7 +148,7 @@ if combine_files :
 
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict
-                             ,delete_files=False
+                             ,delete_files=True
                              ,output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
