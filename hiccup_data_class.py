@@ -258,23 +258,38 @@ class hiccup_data(object):
         self.ds_sfc = xr.open_dataset(self.sfc_file)
     # --------------------------------------------------------------------------
     def __str__(self):
-        str_out = ''
+        indent = '    '
+        str_out = '\nHICCUP data object:\n'
         fmt_key_len = 18
         for key in self.__dict__.keys(): 
             attribute = getattr(self,key)
             if isinstance(attribute,dict):
-                str_out += f'  {key:{fmt_key_len}}:\n'
+                str_out += f'{indent}{key:{fmt_key_len}}:\n'
                 for k in attribute.keys(): 
-                    str_out += ' '*(fmt_key_len+4)+f'{k:8}  {attribute[k]}\n'
-            elif isinstance(attribute, xr.Dataset) : 
-                str_out += f'  {key:{fmt_key_len}}:'
-                ds_str = attribute.__str__().replace('\n','\n'+' '*(fmt_key_len+4))
-                str_out += f'  {ds_str}\n'
+                    str_out += f'{indent}'*(fmt_key_len+4)+f'{k:8}  {attribute[k]}\n'
+            # elif isinstance(attribute, xr.Dataset) : 
+            #     # Print details of xarray dataset
+            #     str_out += f'  {key:{fmt_key_len}}:'
+            #     ds_str = attribute.__str__().replace('\n','\n'+' '*(fmt_key_len+4))
+            #     str_out += f'  {ds_str}\n'
             else:
-                if attribute!='' :
-                    str_out += f'  {key:{fmt_key_len}}:  {attribute}\n'
+                if attribute!='' and not isinstance(attribute, xr.Dataset) :
+                    str_out += f'{indent}{key:{fmt_key_len}}:  {attribute}\n'
 
         return str_out
+    # --------------------------------------------------------------------------
+    def print_input_files(self):
+        """
+        Print a short summary of input files
+        """
+        print()
+        print(f'  input atm files: {self.atm_file}')
+        print(f'  input sfc files: {self.sfc_file}')
+        print(f'  input sst files: {self.sst_file}')
+        print(f'  input ice files: {self.ice_file}')
+        print(f'  input topo file: {self.topo_file}')
+        print()
+        return
     # --------------------------------------------------------------------------
     def get_grid_ne(self):
         """
