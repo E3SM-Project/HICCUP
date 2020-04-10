@@ -497,32 +497,49 @@ class hiccup_data(object):
         if self.lev_name=='level': new_lev_name = 'plev'
 
         for var, file_name in file_dict.items():
-            if var not in [lat_var,lon_var]:
-                # To work around netcdf4 convert to netcdf3 64-bit data
-                if ncremap_file_fmt=='netcdf4':
-                    run_cmd(f'ncks -O -5 {file_name} {file_name}',verbose,prepend_line=False,shell=True)
-                cmd  = f'ncrename -O --hst --hdr_pad={hdr_pad}'
-                cmd += f' -v {var_dict_all[var]},{var} '
-                # coords are often renamed by the remap step, so make them optional
-                # cmd += f" -v .{var_dict_all['lat']},lat "
-                # cmd += f" -v .{var_dict_all['lon']},lon "
-                if new_lev_name is not None and '_sfc_' not in file_name:
-                    cmd += f' -d {self.lev_name},{new_lev_name}'
-                    cmd += f' -v {self.lev_name},{new_lev_name}'
-                run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
-                # Now convert back to netcdf4
-                if ncremap_file_fmt=='netcdf4':
-                    run_cmd(f'ncks -O -4 {file_name} {file_name}',verbose,prepend_line=False,shell=True)
+            ### old version using NCO
+            # if var not in [lat_var,lon_var]:
+            #     # To work around netcdf4 convert to netcdf3 64-bit data
+            #     if ncremap_file_fmt=='netcdf4':
+            #         run_cmd(f'ncks -O -5 {file_name} {file_name}',verbose,prepend_line=False,shell=True)
+            #     cmd  = f'ncrename -O --hst --hdr_pad={hdr_pad}'
+            #     cmd += f' -v {var_dict_all[var]},{var} '
+            #     # coords are often renamed by the remap step, so make them optional
+            #     # cmd += f" -v .{var_dict_all['lat']},lat "
+            #     # cmd += f" -v .{var_dict_all['lon']},lon "
+            #     if new_lev_name is not None and '_sfc_' not in file_name:
+            #         cmd += f' -d {self.lev_name},{new_lev_name}'
+            #         cmd += f' -v {self.lev_name},{new_lev_name}'
+            #     run_cmd(f'{cmd} {file_name}',verbose,prepend_line=False,shell=True)
+            #     # Now convert back to netcdf4
+            #     if ncremap_file_fmt=='netcdf4':
+            #         run_cmd(f'ncks -O -4 {file_name} {file_name}',verbose,prepend_line=False,shell=True)
+            # # Do additional variable/attribute renaming specific to the input data
+            # if new_lev_name is not None and '_sfc_' not in file_name:
+            #     adjust_pressure_units = True
+            # else:
+            #     adjust_pressure_units = False
+            # self.rename_vars_special(file_name,verbose,do_timers=False
+            #                         ,adjust_pressure_units=adjust_pressure_units
+            #                         ,change_pressure_name=False
+            #                         ,new_lev_name=new_lev_name)
 
-            # Do additional variable/attribute renaming specific to the input data
-            if new_lev_name is not None and '_sfc_' not in file_name:
-                adjust_pressure_units = True
-            else:
+            with xr.open_dataset(file_name) as ds_data:
+                ds_data.load()
+                # Rename the variable
+                ds_data = ds_data.rename({var_dict_all[var]:var})
+                # Rename the vertical coordinate
+                if new_lev_name is not None and '_sfc_' not in file_name:
+                    ds_data = ds_data.rename({self.lev_name:new_lev_name})
+                # Do additional variable/attribute renaming specific to the input data
                 adjust_pressure_units = False
-            self.rename_vars_special(file_name,verbose,do_timers=False
-                                    ,adjust_pressure_units=adjust_pressure_units
-                                    ,change_pressure_name=False
-                                    ,new_lev_name=new_lev_name)
+                if new_lev_name is not None and '_sfc_' not in file_name: adjust_pressure_units = True
+                self.rename_vars_special(ds_data,verbose,do_timers=False
+                                        ,adjust_pressure_units=adjust_pressure_units
+                                        ,change_pressure_name=False
+                                        ,new_lev_name=new_lev_name)
+            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
+            ds_data.close()
 
         # Reset the level variable name 
         if new_lev_name is not None: self.lev_name = new_lev_name
@@ -704,8 +721,8 @@ class hiccup_data(object):
         for var,file_name in file_dict.items():
             if var in var_list: file_list.append(file_name)
 
-        # Load topo data for surface adjustment
-        ds_topo = xr.open_dataset(self.topo_file)
+        # Load topo data for surface adjustment - use same chunking
+        ds_topo = xr.open_dataset(self.topo_file,chunks=self.get_chunks())
 
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
@@ -827,7 +844,7 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def state_adjustment_multifile(self,file_dict,verbose=None):
+    def atmos_state_adjustment_multifile(self,file_dict,verbose=None):
         """
         Perform post-remapping atmospheric state adjustments 
         for the multifile workflow
@@ -843,7 +860,7 @@ class hiccup_data(object):
             if var in var_list: file_list.append(file_name)
         
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-            
+
             # adjust water vapor to eliminate supersaturation
             timer_start_adj = perf_counter()
             hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
@@ -862,7 +879,8 @@ class hiccup_data(object):
 
         # Write adjusted data back to the individual data files
         for var in ['CLDLIQ','CLDICE']:
-            ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
+            if var in self.atm_var_name_dict.keys():
+                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
         
         ds_data.close()
 
@@ -1016,10 +1034,18 @@ class hiccup_data(object):
         if os.path.isfile(output_file_name): 
             run_cmd(f'rm {output_file_name} ',verbose)
 
-        # Append each file to the output file
+        # Append each file to the output file - use netcdf4 for performance, then convert afterwards
         for var,file_name in file_dict.items() :
-            cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl {file_name} {output_file_name} '
+            # if do_timers: timer_start_combine = perf_counter()
+            cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl --fl_fmt=netcdf4 {file_name} {output_file_name} '
             run_cmd(cmd,verbose,prepend_line=False)
+            # if do_timers: print_timer(timer_start_combine,caller=f'  append file - {var}')
+
+        # convert file to desired format
+        if ncremap_file_fmt != 'netcdf4':
+            # if do_timers: timer_start_convert = perf_counter()
+            cmd = f'ncks --hdr_pad={hdr_pad} --fl_fmt={ncremap_file_fmt} {output_file_name} {output_file_name} '
+            # if do_timers: print_timer(timer_start_combine,caller=f'  convert file format from netcdf4 to {ncremap_file_fmt}')
 
         # Delete temp files
         if delete_files:
@@ -1496,11 +1522,11 @@ class ERA5(hiccup_data):
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
         self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
-        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
 
+        # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        # self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        # self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
         # self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
         # self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth 
         # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
@@ -1550,7 +1576,7 @@ class ERA5(hiccup_data):
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
-    def rename_vars_special(self,file_name,verbose=None,do_timers=do_timers
+    def rename_vars_special(self,ds,verbose=None,do_timers=do_timers
                            ,new_lev_name=None,change_pressure_name=True
                            ,adjust_pressure_units=True):
         """ 
@@ -1559,41 +1585,70 @@ class ERA5(hiccup_data):
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
 
-        check_dependency('ncrename')
-        check_dependency('ncap2')
-        check_dependency('ncatted')
-        check_dependency('ncks')
-
         if new_lev_name is None: new_lev_name = self.new_lev_name
 
         # Rename pressure variable and reset the lev var name (needed for vertical remap)
         if change_pressure_name:
-            cmd = f'ncrename --hst --hdr_pad={hdr_pad}'
-            cmd += f' -d {self.lev_name},{new_lev_name}'
-            cmd += f' -v {self.lev_name},{new_lev_name}'
-            cmd += f' {file_name}'
-            run_cmd(cmd,verbose,shell=True)
+            ds = ds.rename({self.lev_name:new_lev_name})
             self.lev_name = new_lev_name
 
         # change pressure variable type to double and units to Pascals (needed for vertical remap)
         if adjust_pressure_units:
-            cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}"
-            run_cmd(cmd,verbose,prepend_line=False,shell=True)
+            ds[new_lev_name] = ds[new_lev_name]*100.
+            ds[new_lev_name].attrs['units'] = 'Pa'
 
-        cmd = 'ncatted --hst -O '
-        # change units attribute of the level variable
-        if adjust_pressure_units: cmd += f" -a units,{new_lev_name},a,c,'Pa' "
-        # also remove "bounds" attribute
-        cmd += f' -a bounds,lat,d,,'
-        cmd += f' -a bounds,lon,d,,'
-        cmd += f' {file_name} {file_name}'
-        run_cmd(cmd,verbose,prepend_line=False,shell=True)
-
-        # Remove lat/lon vertices variables since they are not needed
-        run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
-                verbose,prepend_line=False,shell=True)
-
+        if 'bounds' in ds['lat'].attrs : del ds['lat'].attrs['bounds']
+        if 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
+        if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
+        if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+        
         if do_timers: print_timer(timer_start)
         return
+    # --------------------------------------------------------------------------
+    # def rename_vars_special(self,file_name,verbose=None,do_timers=do_timers
+    #                        ,new_lev_name=None,change_pressure_name=True
+    #                        ,adjust_pressure_units=True):
+    #     """ 
+    #     Rename file vars specific to this subclass using NCO
+    #     """
+    #     if do_timers: timer_start = perf_counter()
+    #     if verbose is None : verbose = hiccup_verbose
+
+    #     check_dependency('ncrename')
+    #     check_dependency('ncap2')
+    #     check_dependency('ncatted')
+    #     check_dependency('ncks')
+
+    #     if new_lev_name is None: new_lev_name = self.new_lev_name
+
+    #     # Rename pressure variable and reset the lev var name (needed for vertical remap)
+    #     if change_pressure_name:
+    #         cmd = f'ncrename --hst --hdr_pad={hdr_pad}'
+    #         cmd += f' -d {self.lev_name},{new_lev_name}'
+    #         cmd += f' -v {self.lev_name},{new_lev_name}'
+    #         cmd += f' {file_name}'
+    #         run_cmd(cmd,verbose,shell=True)
+    #         self.lev_name = new_lev_name
+
+    #     # change pressure variable type to double and units to Pascals (needed for vertical remap)
+    #     if adjust_pressure_units:
+    #         cmd = f"ncap2 -O -s '{new_lev_name}={new_lev_name}.convert(NC_DOUBLE)*100' {file_name} {file_name}"
+    #         run_cmd(cmd,verbose,prepend_line=False,shell=True)
+
+    #     cmd = 'ncatted --hst -O '
+    #     # change units attribute of the level variable
+    #     if adjust_pressure_units: cmd += f" -a units,{new_lev_name},a,c,'Pa' "
+    #     # also remove "bounds" attribute
+    #     cmd += f' -a bounds,lat,d,,'
+    #     cmd += f' -a bounds,lon,d,,'
+    #     cmd += f' {file_name} {file_name}'
+    #     run_cmd(cmd,verbose,prepend_line=False,shell=True)
+
+    #     # Remove lat/lon vertices variables since they are not needed
+    #     run_cmd(f'ncks -C -O  -x -v lat_vertices,lon_vertices {file_name} {file_name}',
+    #             verbose,prepend_line=False,shell=True)
+
+    #     if do_timers: print_timer(timer_start)
+    #     return
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
