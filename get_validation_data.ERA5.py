@@ -14,14 +14,14 @@
 # Generate 1-deg grid file: ncremap -a tempest -G ttl='Equi-Angular grid 180x360'#latlon=180,360#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g $HOME/HICCUP/files_grid/scrip_180x360_s2n.nc
 # Generate 2-deg grid file: ncremap -a tempest -G ttl='Equi-Angular grid 90x180'#latlon=90,180#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g $HOME/HICCUP/files_grid/scrip_90x180_s2n.nc
 
-# Generate map file for ERA5: ncremap --alg_typ=tempest -a fv2fv --src_grd=./files_grid/scrip_ERA5_721x1440.nc --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=./map_files/map_721x1440_n2s_to_90x180_s2n.nc
+# Generate map file for ERA5: ncremap --alg_typ=tempest -a fv2fv --src_grd=./files_grid/scrip_ERA5_721x1440.nc --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=./files_mapping/map_721x1440_n2s_to_90x180_s2n.nc
 
 # Generate map file for E3SM ne30np4: ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30.g --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30np4_to_90x180.nc --wgt_opt='--in_type cgll --in_np 4 --out_type fv --out_np 2 --out_double'
 
 # Generate map file for E3SM ne30pg2: ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30pg2.nc --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30pg2_to_90x180.nc --wgt_opt='--in_type fv --in_np 2 --out_type fv --out_np 2 --out_double'
 
 # Remap the data: ncremap -m <map file> -i <input file> -o <output file>
-# obs example: FILE=data_scratch/ERA5_validation.Z.2016-08-01 ; ncremap -m ./map_files/map_721x1440_n2s_to_90x180_s2n.nc -i $FILE.nc -o $FILE.remap_90x180.nc
+# obs example: FILE=data_scratch/ERA5_validation.Z.2016-08-01 ; ncremap -m ./files_mapping/map_721x1440_n2s_to_90x180_s2n.nc -i $FILE.nc -o $FILE.remap_90x180.nc
 # hindcast example:
 # export MSCRATCH=/global/cscratch1/sd/whannah/e3sm_scratch/cori-knl/
 # CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30np4_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
