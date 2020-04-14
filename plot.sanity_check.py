@@ -6,14 +6,17 @@ import os
 from optparse import OptionParser
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-def main(fig_file='sanity_check',fig_type='png',ifile=None):
+def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=None):
 
    if ifile is None: ifile = 'data/HICCUP_TEST.output.atm.nc'
+   if gfile is None: gfile = 'grid_files/scrip_ne30np4.nc'
 
    # Specify list of variables to plot
-   var = ['PS','TS','T','Q','U','CLDLIQ']
-   # var = ['T','Q','U','V']
-   # var = ['t','q','u','v']
+   if var_list is None:
+      # var = ['PS']
+      var = ['PS','TS','T','Q','U','CLDLIQ']
+      # var = ['T','Q','U','V']
+      # var = ['t','q','u','v']
 
    # specify level to use for data with "lev" dimension
    # starts at TOA, but negative values can be used to start from surface
@@ -25,7 +28,7 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None):
    #----------------------------------------------------------------------------
    # Create dataset objects
    ds = xr.open_dataset(ifile)
-   scrip_ds = xr.open_dataset('grid_files/scrip_ne30np4.nc')
+   scrip_ds = xr.open_dataset(gfile)
    #----------------------------------------------------------------------------
    # Set up plot stuff
    plot = []
@@ -63,6 +66,8 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None):
       print(f'  min : {data.min().values} ')
       print(f'  avg : {data.mean().values} ')
       print(f'  max : {data.max().values} ')
+
+      # exit()
 
       # Create map plot
       plot.append( ngl.contour_map(wks,data.values,res) )
@@ -260,6 +265,12 @@ if __name__ == '__main__':
    # Parse the command line options
    parser = OptionParser()
    parser.add_option('-i',dest='ifile',default=None,help='input file name')
+   parser.add_option('--grid_file',dest='gfile',default=None,help='grid file name')
+   parser.add_option('--vars',dest='vars',default=None,help='comma separated list of variables to plot')
    (opts, args) = parser.parse_args()
 
-   main(ifile=opts.ifile)
+   var_list = None
+   if opts.vars is not None:
+      var_list = opts.vars.split(',')
+
+   main(ifile=opts.ifile,gfile=opts.gfile,var_list=var_list)
