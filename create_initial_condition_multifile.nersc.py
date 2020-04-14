@@ -42,7 +42,7 @@ dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L72'
 vert_file_name = os.getenv('HOME')+f'/HICCUP/vert_coord_E3SM_{dst_vert_grid}.nc'
 
 # Specify the output file names
-data_root = os.getenv('MEMBERWORK')+'/cli115/HICCUP/data/'  # OLCF 
+data_root = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
 init_date = '2016-08-01'
 init_year = int(init_date.split('-')[0])
 output_atm_file_name = f'{data_root}HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
@@ -75,7 +75,6 @@ print(f'  output grid    : {hiccup_data.dst_horz_grid} {hiccup_data.dst_vert_gri
 print(f'  output atm file: {output_atm_file_name}')
 print(f'  output sst file: {output_sst_file_name}')
 hiccup_data.print_input_files()
-exit()
 
 # Get dict of temporary files for each variable
 file_dict = hiccup_data.get_multifile_dict()
@@ -104,7 +103,7 @@ if create_map_file :
 # ------------------------------------------------------------------------------
 if remap_data_horz :
 
-    # Horizontally regrid the data and rename variables
+    # Horizontally regrid the data
     hiccup_data.remap_horizontal_multifile(file_dict)
 
     # Rename variables to match what the model expects

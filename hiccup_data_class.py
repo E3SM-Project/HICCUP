@@ -120,7 +120,7 @@ def print_timer_summary():
     if timer_start_total is not None: 
         print_timer(timer_start_total,caller=f'Total',print_msg=False)
     if do_timers:
-        print('HICCUP Timer results:')
+        print('\nHICCUP Timer results:')
         for msg in timer_msg_all:
             print(f'  {msg}')
     return
@@ -151,19 +151,24 @@ def get_host_name():
 # ------------------------------------------------------------------------------
 # Get default topography file name
 # ------------------------------------------------------------------------------
-def get_topo_file_path(grid):
+def get_default_topo_file_name(grid,topo_file_root=None):
     """
     return default topo file associated with input grid name
     """
-    host = get_host_name()
-    if host=='nersc': topo_file_path = '/global/cfs/projectdirs/e3sm/inputdata/'
-    if host=='olcf': topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata/'
-    topo_file_path = topo_file_path+'/atm/cam/topo/'
+    # Set root directory path if not provided
+    if topo_file_root is None:
+        host = get_host_name()
+        if host=='nersc': topo_file_path = '/global/cfs/projectdirs/e3sm/inputdata/'
+        if host=='olcf': topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata/'
+        topo_file_path = topo_file_path+'/atm/cam/topo/'
+    
+    # Set default topo file
     topo_file_name = None
-    if dst_horz_grid=='ne1024np4': topo_file_path = data_root
-    if dst_horz_grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
-    if dst_horz_grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
-    if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+    if grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+    if grid=='ne512np4' : topo_file_name = f'{topo_file_path}????'
+    if grid=='ne256np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
+    if grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+    if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
     
     if topo_file_name is None:
         raise ValueError('No default topo file found! Topo file path must be manually specified.')
