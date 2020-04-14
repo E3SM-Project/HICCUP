@@ -134,6 +134,41 @@ def check_dependency(cmd):
     if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
     return
 # ------------------------------------------------------------------------------
+# Get machine/host name
+# ------------------------------------------------------------------------------
+def get_host_name():
+    """
+    Determine machine/host name for setting default paths
+    Using uname might be problematic on compute nodes - need a better method...
+    """
+    host = os.uname()[1]
+    # NERSC machines
+    if 'cori'   in host: host = 'nersc'
+    # OLCF machines
+    if 'summit' in host: host = 'olcf'
+    if 'rhea'   in host: host = 'olcf'
+    return host
+# ------------------------------------------------------------------------------
+# Get default topography file name
+# ------------------------------------------------------------------------------
+def get_topo_file_path(grid):
+    """
+    return default topo file associated with input grid name
+    """
+    host = get_host_name()
+    if host=='nersc': topo_file_path = '/global/cfs/projectdirs/e3sm/inputdata/'
+    if host=='olcf': topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata/'
+    topo_file_path = topo_file_path+'/atm/cam/topo/'
+    topo_file_name = None
+    if dst_horz_grid=='ne1024np4': topo_file_path = data_root
+    if dst_horz_grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+    if dst_horz_grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+    if dst_horz_grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+    
+    if topo_file_name is None:
+        raise ValueError('No default topo file found! Topo file path must be manually specified.')
+    return topo_file_name
+# ------------------------------------------------------------------------------
 # Method for returning class object
 # ------------------------------------------------------------------------------
 def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
