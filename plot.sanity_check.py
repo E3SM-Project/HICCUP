@@ -9,7 +9,7 @@ from optparse import OptionParser
 def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=None):
 
    if ifile is None: ifile = 'data/HICCUP_TEST.output.atm.nc'
-   if gfile is None: gfile = 'grid_files/scrip_ne30np4.nc'
+   if gfile is None: gfile = 'files_grid/scrip_ne30np4.nc'
 
    # Specify list of variables to plot
    if var_list is None:

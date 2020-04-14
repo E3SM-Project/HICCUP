@@ -16,8 +16,8 @@ import hiccup_state_adjustment as hsa
 
 # default output paths
 default_output_dir  = './data/'
-default_grid_dir    = './grid_files/'
-default_map_dir     = './map_files/'
+default_grid_dir    = './files_grid/'
+default_map_dir     = './files_mapping/'
 default_tmp_dir     = './tmp/'
 
 # algorithm flag for ncremap

@@ -4,10 +4,10 @@ import glob
 import subprocess as sp
 
 # Generate map file for E3SM ne30np4: 
-# ncremap --alg_typ=tempest --src_grd=./grid_files/exodus_ne30.g --dst_grd=./grid_files/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30np4_to_90x180.nc --wgt_opt='--in_type cgll --in_np 4 --out_type fv --out_np 2 --out_double'
+# ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30.g --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30np4_to_90x180.nc --wgt_opt='--in_type cgll --in_np 4 --out_type fv --out_np 2 --out_double'
 
 # Generate map file for E3SM ne30pg2: 
-# ncremap --alg_typ=tempest --src_grd=./grid_files/exodus_ne30pg2.nc --dst_grd=./grid_files/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30pg2_to_90x180.nc --wgt_opt='--in_type fv --in_np 2 --out_type fv --out_np 2 --out_double'
+# ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30pg2.nc --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30pg2_to_90x180.nc --wgt_opt='--in_type fv --in_np 2 --out_type fv --out_np 2 --out_double'
 
 # Remap the data: ncremap -m <map file> -i <input file> -o <output file>
 # obs example: FILE=data_scratch/ERA5_validation.Z.2016-08-01 ; ncremap -m ./map_files/map_721x1440_n2s_to_90x180_s2n.nc -i $FILE.nc -o $FILE.remap_90x180.nc
@@ -37,8 +37,8 @@ def main():
     src_grid_name = f'{nlat_src}x{nlon_src}_n2s'
     dst_grid_name = f'{nlat_dst}x{nlon_dst}_s2n'
 
-    src_grid_file = f'{hiccup_root}/grid_files/scrip_{src_grid_name}.nc'
-    dst_grid_file = f'{hiccup_root}/grid_files/scrip_{dst_grid_name}.nc'
+    src_grid_file = f'{hiccup_root}/files_grid/scrip_{src_grid_name}.nc'
+    dst_grid_file = f'{hiccup_root}/files_grid/scrip_{dst_grid_name}.nc'
 
     map_file = f'{hiccup_root}/map_files/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 

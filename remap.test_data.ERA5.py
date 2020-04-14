@@ -26,8 +26,8 @@ dst_file_name = src_file_name.replace('.upack.nc','.low-res.nc')
 nlat_src,nlon_src = 721,1440
 nlat_dst,nlon_dst = 180,360
 
-src_grid_file = f'{pwd}/grid_files/scrip_{nlat_src}x{nlon_src}.nc'
-dst_grid_file = f'{pwd}/grid_files/scrip_{nlat_dst}x{nlon_dst}.nc'
+src_grid_file = f'{pwd}/files_grid/scrip_{nlat_src}x{nlon_src}.nc'
+dst_grid_file = f'{pwd}/files_grid/scrip_{nlat_dst}x{nlon_dst}.nc'
 
 map_file = f'{pwd}/map_files/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 
