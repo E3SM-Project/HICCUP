@@ -23,7 +23,9 @@ source activate hiccup_env
 # Set NE if not set on the command line
 if [ -z ${NE+x} ]; then NE=30; fi
 
-time python -u ./create_initial_condition.py --hgrid=ne${NE}np4
+  VGRID=L72
+
+time python -u ./create_initial_condition.py --hgrid=ne${NE}np4  --vgrid=$VGRID
 
 # Notes:
 # "time" is added to add the execution time to the log file.

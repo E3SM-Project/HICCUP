@@ -19,7 +19,7 @@ source activate hiccup_env
 # Set NE if not set on the command line
 if [ -z ${NE+x} ]; then NE=30; fi
 
-# default to L72, but switch to L128 for ne1024
+# default to L72, but switch to L128 for ne1024 -- not sure why this doesn't work...
 # VGRID=L72
 # if [$NE -eq 1024]; then VGRID=L128; fi
 
