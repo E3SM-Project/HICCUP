@@ -4,14 +4,14 @@
 #SBATCH --nodes=1
 #SBATCH --partition=batch
 ###SBATCH --partition=gpu
-###SBATCH --output=slurm_logs/slurm-%x-%j.out
+###SBATCH --output=logs_slurm/slurm-%x-%j.out
 ###SBATCH --mail-user=hannah6@llnl.gov
 ###SBATCH --mail-type=END,FAIL
 #SBATCH --mem=0
 
 # To run this batch script, use the command below to set the output grid from the command line:
-# NE=1024 ; sbatch --job-name=hiccup_mf_ne$NE --output=slurm_logs/slurm-%x-%j-mf.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
-# NE=256 ; sbatch --job-name=hiccup_mf_ne$NE --output=slurm_logs/slurm-%x-%j-mf.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
+# NE=1024 ; sbatch --job-name=hiccup_ne$NE --output=logs_slurm/slurm-%x-%j.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
+# NE=256 ; sbatch --job-name=hiccup_ne$NE --output=logs_slurm/slurm-%x-%j.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
 
 # Load the python environment
 source activate hiccup_env

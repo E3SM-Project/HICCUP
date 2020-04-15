@@ -7,14 +7,16 @@
 #SBATCH --nodes=1
 #SBATCH --mail-user=hannah6@llnl.gov
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm-%x-%j.out
+###SBATCH --output=logs_slurm/slurm-%x-%j.out
 ###SBATCH --job-name=hiccup_$(NE)
 
 # To run this batch script, use the command below 
 # to set the output grid from the command line:
 # NE ~ number of spectral elements on a cube edge 
 # (NE=30 roughly corresponds 1 degree grid)
-# NE=120 ; sbatch --job-name=hiccup_$NE --export=ALL,NE=$NE ./run_hiccup_batch.nersc.sh
+# NE=1024 ; sbatch --job-name=hiccup_ne$NE --output=logs_slurm/slurm-%x-%j.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
+# NE=120 ; sbatch --job-name=hiccup_ne$NE --output=logs_slurm/slurm-%x-%j.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
+
 
 module load python
 
@@ -23,7 +25,7 @@ source activate hiccup_env
 # Set NE if not set on the command line
 if [ -z ${NE+x} ]; then NE=30; fi
 
-  VGRID=L72
+VGRID=L72
 
 time python -u ./create_initial_condition.py --hgrid=ne${NE}np4  --vgrid=$VGRID
 
