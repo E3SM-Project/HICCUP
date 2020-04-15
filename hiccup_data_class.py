@@ -18,7 +18,7 @@ import hiccup_state_adjustment as hsa
 default_output_dir  = './data/'
 default_grid_dir    = './files_grid/'
 default_map_dir     = './files_mapping/'
-default_tmp_dir     = './tmp/'
+default_tmp_dir     = './files_tmp/'
 
 # algorithm flag for ncremap
 ncremap_alg         = ' --alg_typ=tempest '    
@@ -198,7 +198,9 @@ def get_default_topo_file_name(grid,topo_file_root=None):
     if grid=='ne512np4' : topo_file_name = f'{topo_file_path}????'
     if grid=='ne256np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
     if grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
-    if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+    # if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+    if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+    
     
     if topo_file_name is None:
         raise ValueError('No default topo file found! Topo file path must be manually specified.')
@@ -1576,19 +1578,19 @@ class ERA5(hiccup_data):
         self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
         self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
         self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
-        # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
+        self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
 
         # Surface variables
         self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
         self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
         self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
 
-        # self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        # self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        # self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        # self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
-        # self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
-        # self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth 
+        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
+        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
+        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
+        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
+        self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
+        self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth 
         # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
         # self.sfc_var_name_dict.update({'':'rsn'})          # Snow density 
         # self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
