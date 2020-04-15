@@ -134,6 +134,36 @@ def check_dependency(cmd):
     if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
     return
 # ------------------------------------------------------------------------------
+# Check version of NCO - and fail if not recent enough
+# ------------------------------------------------------------------------------
+def check_nco_version():
+    """
+    NCO needs to include a vertical interpolation bug fix added in 4.9.2-alpha09
+    This method parses the version string to check if the version is correct.
+    I'm not sure how to handle the "alpha" part of the version string...
+    Note - ncks reports the version information through STDERR instead of STDOUT
+    """
+    msg,err = sp.Popen(['ncks','--version'],stdout=sp.PIPE,stderr=sp.PIPE
+                      ,universal_newlines=True).communicate()
+    # grab the second line of the version string
+    version_str = err.split('\n',1)[1]
+    # grab the characters that come after "version"
+    version_str = version_str.split('version ',1)[1]
+    # get rid of the "alpha" part of the string
+    version_str = version_str.split('-alpha',1)[0]
+    # remove any new line chacaters
+    version_str = version_str.replace('/n','')
+    # convert version string into numerical representation
+    version_full = 0
+    for i,v in enumerate(reversed(version_str.split('.'))):
+        version_full += int(v)*10**((i+1)*3-1)
+    # Check if version is new enough
+    if version_full < 400900200: 
+        err_msg = f'NCO version {version_str} is too old.'
+        err_msg += 'HICCUP requires NCO version 4.9.2-alpha09 or higher'
+        raise EnvironmentError(err_msg)
+    return
+# ------------------------------------------------------------------------------
 # Get machine/host name
 # ------------------------------------------------------------------------------
 def get_host_name():
@@ -188,6 +218,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
     """
     global hiccup_verbose
     hiccup_verbose = verbose
+    check_nco_version()
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
             # Create the object
