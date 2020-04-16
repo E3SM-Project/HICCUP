@@ -28,14 +28,14 @@ Dependencies:
   * [NCO](http://nco.sourceforge.net/)
   * [TempestRemap](https://github.com/ClimateGlobalChange/tempestremap)
   * Python modules:
-    * [xarray](http://xarray.pydata.org/en/stable/) - *primary data manipulation tool
-    * [pandas](https://pandas.pydata.org/) - *helpful for handling time coordinate
-    * [netcdf4](https://unidata.github.io/netcdf4-python/) - needed for writing netcdf4 files with xarray
-    * [hdf5](https://www.h5py.org/) - *needed for netcdf4 format - important for fine grids like ne1024
-    * [pynio](https://www.pyngl.ucar.edu/Nio.shtml) - *needed for reading grib files in the case of CFS data
-    * [scipy](https://www.scipy.org/) - *needed to fill missing SST data around poles
-    * [cdsapi](https://pypi.org/project/cdsapi/) - *for obtaining ECMWF data
-    * [ftplib](https://docs.python.org/3/library/ftplib.html) - *for obtaining NOAA sst/ice data
+    * [xarray](http://xarray.pydata.org/en/stable/) - *primary data manipulation tool*
+    * [pandas](https://pandas.pydata.org/) - *helpful for handling time coordinate*
+    * [netcdf4](https://unidata.github.io/netcdf4-python/) - *needed for writing netcdf4 files with xarray*
+    * [hdf5](https://www.h5py.org/) - *needed for netcdf4 format - important for fine grids like ne1024*
+    * [pynio](https://www.pyngl.ucar.edu/Nio.shtml) - *needed for reading grib files in the case of CFS data*
+    * [scipy](https://www.scipy.org/) - *needed to fill missing SST data around poles*
+    * [cdsapi](https://pypi.org/project/cdsapi/) - *for obtaining ECMWF data*
+    * [ftplib](https://docs.python.org/3/library/ftplib.html) - *for obtaining NOAA sst/ice data*
 
 It is convenient to create a conda env that includes all these dependencies:
   ```
