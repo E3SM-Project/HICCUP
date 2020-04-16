@@ -9,7 +9,7 @@ The tool is used by editing and running:
 
 --------------------------------------------------------------------------------
 
-TABLE OF CONTENTS
+### TABLE OF CONTENTS
   - [SETUP NOTES](#setup-notes)
   - [OBTAINING INPUT DATA](#obtaining-input-data)
   - [VERTICAL GRID FILES](#vertical-grid-files)
