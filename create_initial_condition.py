@@ -76,8 +76,6 @@ print(f'    output sst file: {output_sst_file_name}')
 # Get dict of temporary files for each variable
 file_dict = hiccup_data.get_multifile_dict()
 
-exit()
-
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
 # ------------------------------------------------------------------------------
