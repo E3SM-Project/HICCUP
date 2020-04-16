@@ -1,27 +1,27 @@
-HINDCAST INITIAL CONDITION CREATION UTILITY/PROCESSOR (HICCUP)
+## HINDCAST INITIAL CONDITION CREATION UTILITY/PROCESSOR (HICCUP)
 
 This is a tool for creating E3SM initial condition files from reanalysis with 
 a focus on simplicity and portability.
 
 The tool is used by editing and running:
-  create_initial_condition.py
+  ```create_initial_condition.py```
 
 --------------------------------------------------------------------------------
 
 TABLE OF CONTENTS
   - [SETUP NOTES](#setup-notes)
   - [OBTAINING INPUT DATA](#obtaining-input-data)
-  - [VERTICAL GRID FILES](#)
-  - [SST AND SEA ICE INITIAL CONDITONS](#)
-  - [LAND MODEL INITIAL CONDITONS](#)
-  - [RUNNING A HINDCAST](#)
-  - [PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)](#)
-  - [HINDCAST ANALYSIS AND VALIDATION](#)
-  - [DATA FOR TESTING AND DEVELOPMENT](#)
+  - [VERTICAL GRID FILES](#vertical-grid-files)
+  - [SST AND SEA ICE INITIAL CONDITIONS](#sst-and-sea-ice-initial-conditions)
+  - [LAND MODEL INITIAL CONDITIONS](#land-model-initial-conditions)
+  - [RUNNING A HINDCAST](#running-a-hindcast)
+  - [PLOTTING INITIAL CONDITION DATA](#plotting-initial-condition-data)
+  - [HINDCAST ANALYSIS AND VALIDATION](#hindcast-analysis-and-validation)
+  - [DATA FOR TESTING AND DEVELOPMENT](#data-for-testing-and-development)
 
 --------------------------------------------------------------------------------
 
-# SETUP NOTES
+### SETUP NOTES
 
 Dependencies:
   NCO
@@ -37,10 +37,12 @@ Dependencies:
     ftplib  - for obtaining NOAA sst/ice data
 
 It is convenient to create a conda env that includes all these dependencies:
+  ```
   conda create --name hiccup_env -c conda-forge xarray dask pandas scipy netcdf4 pynio hdf5 cdsapi tempest-remap nco   
+  ```
 
 After creating the environment it can be activated via:
-  source activate hiccup_env
+  ```source activate hiccup_env```
 
 TempestRemap and NCO may already be locally available if you are working on 
 a machine at a super-computing center. They can also be installed manually.
@@ -56,25 +58,25 @@ To install TempestRemap manually:
   But it can aslo be downloaded and built from a public github repository
   (https://github.com/ClimateGlobalChange/tempestremap)
   using the following commands:
-    git clone https://github.com/paullric/tempestgecore.git
+    ```git clone https://github.com/paullric/tempestgecore.git```
     <edit the Makefile to customize the NetCDF paths>
-    make -f Makefile.gmake all
+    ```make -f Makefile.gmake all```
 
 --------------------------------------------------------------------------------
 
-# OBTAINING INPUT DATA
+### OBTAINING INPUT DATA
 
 Currently, ERA5 + NOAA SST/ice is the only supported input data option.
 To aquire new ERA5 data, be sure "cdsapi" is in your conda environment
 and set up your ECMWF API key in ~/.ecmwfapirc,then edit and run:
-  get_hindcast_data.ERA5.py
+  ```get_hindcast_data.ERA5.py```
 
 To aquire NOAA OI daily SST and sea ice data, edit and run:
-  get_hindcast_data.NOAA_SSTICE.py
+  ```get_hindcast_data.NOAA_SSTICE.py```
 
 --------------------------------------------------------------------------------
 
-# VERTICAL GRID FILES
+### VERTICAL GRID FILES
 
 The current E3SM vertical grid was created through an iterative process 
 involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
@@ -82,23 +84,23 @@ and Po-Lun Ma who did not document the process, so there is no recipe to
 recreate the grid from scratch. 
 
 A vertical grid file for the L72 grid is included in the HICCUP repository.
-  files_vert/vert_coord_L72.nc
+  ```files_vert/vert_coord_L72.nc```
 
 To create a new vertical coordinate file it must be extracted from a 
 pre-existing model data file as follows:
 
   1. Dump the vertical grid data into a text file using ncdump:
-     ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt
+     ```ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt```
 
   2. manually edit the file to remove extra header info,
      but keep the general CDL format created by ncdump
 
   3. Generate a new netcdf file from the edited text file using ncgen:
-     ncgen vert_coord.txt -o vert_coord.nc
+     ```ncgen vert_coord.txt -o vert_coord.nc```
 
 --------------------------------------------------------------------------------
 
-# SST AND SEA ICE INITIAL CONDITONS
+### SST AND SEA ICE INITIAL CONDITIONS
 
 HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
 typically used for this, but HICCUP also currently supports using ERA5 data. 
@@ -110,7 +112,7 @@ on the initialization day.
 
 --------------------------------------------------------------------------------
 
-# LAND MODEL INITIAL CONDITONS
+### LAND MODEL INITIAL CONDITIONS
 
 HICCUP does not currently support the generation of land model initial condition
 files. This might be possible with the data available from ERA5, but the current
@@ -120,7 +122,7 @@ atmosphere component.
 
 --------------------------------------------------------------------------------
 
-# RUNNING A HINDCAST
+### RUNNING A HINDCAST
 
 After using HICCUP to generate the atmosphere and SST/ice files, an E3SM 
 hindcast can be run by following the steps to run a typical "F-compset" run, 
@@ -137,15 +139,18 @@ The SST file and start date values also need to be specified by modifying the
 env_run.xml file in the case directory. The preferred method for doing this is 
 to use the xmlchange command from the case directory as in the example below:
 
+  ```
   ./xmlchange SSTICE_DATA_FILENAME=<path to SST file>
   ./xmlchange RUN_STARTDATE=2016-08-01
   ./xmlchange SSTICE_YEAR_ALIGN=2016
   ./xmlchange SSTICE_YEAR_START=2016
   ./xmlchange SSTICE_YEAR_END=2017
+  ```
 
 If using a python script to run the hindcast, here's a snippet of code that 
 does the modifications described above:
 
+  ```python
   ################################################
   # python code to setup hindcast files
   ################################################
@@ -165,10 +170,11 @@ does the modifications described above:
   file.close()
   ################################################
   ################################################
+  ```
 
 --------------------------------------------------------------------------------
 
-# PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
+### PLOTTING INITIAL CONDITION DATA
 
 A plotting script is also included (plot.sanity_check.py), but it requires 
 PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
@@ -177,13 +183,15 @@ unstructured grids. In the future we may add a plotting script for MatPlotLib.
 
 --------------------------------------------------------------------------------
 
-# HINDCAST ANALYSIS AND VALIDATION
+### HINDCAST ANALYSIS AND VALIDATION
 
 The task of analyzing the hindcast output data is up to user for now, although 
 we may include some simple skill/error metrics in the future. For now, we have 
 included a few simple scripts for obtaining and remapping ERA5 validation data.
+  ```
   get_validation_data.ERA5.py
   remap.validation_data.ERA5.py
+  ```
 
 These scripts are configured to obtain a set of atmospheric fields on common 
 pressure levels, like U200 and Z500, that are typically used for calculating 
@@ -192,17 +200,23 @@ coarse 2 degree grid in order to simplify the calculation of global metrics.
 
 --------------------------------------------------------------------------------
 
-# DATA FOR TESTING AND DEVELOPMENT
+### DATA FOR TESTING AND DEVELOPMENT
 
 a low-resolution version of ERA5 pressure level data is included in this repo:
+  ```
   HICCUP_TEST.ERA5.atm.low-res.nc
   HICCUP_TEST.ERA5.sfc.low-res.nc
+  ```
 To aquire new test data, use the get_ERA5_data.py script, follwed by unpacking 
 the data with the following command:
+  ```
   ncpdq -U HICCUP_TEST.ERA5.atm.nc HICCUP_TEST.ERA5.atm.upack.nc
   ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
+  ```
 followed by running (check to make sure file names match):
+  ```
   remap.test_data.ERA5.py
+  ```
 which is a simple script for reducing the resolution of the test data
 
 --------------------------------------------------------------------------------
