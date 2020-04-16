@@ -46,17 +46,7 @@ After creating the environment it can be activated via:
 
   `source activate hiccup_env`
 
-TempestRemap and NCO may already be locally available if you are working on 
-a machine at a super-computing center. They can also be installed manually.
-
-To install NCO manually:
-TempestRemap can be easily installed as part of the conda environment above, but it can also be installed manually. If using Mac OSX then we recommend using homebrew to install NCO (see https://brew.sh/).otherwise installation information can be found at http://nco.sourceforge.net/
-
-To install TempestRemap manually:
-TempestRemap can be easily installed as part of the conda environment above, but it can aslo be downloaded and built from a [public github repository](https://github.com/ClimateGlobalChange/tempestremap) using the following commands:
-  * `git clone https://github.com/paullric/tempestgecore.git`
-  * edit the Makefile to customize the NetCDF paths
-  * `make -f Makefile.gmake all`
+TempestRemap and NCO may already be locally available if you are working on a machine at a super-computing center. They can also be installed manually, but we recommend including them in the hiccup conda environment to avoid conflicts.
 
 --------------------------------------------------------------------------------
 
