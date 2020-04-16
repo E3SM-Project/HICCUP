@@ -1,6 +1,6 @@
 ## HINDCAST INITIAL CONDITION CREATION UTILITY/PROCESSOR (HICCUP)
 
-This is a tool for creating E3SM initial condition files from reanalysis with 
+This is a tool for creating [E3SM](https://e3sm.org/) initial condition files from reanalysis with 
 a focus on simplicity and portability.
 
 The tool is used by editing and running:
@@ -25,17 +25,17 @@ TABLE OF CONTENTS
 ### SETUP NOTES
 
 Dependencies:
-  NCO
-  TempestRemap
-  Python modules:
-    xarray  - primary data manipulation tool
-    pandas  - helpful for handling time coordinate
-    netcdf4 - needed for writing netcdf4 files with xarray
-    hdf5    - needed for netcdf4 format - important for fine grids like ne1024
-    pynio   - needed for reading grib files in the case of CFS data
-    scipy   - needed to fill missing SST data around poles
-    cdsapi  - for obtaining ECMWF data
-    ftplib  - for obtaining NOAA sst/ice data
+  * [NCO](http://nco.sourceforge.net/)
+  * [TempestRemap](https://github.com/ClimateGlobalChange/tempestremap)
+  * Python modules:
+    * [xarray](http://xarray.pydata.org/en/stable/) - *primary data manipulation tool
+    * [pandas](https://pandas.pydata.org/) - *helpful for handling time coordinate
+    * [netcdf4](https://unidata.github.io/netcdf4-python/) - needed for writing netcdf4 files with xarray
+    * [hdf5](https://www.h5py.org/) - *needed for netcdf4 format - important for fine grids like ne1024
+    * [pynio](https://www.pyngl.ucar.edu/Nio.shtml) - *needed for reading grib files in the case of CFS data
+    * [scipy](https://www.scipy.org/) - *needed to fill missing SST data around poles
+    * [cdsapi](https://pypi.org/project/cdsapi/) - *for obtaining ECMWF data
+    * [ftplib](https://docs.python.org/3/library/ftplib.html) - *for obtaining NOAA sst/ice data
 
 It is convenient to create a conda env that includes all these dependencies:
   ```
@@ -50,16 +50,10 @@ TempestRemap and NCO may already be locally available if you are working on
 a machine at a super-computing center. They can also be installed manually.
 
 To install NCO manually:
-  TempestRemap can be easily installed as part of the conda environment above,
-  but it can also be installed manually. If using Mac OSX then we recommend 
-  using homebrew to install NCO (see https://brew.sh/)
-  Otherwise installation information can be found at http://nco.sourceforge.net/
+TempestRemap can be easily installed as part of the conda environment above, but it can also be installed manually. If using Mac OSX then we recommend using homebrew to install NCO (see https://brew.sh/).otherwise installation information can be found at http://nco.sourceforge.net/
 
 To install TempestRemap manually:
-  TempestRemap can be easily installed as part of the conda environment above,
-  But it can aslo be downloaded and built from a public github repository
-  (https://github.com/ClimateGlobalChange/tempestremap)
-  using the following commands:
+TempestRemap can be easily installed as part of the conda environment above, but it can aslo be downloaded and built from a [public github repository](https://github.com/ClimateGlobalChange/tempestremap) using the following commands:
   * `git clone https://github.com/paullric/tempestgecore.git`
   * edit the Makefile to customize the NetCDF paths
   * `make -f Makefile.gmake all`
@@ -195,10 +189,11 @@ unstructured grids. In the future we may add a plotting script for MatPlotLib.
 The task of analyzing the hindcast output data is up to user for now, although 
 we may include some simple skill/error metrics in the future. For now, we have 
 included a few simple scripts for obtaining and remapping ERA5 validation data.
-  ```
-  get_validation_data.ERA5.py
-  remap.validation_data.ERA5.py
-  ```
+
+  `get_validation_data.ERA5.py`
+
+  `remap.validation_data.ERA5.py`
+
 
 These scripts are configured to obtain a set of atmospheric fields on common 
 pressure levels, like U200 and Z500, that are typically used for calculating 
@@ -210,10 +205,11 @@ coarse 2 degree grid in order to simplify the calculation of global metrics.
 ### DATA FOR TESTING AND DEVELOPMENT
 
 a low-resolution version of ERA5 pressure level data is included in this repo:
-  ```
-  HICCUP_TEST.ERA5.atm.low-res.nc
-  HICCUP_TEST.ERA5.sfc.low-res.nc
-  ```
+  
+  `HICCUP_TEST.ERA5.atm.low-res.nc`
+  
+  `HICCUP_TEST.ERA5.sfc.low-res.nc`
+
 To aquire new test data, use the get_ERA5_data.py script, follwed by unpacking 
 the data with the following command:
   ```
@@ -221,9 +217,9 @@ the data with the following command:
   ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
   ```
 followed by running (check to make sure file names match):
-  ```
-  remap.test_data.ERA5.py
-  ```
+  
+  `remap.test_data.ERA5.py`
+  
 which is a simple script for reducing the resolution of the test data
 
 --------------------------------------------------------------------------------
