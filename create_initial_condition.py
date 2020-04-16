@@ -31,7 +31,7 @@ dst_horz_grid = opts.horz_grid if opts.horz_grid is not None else 'ne30np4'
 
 # Specify output atmosphere vertical grid
 dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L72'
-vert_file_name = os.getenv('HOME')+f'/HICCUP/vert_coord_E3SM_{dst_vert_grid}.nc'
+vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
 
 # Specify the output file names
 data_root = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
