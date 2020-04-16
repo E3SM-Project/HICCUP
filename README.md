@@ -64,7 +64,7 @@ TempestRemap can be easily installed as part of the conda environment above, but
 
 Currently, ERA5 + NOAA SST/ice is the only supported input data option.
 To aquire new ERA5 data, be sure "cdsapi" is in your conda environment
-and set up your ECMWF API key in ~/.ecmwfapirc,then edit and run:
+and set up your ECMWF API key in `~/.ecmwfapirc`,then edit and run:
 
   `get_hindcast_data.ERA5.py`
 

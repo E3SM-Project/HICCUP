@@ -6,6 +6,8 @@ exodus_*
 scrip_*
 map_*
 *.png
-grid_files/*
+files_grid/*
+files_mapping/*
+files_tmp/*
 data/*
 slurm*out
