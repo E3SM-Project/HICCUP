@@ -22,7 +22,7 @@ The tool is used by editing and running:
 
 --------------------------------------------------------------------------------
 
-### SETUP NOTES
+### Setup Notes
 
 Dependencies:
   * [NCO](http://nco.sourceforge.net/)
@@ -60,7 +60,7 @@ TempestRemap can be easily installed as part of the conda environment above, but
 
 --------------------------------------------------------------------------------
 
-### OBTAINING INPUT DATA
+### Obtaining Input Data
 
 Currently, ERA5 + NOAA SST/ice is the only supported input data option.
 To aquire new ERA5 data, be sure "cdsapi" is in your conda environment
@@ -74,7 +74,7 @@ To aquire NOAA OI daily SST and sea ice data, edit and run:
 
 --------------------------------------------------------------------------------
 
-### VERTICAL GRID FILES
+### Vertical Grid Files
 
 The current E3SM vertical grid was created through an iterative process 
 involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
@@ -101,7 +101,7 @@ pre-existing model data file as follows:
 
 --------------------------------------------------------------------------------
 
-### SST AND SEA ICE INITIAL CONDITIONS
+### SST and Sea Ice Initial Conditions
 
 HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
 typically used for this, but HICCUP also currently supports using ERA5 data. 
@@ -113,7 +113,7 @@ on the initialization day.
 
 --------------------------------------------------------------------------------
 
-### LAND MODEL INITIAL CONDITIONS
+### Land Model Initial Conditions
 
 HICCUP does not currently support the generation of land model initial condition
 files. This might be possible with the data available from ERA5, but the current
@@ -123,7 +123,7 @@ atmosphere component.
 
 --------------------------------------------------------------------------------
 
-### RUNNING A HINDCAST
+### Running a Hindcast
 
 After using HICCUP to generate the atmosphere and SST/ice files, an E3SM 
 hindcast can be run by following the steps to run a typical "F-compset" run, 
@@ -175,7 +175,7 @@ does the modifications described above:
 
 --------------------------------------------------------------------------------
 
-### PLOTTING INITIAL CONDITION DATA
+### Plotting Initial Condition Data
 
 A plotting script is also included (plot.sanity_check.py), but it requires 
 PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
@@ -184,7 +184,7 @@ unstructured grids. In the future we may add a plotting script for MatPlotLib.
 
 --------------------------------------------------------------------------------
 
-### HINDCAST ANALYSIS AND VALIDATION
+### Hindcast Analysis and Validation
 
 The task of analyzing the hindcast output data is up to user for now, although 
 we may include some simple skill/error metrics in the future. For now, we have 
@@ -202,7 +202,7 @@ coarse 2 degree grid in order to simplify the calculation of global metrics.
 
 --------------------------------------------------------------------------------
 
-### DATA FOR TESTING AND DEVELOPMENT
+### Data for Testing and Development
 
 a low-resolution version of ERA5 pressure level data is included in this repo:
   
