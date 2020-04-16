@@ -10,15 +10,15 @@ The tool is used by editing and running:
 --------------------------------------------------------------------------------
 
 ### TABLE OF CONTENTS
-  - [SETUP NOTES](#setup-notes)
-  - [OBTAINING INPUT DATA](#obtaining-input-data)
-  - [VERTICAL GRID FILES](#vertical-grid-files)
-  - [SST AND SEA ICE INITIAL CONDITIONS](#sst-and-sea-ice-initial-conditions)
-  - [LAND MODEL INITIAL CONDITIONS](#land-model-initial-conditions)
-  - [RUNNING A HINDCAST](#running-a-hindcast)
-  - [PLOTTING INITIAL CONDITION DATA](#plotting-initial-condition-data)
-  - [HINDCAST ANALYSIS AND VALIDATION](#hindcast-analysis-and-validation)
-  - [DATA FOR TESTING AND DEVELOPMENT](#data-for-testing-and-development)
+  - [Setup Notes](#setup-notes)
+  - [Obtaining Input data](#obtaining-input-data)
+  - [Vertical Grid Files](#vertical-grid-files)
+  - [SST and Sea Ice Initial Conditions](#sst-and-sea-ice-initial-conditions)
+  - [Land Model Initial Conditions](#land-model-initial-conditions)
+  - [Running a Hindcast](#running-a-hindcast)
+  - [Plotting Initial Condition Data](#plotting-initial-condition-data)
+  - [Hindcast Analysis and Verification](#hindcast-analysis-and-validation)
+  - [Data for Testing and Development](#data-for-testing-and-development)
 
 --------------------------------------------------------------------------------
 
