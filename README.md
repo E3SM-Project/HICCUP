@@ -4,7 +4,8 @@ This is a tool for creating E3SM initial condition files from reanalysis with
 a focus on simplicity and portability.
 
 The tool is used by editing and running:
-  ```create_initial_condition.py```
+
+  `create_initial_condition.py`
 
 --------------------------------------------------------------------------------
 
@@ -42,7 +43,8 @@ It is convenient to create a conda env that includes all these dependencies:
   ```
 
 After creating the environment it can be activated via:
-  ```source activate hiccup_env```
+
+  `source activate hiccup_env`
 
 TempestRemap and NCO may already be locally available if you are working on 
 a machine at a super-computing center. They can also be installed manually.
@@ -58,9 +60,9 @@ To install TempestRemap manually:
   But it can aslo be downloaded and built from a public github repository
   (https://github.com/ClimateGlobalChange/tempestremap)
   using the following commands:
-    ```git clone https://github.com/paullric/tempestgecore.git```
-    <edit the Makefile to customize the NetCDF paths>
-    ```make -f Makefile.gmake all```
+  * `git clone https://github.com/paullric/tempestgecore.git`
+  * edit the Makefile to customize the NetCDF paths
+  * `make -f Makefile.gmake all`
 
 --------------------------------------------------------------------------------
 
@@ -69,10 +71,12 @@ To install TempestRemap manually:
 Currently, ERA5 + NOAA SST/ice is the only supported input data option.
 To aquire new ERA5 data, be sure "cdsapi" is in your conda environment
 and set up your ECMWF API key in ~/.ecmwfapirc,then edit and run:
-  ```get_hindcast_data.ERA5.py```
+
+  `get_hindcast_data.ERA5.py`
 
 To aquire NOAA OI daily SST and sea ice data, edit and run:
-  ```get_hindcast_data.NOAA_SSTICE.py```
+
+  `get_hindcast_data.NOAA_SSTICE.py`
 
 --------------------------------------------------------------------------------
 
@@ -84,19 +88,22 @@ and Po-Lun Ma who did not document the process, so there is no recipe to
 recreate the grid from scratch. 
 
 A vertical grid file for the L72 grid is included in the HICCUP repository.
-  ```files_vert/vert_coord_L72.nc```
+  
+  `files_vert/vert_coord_L72.nc`
 
 To create a new vertical coordinate file it must be extracted from a 
 pre-existing model data file as follows:
 
   1. Dump the vertical grid data into a text file using ncdump:
-     ```ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt```
+     
+     `ncdump -v P0,hyam,hybm,hyai,hybi,lev,ilev <history_file> > vert_coord.txt`
 
   2. manually edit the file to remove extra header info,
      but keep the general CDL format created by ncdump
 
   3. Generate a new netcdf file from the edited text file using ncgen:
-     ```ncgen vert_coord.txt -o vert_coord.nc```
+     
+     `ncgen vert_coord.txt -o vert_coord.nc`
 
 --------------------------------------------------------------------------------
 
