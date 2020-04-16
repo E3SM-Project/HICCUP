@@ -134,6 +134,35 @@ def check_dependency(cmd):
     if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
     return
 # ------------------------------------------------------------------------------
+# Methods for parsing and comparing version strings for required software
+# ------------------------------------------------------------------------------
+def suffix_as_tuple(suffix):
+    """
+    """
+    order = ['alpha', 'beta', '']
+    suffix_text = "".join(c for c in suffix if not c.isdigit())
+    suffix_num = "".join(c for c in suffix if c.isdigit())
+    assert(suffix_text in order)
+    return (order.index(suffix_text), int(suffix_num) if suffix_num else -1)
+def parse_version(version='4.9.2-alpha'):
+    """
+    parse a version string into a tuple of values, 
+    plus a suffix described alpha or beta modifiers
+    """
+    version_list = version.split('-')
+    main_version = tuple(int(n) for n in version_list[0].split("."))
+    suffix = version_list[-1] if len(version_list) == 2 else ""
+    return main_version, suffix_as_tuple(suffix)
+def compare_version(version, required_version='4.9.2-alpha'):
+    """
+    use tuple version of parsed version string to
+    return True if version >= required_version 
+    """
+    if version == required_version: return True
+    v0, suffix0 = parse_version(version)
+    v1, suffix1 = parse_version(required_version)
+    return (v0 > v1) or ((v0 == v1) and suffix0 >= suffix1)
+# ------------------------------------------------------------------------------
 # Check version of NCO - and fail if not recent enough
 # ------------------------------------------------------------------------------
 def check_nco_version():
@@ -147,20 +176,13 @@ def check_nco_version():
                       ,universal_newlines=True).communicate()
     # grab the second line of the version string
     version_str = err.split('\n',1)[1]
-    # grab the characters that come after "version"
-    version_str = version_str.split('version ',1)[1]
-    # get rid of the "alpha" part of the string
-    version_str = version_str.split('-alpha',1)[0]
-    # remove any new line chacaters
-    version_str = version_str.replace('/n','')
-    # convert version string into numerical representation
-    version_full = 0
-    for i,v in enumerate(reversed(version_str.split('.'))):
-        version_full += int(v)*10**((i+1)*3-1)
-    # Check if version is new enough
-    if version_full < 400900200: 
+    # grab the characters that come after "version" and remove newline character
+    version_str = version_str.split('version ',1)[1].replace('\n','')
+    min_version = '4.9.2-alpha9'
+    if not compare_version(version_str, required_version=): 
+        # current version is not valid, so exit
         err_msg = f'NCO version {version_str} is too old.'
-        err_msg += 'HICCUP requires NCO version 4.9.2-alpha09 or higher'
+        err_msg += f'\nHICCUP requires NCO version {min_version} or higher'
         raise EnvironmentError(err_msg)
     return
 # ------------------------------------------------------------------------------
