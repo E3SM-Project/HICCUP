@@ -4,20 +4,12 @@
 # This tool automates the creation of atmospheric initial condition files for 
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
-import os
-import glob
-import copy
-import datetime
-import numpy as np
-import xarray as xr
-import subprocess as sp
+import os, optparse
 import hiccup_data_class as hdc
 import hiccup_state_adjustment as hsa
-from optparse import OptionParser
-from time import perf_counter
 # ------------------------------------------------------------------------------
 # Parse the command line options
-parser = OptionParser()
+parser = optparse.OptionParser()
 parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
 parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
 (opts, args) = parser.parse_args()
@@ -71,14 +63,20 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,verbose=verbose)
 
 # Print some informative stuff
-print()
-print(f'  output grid    : {hiccup_data.dst_horz_grid} {hiccup_data.dst_vert_grid}')
-print(f'  output atm file: {output_atm_file_name}')
-print(f'  output sst file: {output_sst_file_name}')
-hiccup_data.print_input_files()
+print('\n  Input Files')
+print(f'    input atm files: {hiccup_data.atm_file}')
+print(f'    input sfc files: {hiccup_data.sfc_file}')
+print(f'    input sst files: {hiccup_data.sst_file}')
+print(f'    input ice files: {hiccup_data.ice_file}')
+print(f'    input topo file: {hiccup_data.topo_file}')
+print('\n  Output files')
+print(f'    output atm file: {output_atm_file_name}')
+print(f'    output sst file: {output_sst_file_name}')
 
 # Get dict of temporary files for each variable
 file_dict = hiccup_data.get_multifile_dict()
+
+exit()
 
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)

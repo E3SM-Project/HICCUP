@@ -351,19 +351,6 @@ class hiccup_data(object):
 
         return str_out
     # --------------------------------------------------------------------------
-    def print_input_files(self):
-        """
-        Print a short summary of input files
-        """
-        print()
-        print(f'  input atm files: {self.atm_file}')
-        print(f'  input sfc files: {self.sfc_file}')
-        print(f'  input sst files: {self.sst_file}')
-        print(f'  input ice files: {self.ice_file}')
-        print(f'  input topo file: {self.topo_file}')
-        print()
-        return
-    # --------------------------------------------------------------------------
     def get_grid_ne(self):
         """
         Return number of elements of target model grid
