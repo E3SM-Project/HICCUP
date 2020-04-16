@@ -8,22 +8,36 @@ The tool is used by editing and running:
 
 --------------------------------------------------------------------------------
 
-SETUP NOTES
+TABLE OF CONTENTS
+  - [SETUP NOTES](#setup-notes)
+  - [OBTAINING INPUT DATA](#obtaining-input-data)
+  - [VERTICAL GRID FILES](#)
+  - [SST AND SEA ICE INITIAL CONDITONS](#)
+  - [LAND MODEL INITIAL CONDITONS](#)
+  - [RUNNING A HINDCAST](#)
+  - [PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)](#)
+  - [HINDCAST ANALYSIS AND VALIDATION](#)
+  - [DATA FOR TESTING AND DEVELOPMENT](#)
+
+--------------------------------------------------------------------------------
+
+# SETUP NOTES
 
 Dependencies:
   NCO
   TempestRemap
   Python modules:
-    xarray
-    pandas
-    numpy
-    scipy
-    netcdf4
-    cdsapi (for obtaining ECMWF data)
-    ftplib (for obtaining NOAA sst/ice data)
+    xarray  - primary data manipulation tool
+    pandas  - helpful for handling time coordinate
+    netcdf4 - needed for writing netcdf4 files with xarray
+    hdf5    - needed for netcdf4 format - important for fine grids like ne1024
+    pynio   - needed for reading grib files in the case of CFS data
+    scipy   - needed to fill missing SST data around poles
+    cdsapi  - for obtaining ECMWF data
+    ftplib  - for obtaining NOAA sst/ice data
 
-It is convenient to create a conda environment that includes these dependencies:
-  conda create --name hiccup_env -c conda-forge xarray dask pandas scipy netcdf4 hdf5 tempest-remap nco cdsapi 
+It is convenient to create a conda env that includes all these dependencies:
+  conda create --name hiccup_env -c conda-forge xarray dask pandas scipy netcdf4 pynio hdf5 cdsapi tempest-remap nco   
 
 After creating the environment it can be activated via:
   source activate hiccup_env
@@ -48,19 +62,19 @@ To install TempestRemap manually:
 
 --------------------------------------------------------------------------------
 
-OBTAINING INPUT DATA
+# OBTAINING INPUT DATA
 
-Currently, ERA5 realanysis and NOAA SST is the only supported input data option.
-To aquire new ERA5 data, be sure to use conda to install the "cdsapi" module 
+Currently, ERA5 + NOAA SST/ice is the only supported input data option.
+To aquire new ERA5 data, be sure "cdsapi" is in your conda environment
 and set up your ECMWF API key in ~/.ecmwfapirc,then edit and run:
-  get_ERA5_data.py
+  get_hindcast_data.ERA5.py
 
 To aquire NOAA OI daily SST and sea ice data, edit and run:
-  get_NOAA_SST+ICE_data.py
+  get_hindcast_data.NOAA_SSTICE.py
 
 --------------------------------------------------------------------------------
 
-VERTICAL GRID FILES
+# VERTICAL GRID FILES
 
 The current E3SM vertical grid was created through an iterative process 
 involving numerous, undocumented, subjective decisions mainly by Phil Rasch 
@@ -68,7 +82,7 @@ and Po-Lun Ma who did not document the process, so there is no recipe to
 recreate the grid from scratch. 
 
 A vertical grid file for the L72 grid is included in the HICCUP repository.
-  vert_coord_L72.nc
+  files_vert/vert_coord_L72.nc
 
 To create a new vertical coordinate file it must be extracted from a 
 pre-existing model data file as follows:
@@ -84,7 +98,7 @@ pre-existing model data file as follows:
 
 --------------------------------------------------------------------------------
 
-SST AND SEA ICE INITIAL CONDITONS
+# SST AND SEA ICE INITIAL CONDITONS
 
 HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
 typically used for this, but HICCUP also currently supports using ERA5 data. 
@@ -96,7 +110,17 @@ on the initialization day.
 
 --------------------------------------------------------------------------------
 
-RUNNING A HINDCAST
+# LAND MODEL INITIAL CONDITONS
+
+HICCUP does not currently support the generation of land model initial condition
+files. This might be possible with the data available from ERA5, but the current
+recommendation is to spin up the land model for 5-10 years leading up to the 
+desired initialization date using the standalone land model forced by the data
+atmosphere component. 
+
+--------------------------------------------------------------------------------
+
+# RUNNING A HINDCAST
 
 After using HICCUP to generate the atmosphere and SST/ice files, an E3SM 
 hindcast can be run by following the steps to run a typical "F-compset" run, 
@@ -113,25 +137,62 @@ The SST file and start date values also need to be specified by modifying the
 env_run.xml file in the case directory. The preferred method for doing this is 
 to use the xmlchange command from the case directory as in the example below:
 
-  ./xmlchange -file env_run.xml SSTICE_DATA_FILENAME=<path to SST file>
-  ./xmlchange -file env_run.xml RUN_STARTDATE=2016-08-01
-  ./xmlchange -file env_run.xml SSTICE_YEAR_ALIGN=2016
-  ./xmlchange -file env_run.xml SSTICE_YEAR_START=2016
-  ./xmlchange -file env_run.xml SSTICE_YEAR_END=2017
+  ./xmlchange SSTICE_DATA_FILENAME=<path to SST file>
+  ./xmlchange RUN_STARTDATE=2016-08-01
+  ./xmlchange SSTICE_YEAR_ALIGN=2016
+  ./xmlchange SSTICE_YEAR_START=2016
+  ./xmlchange SSTICE_YEAR_END=2017
+
+If using a python script to run the hindcast, here's a snippet of code that 
+does the modifications described above:
+
+  ################################################
+  # python code to setup hindcast files
+  ################################################
+  iyr,imn,idy = 2016,8,1
+  init_date = f'{iyr}-{imn:02d}-{idy:02d}'
+  init_file_atm = f'<path-to-hiccup-data>/HICCUP.atm_era5.{init_date}.ne30np4.L72.nc'
+  init_file_sst = f'<path-to-hiccup-data>/HICCUP.sst_noaa.{init_date}.nc'
+  os.chdir(case_directory)
+  os.system(f'./xmlchange RUN_STARTDATE={init_date}')
+  os.system(f'./xmlchange SSTICE_DATA_FILENAME={init_file_sst}')
+  os.system(f'./xmlchange SSTICE_YEAR_ALIGN={iyr}')
+  os.system(f'./xmlchange SSTICE_YEAR_START={iyr}')
+  os.system(f'./xmlchange SSTICE_YEAR_END={iyr+1}')
+
+  file = open('user_nl_cam','a') 
+  file.write(f' ncdata = \'{init_file_atm}\'\n')
+  file.close()
+  ################################################
+  ################################################
 
 --------------------------------------------------------------------------------
 
-LAND MODEL INITIAL CONDITONS
+# PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
 
-HICCUP does not currently support the generation of land model initial condition
-files. This might be possible with the data available from ERA5, but the current
-recommendation is to spin up the land model for 5-10 years leading up to the 
-desired initialization date using the standalone land model forced by the data
-atmosphere component. 
+A plotting script is also included (plot.sanity_check.py), but it requires 
+PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
+This was done becase PyNGL has excellent support for plotting data on 
+unstructured grids. In the future we may add a plotting script for MatPlotLib.
 
 --------------------------------------------------------------------------------
 
-DATA FOR TESTING AND DEVELOPMENT
+# HINDCAST ANALYSIS AND VALIDATION
+
+The task of analyzing the hindcast output data is up to user for now, although 
+we may include some simple skill/error metrics in the future. For now, we have 
+included a few simple scripts for obtaining and remapping ERA5 validation data.
+  get_validation_data.ERA5.py
+  remap.validation_data.ERA5.py
+
+These scripts are configured to obtain a set of atmospheric fields on common 
+pressure levels, like U200 and Z500, that are typically used for calculating 
+forecast skill. The remap script is configured to put the data on a relatively 
+coarse 2 degree grid in order to simplify the calculation of global metrics. 
+
+--------------------------------------------------------------------------------
+
+# DATA FOR TESTING AND DEVELOPMENT
 
 a low-resolution version of ERA5 pressure level data is included in this repo:
   HICCUP_TEST.ERA5.atm.low-res.nc
@@ -143,14 +204,5 @@ the data with the following command:
 followed by running (check to make sure file names match):
   remap.test_data.ERA5.py
 which is a simple script for reducing the resolution of the test data
-
---------------------------------------------------------------------------------
-
-PLOTTING THE OUTPUT INITIAL CONDITION FILE(S)
-
-A plotting script is also included (plot.sanity_check.py), but it requires 
-PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
-This was done becase PyNGL has excellent support for plotting data on 
-unstructured grids. In the future we may add a plotting script for MatPlotLib.
 
 --------------------------------------------------------------------------------
