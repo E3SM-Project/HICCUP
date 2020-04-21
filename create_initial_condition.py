@@ -1,29 +1,32 @@
 #!/usr/bin/env python
 # ==================================================================================================
 # HICCUP - Hindcast Initial Condition Creation Utility/Processor
-# This tool automates the creation of atmospheric initial condition files for 
+# This tool automates the creation of atmospheric initial condition files for
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
-import os, optparse
+import os
+import optparse
 import hiccup_data_class as hdc
 import hiccup_state_adjustment as hsa
 # ------------------------------------------------------------------------------
 # Parse the command line options
 parser = optparse.OptionParser()
-parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
-parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
+parser.add_option('--hgrid', dest='horz_grid', default=None,
+                  help='Sets the output horizontal grid')
+parser.add_option('--vgrid', dest='vert_grid', default=None,
+                  help='Sets the output vertical grid')
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do
 verbose = True            # Global verbosity flag
-unpack_nc_files = False    # unpack data files (convert short to float)
-create_map_file = False    # grid and map file creation
+unpack_nc_files = False   # unpack data files (convert short to float)
+create_map_file = False   # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
-do_sfc_adjust   = True    # perform surface T and P adjustments
+do_sfc_adjust = True      # perform surface T and P adjustments
 remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
-combine_files   = True    # combine temporary data files and delete
-create_sst_data = False    # sst/sea ice file creation
+combine_files = True      # combine temporary data files and delete
+create_sst_data = False   # sst/sea ice file creation
 # ------------------------------------------------------------------------------
 
 # Specify output atmosphere horizontal grid
@@ -31,10 +34,12 @@ dst_horz_grid = opts.horz_grid if opts.horz_grid is not None else 'ne30np4'
 
 # Specify output atmosphere vertical grid
 dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L72'
-vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
+# cjones note: we should change below to use something like hiccup_root in future
+#              instead of relying on HOME or SCRATCH directories
+vert_file_name = f'{os.getenv("HOME")}/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
 
 # Specify the output file names
-data_root = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
+data_root = os.getenv('SCRATCH')+'/HICCUP/data/'  # NERSC
 # data_root = os.getenv('MEMBERWORK')+'/cli115/HICCUP/data/'  # OLCF
 init_date = '2016-08-01'
 init_year = int(init_date.split('-')[0])
@@ -47,20 +52,17 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
-hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    ,atm_file=f'{data_root}ERA5.atm.{init_date}.nc'
-                                    ,sfc_file=f'{data_root}ERA5.sfc.{init_date}.nc'
-                                    ,sstice_name='NOAA'
-                                    ,sst_file=f'{data_root}sst.day.mean.{init_year}.nc'
-                                    ,ice_file=f'{data_root}icec.day.mean.{init_year}.nc'
-                                    ,topo_file=topo_file_name
-                                    ,dst_horz_grid=dst_horz_grid
-                                    ,dst_vert_grid=dst_vert_grid
-                                    ,output_dir=data_root
-                                    ,grid_dir=data_root
-                                    ,map_dir=data_root
-                                    ,tmp_dir=data_root
-                                    ,verbose=verbose)
+hiccup_data = hdc.create_hiccup_data(name='ERA5',
+                                     atm_file=f'{data_root}ERA5.atm.{init_date}.nc',
+                                     sfc_file=f'{data_root}ERA5.sfc.{init_date}.nc',
+                                     sstice_name='NOAA',
+                                     sst_file=f'{data_root}sst.day.mean.{init_year}.nc',
+                                     ice_file=f'{data_root}icec.day.mean.{init_year}.nc',
+                                     topo_file=topo_file_name,
+                                     dst_horz_grid=dst_horz_grid, dst_vert_grid=dst_vert_grid,
+                                     output_dir=data_root, grid_dir=data_root,
+                                     map_dir=data_root, tmp_dir=data_root,
+                                     verbose=verbose)
 
 # Print some informative stuff
 print('\n  Input Files')
@@ -86,7 +88,7 @@ if unpack_nc_files:
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 # ------------------------------------------------------------------------------
-if create_map_file :
+if create_map_file:
 
     # Create grid description files needed for the mapping file
     hiccup_data.create_src_grid_file()
@@ -98,7 +100,7 @@ if create_map_file :
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap
 # ------------------------------------------------------------------------------
-if remap_data_horz :
+if remap_data_horz:
 
     # Horizontally regrid the data
     hiccup_data.remap_horizontal_multifile(file_dict)
@@ -119,27 +121,26 @@ if do_sfc_adjust:
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 # ------------------------------------------------------------------------------
-if remap_data_vert :
+if remap_data_vert:
 
-    hiccup_data.remap_vertical_multifile(file_dict=file_dict
-                                        ,vert_file_name=vert_file_name)
+    hiccup_data.remap_vertical_multifile(
+        file_dict=file_dict, vert_file_name=vert_file_name)
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 # ------------------------------------------------------------------------------
-if do_state_adjust :
+if do_state_adjust:
 
     hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
 
 # ------------------------------------------------------------------------------
 # Combine files
 # ------------------------------------------------------------------------------
-if combine_files :
+if combine_files:
 
     # Combine and delete temporary files
-    hiccup_data.combine_files(file_dict=file_dict
-                             ,delete_files=True
-                             ,output_file_name=output_atm_file_name)
+    hiccup_data.combine_files(
+        file_dict=file_dict, delete_files=True, output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
@@ -147,7 +148,7 @@ if combine_files :
 # ------------------------------------------------------------------------------
 # Create SST/sea ice file
 # ------------------------------------------------------------------------------
-if create_sst_data :
+if create_sst_data:
 
     # create grid and mapping files
     overwrite = False
