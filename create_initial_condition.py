@@ -18,14 +18,14 @@ parser.add_option('--vgrid', dest='vert_grid', default=None,
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do
-verbose = True            # Global verbosity flag
+verbose         = True    # Global verbosity flag
 unpack_nc_files = False   # unpack data files (convert short to float)
 create_map_file = False   # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
-do_sfc_adjust = True      # perform surface T and P adjustments
+do_sfc_adjust   = True    # perform surface T and P adjustments
 remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
-combine_files = True      # combine temporary data files and delete
+combine_files   = True    # combine temporary data files and delete
 create_sst_data = False   # sst/sea ice file creation
 # ------------------------------------------------------------------------------
 
@@ -123,8 +123,8 @@ if do_sfc_adjust:
 # ------------------------------------------------------------------------------
 if remap_data_vert:
 
-    hiccup_data.remap_vertical_multifile(
-        file_dict=file_dict, vert_file_name=vert_file_name)
+    hiccup_data.remap_vertical_multifile(file_dict=file_dict,
+                                         vert_file_name=vert_file_name)
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
@@ -139,8 +139,9 @@ if do_state_adjust:
 if combine_files:
 
     # Combine and delete temporary files
-    hiccup_data.combine_files(
-        file_dict=file_dict, delete_files=True, output_file_name=output_atm_file_name)
+    hiccup_data.combine_files(file_dict=file_dict,
+                              delete_files=True,
+                              output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
