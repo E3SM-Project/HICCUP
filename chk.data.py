@@ -12,7 +12,7 @@ from optparse import OptionParser
 help_header = 'usage: ./%prog [file] [file] ...\n'
 help_header += '\nThis script will check the data of the input files for inf and nan values'
 parser = OptionParser(usage=help_header)
-# parser.add_option('-n',dest='num_line',default=10,help='set number of lines to print')
+parser.add_option('--vars',dest='vars',default='all',help='comma separated list of variables to check')
 (opts, args) = parser.parse_args()
 
 # Set up terminal colors
@@ -69,7 +69,12 @@ for file_name in files :
     # print(ds)
     # continue
 
-    for var in ds.data_vars: 
+    if opts.vars=='all':
+      var_list = ds.data_vars
+    else:
+      var_list = opts.vars.split(',')
+
+    for var in var_list: 
 
         # Print stats, but skip time related and other variables
         if var not in ['lat_vertices','lon_vertices','time_bnds','area'] and ds[var].dims!=('time',):
