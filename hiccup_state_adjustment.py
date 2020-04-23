@@ -45,6 +45,22 @@ def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  '):
       if c=='s' : print(indent+'std: '+fmt%x.std() )
       if c=='h' : print(indent+'shp: '+str(x.shape) )
 #-------------------------------------------------------------------------------
+# Routines for checking for any number of invalid values
+#-------------------------------------------------------------------------------
+def chk_finite(x,name=None):
+  """
+  check the input data for inf values
+  input data should be a xarray DataArray 
+  """
+  inf_cnt = x.where( xr.ufuncs.isinf(x) ).count().values
+  nan_cnt = x.where( xr.ufuncs.isnan(x) ).count().values
+  if inf_cnt>0 or nan_cnt>0: 
+    err_msg = '  '
+    if name is not None: err_msg += f'{name}:  '
+    err_msg += f'invalid values found! {inf_cnt} infs  /  {nan_cnt} nans  '
+    raise ValueError(err_msg)
+  return
+#-------------------------------------------------------------------------------
 # Adjust surface pressure
 # Algorithm based on sea-level pressure calculation
 # from section 3.1.b of NCAR NT-396 
@@ -73,6 +89,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if verbose is None : verbose = default_verbose
   if verbose: print('\nAdjusting surface pressure...')
   if debug: print('adjust_surface_pressure: DEBUG MODE ENABLED')
+
+  # define minimum threshold to use when dividing by topo height
+  topo_min_value = 10.
 
   # Make sure to use PHIS_d if file contains both
   if 'PHIS_d' in ds_topo.variables : 
@@ -156,29 +175,43 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
   T0    = Tstar + lapse*ds_data['PHIS']/gravit                                  # pg 9 eq 13
 
+  # # calculate alternate surface geopotential to avoid errors when dividing
+  # topo_phis_temp = ds_topo['PHIS']
+  # condition = xr.ufuncs.fabs(topo_phis_temp) > topo_min_value
+  # topo_phis_alt = topo_min_value * xr.ufuncs.sign(topo_phis_temp)
+  # topo_phis_temp = topo_phis_temp.where( condition, topo_phis_alt )
+  
+  # calculate alternate surface geopotential to avoid errors when dividing
+  topo_phis_temp = ds_topo['PHIS']
+  topo_phis_temp = topo_phis_temp.where( topo_phis_temp>topo_min_value, topo_min_value )
+  topo_phis_temp.compute()
+
   # The next few lines provide parameter adjustments to deal with  
   # very high (T_ref1) or low (T_ref2) temperatures 
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.1
   condition = np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
-  alpha = xr.where(condition, Rdair/ds_topo['PHIS']*(T_ref1-Tstar) , alpha)
+  condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
+  alpha = xr.where(condition, Rdair/topo_phis_temp*(T_ref1-Tstar) , alpha)
+  alpha.compute()
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.2
   condition = np.logical_and( Tstar > T_ref1,  T0 > T_ref1 )
+  condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
   alpha.values = xr.where(condition, 0, alpha)
   Tstar.values = xr.where(condition, (T_ref1+Tstar)*0.5 ,Tstar)
 
   # inhibit unduly high pressure below elevated cold terrain                     pg 9 eq 14.3
   condition = ( Tstar < T_ref2 )
+  condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
   Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
-
   del_phis = ds_data['PHIS'] - ds_topo['PHIS']
   del_phis.load()
 
-  # Calculate new surface pressure
+  # Calculate new surface pressure                                               pg 9 eq 12
   beta = del_phis/(Rdair*Tstar)
   temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
-  ps_new = ds_data['PS'].values * np.exp( temp.values )                         # pg 9 eq 12
+  ps_new = ds_data['PS'].values * np.exp( temp.values )
 
   # save attributes to restore later
   ps_attrs = ds_data['PS'].attrs
@@ -190,6 +223,11 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   ds_data['PS'].attrs = ps_attrs
 
   if debug :
+    print()
+    print_stat(alpha,name='alpha')
+    print()
+    chk_finite(xr.DataArray( np.exp( temp.values ) ),name='etmp_da')
+    chk_finite(ds_data['PS'],name='ps_new')
     # Debugging print statements
     print('After Adjustment:')
     print_stat(ds_data['PS'],name='PS (new)')
