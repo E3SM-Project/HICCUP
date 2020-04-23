@@ -174,12 +174,6 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
   T0    = Tstar + lapse*ds_data['PHIS']/gravit                                  # pg 9 eq 13
-
-  # # calculate alternate surface geopotential to avoid errors when dividing
-  # topo_phis_temp = ds_topo['PHIS']
-  # condition = xr.ufuncs.fabs(topo_phis_temp) > topo_min_value
-  # topo_phis_alt = topo_min_value * xr.ufuncs.sign(topo_phis_temp)
-  # topo_phis_temp = topo_phis_temp.where( condition, topo_phis_alt )
   
   # calculate alternate surface geopotential to avoid errors when dividing
   topo_phis_temp = ds_topo['PHIS']
