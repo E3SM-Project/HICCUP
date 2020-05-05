@@ -33,9 +33,12 @@ import cdsapi
 import datetime
 server = cdsapi.Client()
 
+get_atm = False
+get_sfc = True
+
 
 # Build a list of year,month,day values
-ndays = 10
+ndays = 5
 sdate = datetime.date(2016, 8, 1)
 
 
@@ -52,33 +55,55 @@ time_list = ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00']
 # lev = [ '50','100','150','200','300','400','500','600','700','750','800','850','900','950','1000']
 
 
-var_dict = {}
-var_dict.update({'Z':'geopotential'})
-var_dict.update({'T':'temperature'})
-var_dict.update({'Q':'specific_humidity'})
-var_dict.update({'U':'u_component_of_wind'})
-# var_dict.update({'V':'v_component_of_wind'})
+atm_var_dict = {}
+atm_var_dict.update({'Z':'geopotential'})
+atm_var_dict.update({'T':'temperature'})
+atm_var_dict.update({'Q':'specific_humidity'})
+atm_var_dict.update({'U':'u_component_of_wind'})
+atm_var_dict.update({'V':'v_component_of_wind'})
+
+sfc_var_dict = {}
+sfc_var_dict.update({'TS':'skin_temperature'})
+sfc_var_dict.update({'PS':'surface_pressure'})
+# sfc_var_dict.update({'':'sea_surface_temperature'})
+# sfc_var_dict.update({'':'sea_ice_cover'})
+# sfc_var_dict.update({'':'snow_depth'})
 
 # output_path = os.getenv('PWD')+'/validation_data/'
 output_path = '/global/cscratch1/sd/whannah/HICCUP/data/'
 
 #-------------------------------------------------------------------------------
-# retreive the data
-for key in var_dict.keys():
-  if key=='Z': lev = ['100','500','700']
-  if key=='T': lev = ['500','850']
-  if key=='U': lev = ['200','850']
-  if key=='V': lev = ['200','850']
-  if key=='Q': lev = ['850']
-  output_file = output_path+f'ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
-  server.retrieve('reanalysis-era5-pressure-levels',{
-      'product_type'  : 'reanalysis',
-      'pressure_level': lev,
-      'time'          : time_list,
-      'day'           : dy_list,
-      'month'         : mn_list,
-      'year'          : yr_list,
-      'format'        : 'netcdf',
-      'variable'      : [var_dict[key]],
-  }, output_file)
+# atmossphere pressure level data
+if get_atm:
+  for key in atm_var_dict.keys():
+    if key=='Z': lev = ['100','500','700']
+    if key=='T': lev = ['500','850']
+    if key=='U': lev = ['200','850']
+    if key=='V': lev = ['200','850']
+    if key=='Q': lev = ['850']
+    output_file = output_path+f'ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+    server.retrieve('reanalysis-era5-pressure-levels',{
+        'product_type'  : 'reanalysis',
+        'pressure_level': lev,
+        'time'          : time_list,
+        'day'           : dy_list,
+        'month'         : mn_list,
+        'year'          : yr_list,
+        'format'        : 'netcdf',
+        'variable'      : [var_dict[key]],
+    }, output_file)
+#-------------------------------------------------------------------------------
+# surface data
+if get_sfc:
+  for key in sfc_var_dict.keys():
+    output_file = output_path+f'ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+    server.retrieve('reanalysis-era5-single-levels',{
+        'product_type'  : 'reanalysis',
+        'time'          : time_list,
+        'day'           : dy_list,
+        'month'         : mn_list,
+        'year'          : yr_list,
+        'format'        : 'netcdf',
+        'variable'      : [sfc_var_dict[key]],
+    }, output_file)
 #-------------------------------------------------------------------------------
