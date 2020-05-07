@@ -217,7 +217,7 @@ def get_default_topo_file_name(grid,topo_file_root=None):
     # Set default topo file
     topo_file_name = None
     if grid=='ne1024np4': topo_file_name = f'{topo_file_path}USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
-    if grid=='ne512np4' : topo_file_name = f'{topo_file_path}????'
+    # if grid=='ne512np4' : topo_file_name = f'{topo_file_path}????'
     if grid=='ne256np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
     if grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
     # if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'

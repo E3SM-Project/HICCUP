@@ -10,9 +10,9 @@ import os
 import cdsapi
 server = cdsapi.Client()
 
-get_atm = True
+get_atm = False
 get_sfc = True
-get_lnd = True
+get_lnd = False
 
 yr_list = ['2011']
 mn_list = ['05']
@@ -90,6 +90,7 @@ if get_sfc:
         'variable'      : ['surface_pressure'
                           ,'skin_temperature'
                           ,'sea_surface_temperature'
+                          ,'2m_temperature'
                           ,'soil_temperature_level_1'
                           ,'soil_temperature_level_2'
                           ,'soil_temperature_level_3'
