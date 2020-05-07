@@ -21,18 +21,14 @@ hiccup_root = os.getenv('HOME')+'/HICCUP/'
 nlat_src,nlon_src = 721,1440
 nlat_dst,nlon_dst = 90,180
 
-date = '2016-08-01'
+# date = '2016-08-01'
+date = '2011-05-20'
 
-var_list = ['Z','T','Q','U']
+var_list = ['Z','T','Q','U','V','TS','PS']
 
 alg = '-a tempest'
 
-def main():
-
-    unpack      = True
-    clean       = True
-    create_map  = True
-    regrid_data = True
+def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
 
     src_grid_name = f'{nlat_src}x{nlon_src}_n2s'
     dst_grid_name = f'{nlat_dst}x{nlon_dst}_s2n'
@@ -43,53 +39,53 @@ def main():
     map_file = f'{hiccup_root}/files_mapping/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 
     # --------------------------------------------------------------------------
+    if create_map:
+
+        # remove old grid and mapping files
+        if clean :
+            if os.path.exists(src_grid_file) : run_cmd(f'rm {src_grid_file}')
+            if os.path.exists(dst_grid_file) : run_cmd(f'rm {dst_grid_file}')
+            if os.path.exists(map_file)      : run_cmd(f'rm {map_file}')
+        
+        # Generate source grid file:
+        cmd  = f'ncremap {alg} -G '
+        cmd += f'ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\''
+        cmd += f'#latlon={nlat_src},{nlon_src}'
+        cmd += f'#lat_typ=uni'
+        cmd += f'#lat_drc=n2s'
+        cmd += f'#lon_typ=grn_ctr '
+        cmd += f'-g {src_grid_file} '
+        run_cmd(cmd)
+        
+        # Generate target grid file:
+        cmd  = f'ncremap {alg} -G '
+        cmd += f'ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\''
+        cmd += f'#latlon={nlat_dst},{nlon_dst}'
+        cmd += f'#lat_typ=uni'
+        cmd += f'#lat_drc=s2n'
+        cmd += f'#lon_typ=grn_ctr '
+        cmd += f'-g {dst_grid_file} '
+        run_cmd(cmd)
+        
+        # Need to make sure the 'grid_imask' variable is an integer for TempestRemap
+        # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {src_grid_file} {src_grid_file} --ovr')
+        # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {dst_grid_file} {dst_grid_file} --ovr')
+        
+        # Generate mapping file:
+        cmd  = f'ncremap {alg} -a fv2fv'
+        cmd += f' --src_grd={src_grid_file}'
+        cmd += f' --dst_grd={dst_grid_file}'
+        cmd += f' -m {map_file} '
+        run_cmd(cmd)
+
+    # --------------------------------------------------------------------------
     for var in var_list:
 
         src_file_name = f'{hiccup_root}/data_scratch/ERA5_validation.{var}.{date}.nc'
         dst_file_name = src_file_name.replace('.nc',f'.remap_{nlat_dst}x{nlon_dst}.nc')
         
-        if unpack:
-            cmd = f'ncpdq --ovr -U {src_file_name} {src_file_name}'
-            run_cmd(cmd)
         # ----------------------------------------------------------------------
-        if create_map:
-
-            # remove old grid and mapping files
-            if clean :
-                if os.path.exists(src_grid_file) : run_cmd(f'rm {src_grid_file}')
-                if os.path.exists(dst_grid_file) : run_cmd(f'rm {dst_grid_file}')
-                if os.path.exists(map_file)      : run_cmd(f'rm {map_file}')
-            
-            # Generate source grid file:
-            cmd  = f'ncremap {alg} -G '
-            cmd += f'ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\''
-            cmd += f'#latlon={nlat_src},{nlon_src}'
-            cmd += f'#lat_typ=uni'
-            cmd += f'#lat_drc=n2s'
-            cmd += f'#lon_typ=grn_ctr '
-            cmd += f'-g {src_grid_file} '
-            run_cmd(cmd)
-            
-            # Generate target grid file:
-            cmd  = f'ncremap {alg} -G '
-            cmd += f'ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\''
-            cmd += f'#latlon={nlat_dst},{nlon_dst}'
-            cmd += f'#lat_typ=uni'
-            cmd += f'#lat_drc=s2n'
-            cmd += f'#lon_typ=grn_ctr '
-            cmd += f'-g {dst_grid_file} '
-            run_cmd(cmd)
-            
-            # Need to make sure the 'grid_imask' variable is an integer for TempestRemap
-            # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {src_grid_file} {src_grid_file} --ovr')
-            # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {dst_grid_file} {dst_grid_file} --ovr')
-            
-            # Generate mapping file:
-            cmd  = f'ncremap {alg} -a fv2fv'
-            cmd += f' --src_grd={src_grid_file}'
-            cmd += f' --dst_grd={dst_grid_file}'
-            cmd += f' -m {map_file} '
-            run_cmd(cmd)
+        if unpack: run_cmd(f'ncpdq --ovr -U {src_file_name} {src_file_name}')
         # ----------------------------------------------------------------------
         # remap the data
         run_cmd(f'ncremap {alg} -m {map_file} -i {src_file_name} -o {dst_file_name}  ')

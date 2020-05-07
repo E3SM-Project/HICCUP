@@ -33,13 +33,14 @@ import cdsapi
 import datetime
 server = cdsapi.Client()
 
-get_atm = False
+get_atm = True
 get_sfc = True
 
 
 # Build a list of year,month,day values
 ndays = 5
-sdate = datetime.date(2016, 8, 1)
+# sdate = datetime.date(2016, 8, 1)
+sdate = datetime.date(2011, 5, 20)
 
 
 yr_list,mn_list,dy_list = [],[],[]
@@ -90,7 +91,7 @@ if get_atm:
         'month'         : mn_list,
         'year'          : yr_list,
         'format'        : 'netcdf',
-        'variable'      : [var_dict[key]],
+        'variable'      : [atm_var_dict[key]],
     }, output_file)
 #-------------------------------------------------------------------------------
 # surface data
