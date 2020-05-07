@@ -15,6 +15,7 @@ The tool is used by editing and running:
   - [Vertical Grid Files](#vertical-grid-files)
   - [SST and Sea Ice Initial Conditions](#sst-and-sea-ice-initial-conditions)
   - [Land Model Initial Conditions](#land-model-initial-conditions)
+  - [Generating HICCUP Initial Conditions](#generating-hiccup-initial-conditions)
   - [Running a Hindcast](#running-a-hindcast)
   - [Plotting Initial Condition Data](#plotting-initial-condition-data)
   - [Hindcast Analysis and Verification](#hindcast-analysis-and-validation)
@@ -112,6 +113,33 @@ files. This might be possible with the data available from ERA5, but the current
 recommendation is to spin up the land model for 5-10 years leading up to the 
 desired initialization date using the standalone land model forced by the data
 atmosphere component. 
+
+--------------------------------------------------------------------------------
+
+### Generating HICCUP Initial Conditions
+
+After the input data is aquired, HICCUP can be used to generate initial conditions 
+by editing and running the `create_initial_condition.py` script. This script 
+controls the workflow for generating the atmosphere initial condition as well as 
+the SST/sea-ice data file.
+
+The HICCUP workflow centers on a "hiccup_data" object that carries the information 
+needed for processing the data as well as class methods for processing the data. 
+There is also a python dictionary of temporary file names that are used to store 
+the data for each variable during processing. This appraoch of separating the 
+data variables may seem odd, but it is necessary for very large datasets, so it 
+was adopted to avoid supporting multiple workflows. Currently, this dict of files
+and the final output file is separate from the hiccup_data object, but we are 
+considering putting these into the hiccup_data object to simplify the workflow.
+
+HICCUP is designed to be as modular as possible, but the order in which the input 
+data are processed is very important. The most important part of this is the 
+regridding and surface adjustment sections. The process must start with the 
+horizontal regridding, which alters the surface topography and requires an 
+adjustment of surface temperature and pressure. The variable renaming and 
+adjustment of time and date information is also done after the horizontal 
+regridding. The vertical regridding is the last step in this process because it 
+must follow the surface adjustment.
 
 --------------------------------------------------------------------------------
 
