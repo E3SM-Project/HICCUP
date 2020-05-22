@@ -377,7 +377,10 @@ class hiccup_data(object):
         """
         Return number of elements of target model grid
         """
-        return re.search('ne(.*)np', self.dst_horz_grid).group(1)
+        if 'ne' in self.dst_horz_grid:
+            return re.search('ne(.*)np', self.dst_horz_grid).group(1)
+        else:
+            return 0
     # --------------------------------------------------------------------------
     def get_grid_npg(self):
         """
@@ -499,7 +502,7 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=None):
+    def create_map_file(self,verbose=None,src_type=None):
         """ 
         Generate mapping file after grid files have been created 
         """
@@ -520,12 +523,20 @@ class hiccup_data(object):
 
         # speciic special options depending on target atmos grid
         ne = self.get_grid_ne()
-        if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
+        if src_type is None:
+            if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
+                src_type = 'GLL'
+            elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
+                src_type = 'FV'
+            else:
+                raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
+
+        if src_type=='GLL':
             self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
-        elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
+        elif src_type=='FV':
             self.map_opts = self.map_opts+' --out_type fv --out_np 2 --volumetric '
-        else:
-            raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
+        
+            
         
         # Create the map file
         cmd = f'ncremap {ncremap_alg} '
@@ -534,7 +545,7 @@ class hiccup_data(object):
         cmd += f' --map_file={self.map_file}'
         cmd += f' --wgt_opt=\'{self.map_opts}\' '
         # Add special flag for "very fine" grids
-        if int(ne) > 100 : cmd += ' --lrg2sml '
+        if int(ne)>100 : cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
