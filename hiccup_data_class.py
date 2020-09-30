@@ -220,9 +220,11 @@ def get_default_topo_file_name(grid,topo_file_root=None):
     # if grid=='ne512np4' : topo_file_name = f'{topo_file_path}????'
     if grid=='ne256np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
     if grid=='ne120np4' : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+    if grid=='ne45np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne45np4pg2_16xdel2.c20200615.nc'
     # if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
     if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
-    
+    if grid=='ne16np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne16np4pg2_16xdel2_20200527.nc'
+    if grid=='ne4np4'   : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne4pg2_16xdel2-PFC-consistentSGH.c20190618.nc'
     
     if topo_file_name is None:
         raise ValueError('No default topo file found! Topo file path must be manually specified.')
@@ -568,15 +570,23 @@ class hiccup_data(object):
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
 
+        # use timestamp to ensure these files are distinct from 
+        # other instances of HICCUP that might be running concurrently
+        timestamp = datetime.datetime.utcnow().strftime('%Y%m%d.%H%M%S')
+
         # Horzontally remap atmospher and surface data to individual files
         for key,var in var_dict_all.items() :
             if var not in [lat_var,lon_var]:
                 tmp_file_name = None
-                if key in self.sfc_var_name_dict.keys(): 
-                    tmp_file_name = f'{self.tmp_dir}tmp_sfc_data.{self.dst_horz_grid}.{self.dst_vert_grid}.{key}.nc'
-                if key in self.atm_var_name_dict.keys(): 
-                    tmp_file_name = f'{self.tmp_dir}tmp_atm_data.{self.dst_horz_grid}.{self.dst_vert_grid}.{key}.nc'
-                if tmp_file_name is not None: tmp_file_dict.update({key:tmp_file_name})
+                if key in self.sfc_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}tmp_sfc_data'
+                if key in self.atm_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}tmp_atm_data'
+                if tmp_file_name is not None: 
+                    tmp_file_name += f'.{self.dst_horz_grid}'
+                    tmp_file_name += f'.{self.dst_vert_grid}'
+                    tmp_file_name += f'.{key}'
+                    tmp_file_name += f'.{timestamp}'
+                    tmp_file_name += f'.nc'
+                    tmp_file_dict.update({key:tmp_file_name})
 
         return tmp_file_dict
     # --------------------------------------------------------------------------
@@ -1687,5 +1697,45 @@ class ERA5(hiccup_data):
         
         if do_timers: print_timer(timer_start)
         return
+# ------------------------------------------------------------------------------
+# subclass for remapping EAM data
+# ------------------------------------------------------------------------------
+class EAM(hiccup_data):
+    @classmethod
+    def is_name_for(cls,name) : return name == 'EAM'
+    def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
+                 output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 map_dir=default_map_dir,tmp_dir=default_tmp_dir,
+                 sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
+                 sstice_combined_file=None,lev_type=''):
+        super().__init__(atm_file=atm_file
+                        ,sfc_file=sfc_file
+                        ,dst_horz_grid=dst_horz_grid
+                        ,dst_vert_grid=dst_vert_grid
+                        ,sstice_name=sstice_name
+                        ,sst_file=sst_file
+                        ,ice_file=ice_file
+                        ,sstice_combined_file=sstice_combined_file
+                        ,topo_file = topo_file
+                        ,output_dir=output_dir
+                        ,grid_dir=grid_dir
+                        ,map_dir=map_dir
+                        ,tmp_dir=tmp_dir
+                        ,lev_type=lev_type)
+        
+        self.name = 'EAM'
+        self.lev_name = 'lev'
+        self.new_lev_name = 'plev'
+
+        # self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
+        # self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
+
+        # self.src_grid_name = f'{self.src_nlat}x{self.src_nlon}'
+        # self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
+
+        # self.map_file = self.map_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
+
+    # --------------------------------------------------------------------------
+    
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

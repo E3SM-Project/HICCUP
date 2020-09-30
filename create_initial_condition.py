@@ -10,34 +10,56 @@ import hiccup_state_adjustment as hsa
 # ------------------------------------------------------------------------------
 # Parse the command line options
 parser = optparse.OptionParser()
-parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
-parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
+parser.add_option('--hgrid',    dest='horz_grid',default=None,help='Sets the output horizontal grid')
+parser.add_option('--vgrid',    dest='vert_grid',default=None,help='Sets the output vertical grid')
+parser.add_option('--init_date',dest='init_date',default=None,help='Sets the initialization date')
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do
+# Comment out a line or set to False to disable a section
 verbose = True            # Global verbosity flag
-unpack_nc_files = False    # unpack data files (convert short to float)
-create_map_file = False    # grid and map file creation
+# unpack_nc_files = True    # unpack data files (convert short to float)
+# create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
 do_sfc_adjust   = True    # perform surface T and P adjustments
 remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
-create_sst_data = False    # sst/sea ice file creation
+# create_sst_data = True    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
 
 # Specify output atmosphere horizontal grid
-dst_horz_grid = opts.horz_grid if opts.horz_grid is not None else 'ne30np4'
+if opts.horz_grid is not None:
+    dst_horz_grid = opts.horz_grid 
+else:
+    dst_horz_grid = 'ne45np4'
 
 # Specify output atmosphere vertical grid
-dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L72'
-vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
+if opts.vert_grid is not None:
+    dst_vert_grid,vert_file_name = opts.vert_grid,None
+    # vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
+    if dst_vert_grid=='L72' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_E3SM.nc'
+    if dst_vert_grid=='L50' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L50_v1.nc'
+    if dst_vert_grid=='L100': vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L100_v1.nc'
+    if dst_vert_grid=='L120': vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L120_v1.nc'
+    if vert_file_name is None: raise InputError(f'No vertical grid specified for {dst_vert_grid}')
+else:
+    raise InputError('No vertical grid provided!')
+    # dst_vert_grid,vert_file_name = 'L72',os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_E3SM.nc'
+    # dst_vert_grid,vert_file_name = 'L100',os.getenv('HOME')+f'/E3SM/vert_grid_files/L100_v1.nc'
+    # dst_vert_grid,vert_file_name = 'L125',os.getenv('HOME')+f'/HICCUP/files_vert/UP_L125.nc'
 
-# Specify the output file names
+# specify date of data
+if opts.init_date is not None:
+    init_date = opts.init_date
+else:
+    raise InputError('No init_date provided!')
+    # init_date = '2008-10-01'
+init_year = int(init_date.split('-')[0])
+
+# Specify output file names
 data_root = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
 # data_root = os.getenv('MEMBERWORK')+'/cli115/HICCUP/data/'  # OLCF
-init_date = '2016-08-01'
-init_year = int(init_date.split('-')[0])
 output_atm_file_name = f'{data_root}HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
 output_sst_file_name = f'{data_root}HICCUP.sst_noaa.{init_date}.nc'
 
@@ -79,6 +101,7 @@ file_dict = hiccup_data.get_multifile_dict()
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
 # ------------------------------------------------------------------------------
+if 'unpack_nc_files' not in locals(): unpack_nc_files = False
 if unpack_nc_files:
 
     hiccup_data.unpack_data_files()
@@ -86,18 +109,21 @@ if unpack_nc_files:
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 # ------------------------------------------------------------------------------
+if 'create_map_file' not in locals(): create_map_file = False
 if create_map_file :
 
     # Create grid description files needed for the mapping file
     hiccup_data.create_src_grid_file()
     hiccup_data.create_dst_grid_file()
+    # hiccup_data.dst_grid_file = '/global/homes/w/whannah/E3SM/data_grid/conusx4v1.g'
 
     # Create mapping file
-    hiccup_data.create_map_file()
+    hiccup_data.create_map_file(src_type='GLL')
 
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap
 # ------------------------------------------------------------------------------
+if 'remap_data_horz' not in locals(): remap_data_horz = False
 if remap_data_horz :
 
     # Horizontally regrid the data
@@ -112,6 +138,7 @@ if remap_data_horz :
 # ------------------------------------------------------------------------------
 # Do surface adjustments
 # ------------------------------------------------------------------------------
+if 'do_sfc_adjust' not in locals(): do_sfc_adjust = False
 if do_sfc_adjust:
 
     hiccup_data.surface_adjustment_multifile(file_dict=file_dict)
@@ -119,6 +146,7 @@ if do_sfc_adjust:
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 # ------------------------------------------------------------------------------
+if 'remap_data_vert' not in locals(): remap_data_vert = False
 if remap_data_vert :
 
     hiccup_data.remap_vertical_multifile(file_dict=file_dict
@@ -127,6 +155,7 @@ if remap_data_vert :
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 # ------------------------------------------------------------------------------
+if 'do_state_adjust' not in locals(): do_state_adjust = False
 if do_state_adjust :
 
     hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
@@ -134,6 +163,7 @@ if do_state_adjust :
 # ------------------------------------------------------------------------------
 # Combine files
 # ------------------------------------------------------------------------------
+if 'combine_files' not in locals(): combine_files = False
 if combine_files :
 
     # Combine and delete temporary files
@@ -147,6 +177,7 @@ if combine_files :
 # ------------------------------------------------------------------------------
 # Create SST/sea ice file
 # ------------------------------------------------------------------------------
+if 'create_sst_data' not in locals(): create_sst_data = False
 if create_sst_data :
 
     # create grid and mapping files

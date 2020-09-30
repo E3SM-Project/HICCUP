@@ -19,7 +19,8 @@ import subprocess as sp
 hiccup_root = os.getenv('HOME')+'/HICCUP/'
 
 nlat_src,nlon_src = 721,1440
-nlat_dst,nlon_dst = 90,180
+# nlat_dst,nlon_dst = 90,180
+nlat_dst,nlon_dst = 180,360
 
 # date = '2016-08-01'
 date = '2011-05-20'
@@ -58,21 +59,24 @@ def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
         run_cmd(cmd)
         
         # Generate target grid file:
-        cmd  = f'ncremap {alg} -G '
-        cmd += f'ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\''
-        cmd += f'#latlon={nlat_dst},{nlon_dst}'
-        cmd += f'#lat_typ=uni'
-        cmd += f'#lat_drc=s2n'
-        cmd += f'#lon_typ=grn_ctr '
-        cmd += f'-g {dst_grid_file} '
-        run_cmd(cmd)
+        # cmd  = f'ncremap {alg} -G '
+        # cmd += f'ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\''
+        # cmd += f'#latlon={nlat_dst},{nlon_dst}'
+        # cmd += f'#lat_typ=uni'
+        # cmd += f'#lat_drc=s2n'
+        # cmd += f'#lon_typ=grn_ctr '
+        # cmd += f'-g {dst_grid_file} '
+        # run_cmd(cmd)
+
+        dst_grid_file = '/global/homes/w/whannah/E3SM/data_grid/cmip6_180x360_scrip.20181001.nc'
         
         # Need to make sure the 'grid_imask' variable is an integer for TempestRemap
         # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {src_grid_file} {src_grid_file} --ovr')
         # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {dst_grid_file} {dst_grid_file} --ovr')
-        
+
         # Generate mapping file:
-        cmd  = f'ncremap {alg} -a fv2fv'
+        # cmd  = f'ncremap {alg} -a fv2fv'
+        cmd  = f'ncremap -6 --alg_typ=aave '
         cmd += f' --src_grd={src_grid_file}'
         cmd += f' --dst_grd={dst_grid_file}'
         cmd += f' -m {map_file} '
