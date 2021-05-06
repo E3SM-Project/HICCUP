@@ -224,6 +224,7 @@ def get_default_topo_file_name(grid,topo_file_root=None):
     # if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
     if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
     if grid=='ne16np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne16np4pg2_16xdel2_20200527.nc'
+    if grid=='ne11np4'  : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne11np4_16xconsistentSGH.c20160612.nc'
     if grid=='ne4np4'   : topo_file_name = f'{topo_file_path}USGS-gtopo30_ne4pg2_16xdel2-PFC-consistentSGH.c20190618.nc'
     
     if topo_file_name is None:
@@ -504,7 +505,7 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=None,src_type=None):
+    def create_map_file(self,verbose=None,src_type=None,dst_type=None):
         """ 
         Generate mapping file after grid files have been created 
         """
@@ -520,24 +521,34 @@ class hiccup_data(object):
         if self.dst_grid_file == None : 
             raise ValueError('dst_grid_file is not defined for hiccup_data object')
 
-        # Set the map options (do we need the --mono flag?)
-        self.map_opts = '--in_type fv --in_np 2 --out_double ' 
+
+        # assume input is FV
+        if src_type is None: src_type = 'FV'
 
         # speciic special options depending on target atmos grid
         ne = self.get_grid_ne()
-        if src_type is None:
+        if dst_type is None:
             if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
-                src_type = 'GLL'
+                dst_type = 'GLL'
             elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
-                src_type = 'FV'
+                dst_type = 'FV'
             else:
                 raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
 
-        if src_type=='GLL':
-            self.map_opts = self.map_opts+' --out_type cgll --out_np 4 ' # options for SE grid
-        elif src_type=='FV':
+        # Set the map options (do we need the --mono flag?)
+        self.map_opts = ''
+
+        if dst_type=='GLL':
+            self.map_opts = self.map_opts+' --in_type cgll --in_np 4 ' 
+        elif dst_type=='FV':
+            self.map_opts = self.map_opts+' --in_type fv --in_np 2 ' 
+
+        if dst_type=='GLL':
+            self.map_opts = self.map_opts+' --out_type cgll --out_np 4 '
+        elif dst_type=='FV':
             self.map_opts = self.map_opts+' --out_type fv --out_np 2 --volumetric '
         
+        self.map_opts = self.map_opts+' --out_double '
             
         
         # Create the map file
