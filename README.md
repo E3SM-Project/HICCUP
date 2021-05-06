@@ -51,7 +51,7 @@ After creating the environment it can be activated via:
 You can (optionally) install HICCUP into your python environment by running `setup.py`, for example:
 ```
    ./setup.py install
-``
+```
 which will allow you to import `hiccup` from any directory.
 
 TempestRemap and NCO may already be locally available if you are working on a machine at a super-computing center. They can also be installed manually, but we recommend including them in the hiccup conda environment to avoid conflicts.
