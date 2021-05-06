@@ -5,7 +5,7 @@
 import unittest
 import numpy as np
 import xarray as xr
-import hiccup_state_adjustment as hsa
+from hiccup import hiccup_state_adjustment as hsa
 
 class standard_atmosphere:
   def __init__(self,altitude):
