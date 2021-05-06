@@ -11,3 +11,6 @@ files_mapping/*
 files_tmp/*
 data/*
 slurm*out
+build/
+dist/
+HICCUP.egg-info
