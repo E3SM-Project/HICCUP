@@ -48,6 +48,12 @@ After creating the environment it can be activated via:
 
   `source activate hiccup_env`
 
+You can (optionally) install HICCUP into your python environment by running `setup.py`, for example:
+```
+   ./setup.py install
+```
+which will allow you to import `hiccup` from any directory.
+
 TempestRemap and NCO may already be locally available if you are working on a machine at a super-computing center. They can also be installed manually, but we recommend including them in the hiccup conda environment to avoid conflicts.
 
 The default paths for things like grid files, mapping files, and output data is set to local directories. However, when working on a machine at a super-computering center, like NERSC or OLCF, it is useful to avoid filling up ones home directory with this data, especially for high resolution output data. We recommend creating a folder on scratch space and using this to set file path variables when calling create_hiccup_data().

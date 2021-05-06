@@ -203,15 +203,16 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   del_phis.load()
 
   # Calculate new surface pressure                                               pg 9 eq 12
+  *__, del_phis = xr.broadcast(ds_data['PS'], del_phis)
   beta = del_phis/(Rdair*Tstar)
   temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
-  ps_new = ds_data['PS'].values * np.exp( temp.values )
+  ps_new = ds_data['PS'] * np.exp( temp )
 
   # save attributes to restore later
   ps_attrs = ds_data['PS'].attrs
 
   # Only update PHIS if phis difference is not negligible
-  ds_data['PS'].values = xr.where( np.abs(del_phis) > phis_threshold, ps_new, ds_data['PS'].values )
+  ds_data['PS'] = xr.where( np.abs(del_phis) > phis_threshold, ps_new, ds_data['PS'])
 
   # restore attributes
   ds_data['PS'].attrs = ps_attrs

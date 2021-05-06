@@ -5,8 +5,8 @@
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
 import os, optparse
-import hiccup_data_class as hdc
-import hiccup_state_adjustment as hsa
+from hiccup import hiccup_data_class as hdc
+from hiccup import hiccup_state_adjustment as hsa
 # ------------------------------------------------------------------------------
 # Parse the command line options
 parser = optparse.OptionParser()
