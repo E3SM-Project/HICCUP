@@ -28,20 +28,15 @@
 # CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30pg2_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30pg2_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
 
 
-import os
-import cdsapi
-import datetime
+import os, cdsapi, datetime
 server = cdsapi.Client()
 
 get_atm = True
 get_sfc = True
 
-
 # Build a list of year,month,day values
 ndays = 5
-# sdate = datetime.date(2016, 8, 1)
-sdate = datetime.date(2011, 5, 20)
-
+sdate = datetime.date(2008, 10, 1)
 
 yr_list,mn_list,dy_list = [],[],[]
 # for i in range( (edate-sdate).days + 1):
