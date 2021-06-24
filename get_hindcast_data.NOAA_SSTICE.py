@@ -7,7 +7,7 @@
 import ftplib
 import os
 
-# year = 2018
+# yr_list = [2008]
 yr_list = [str(y+2000) for y in range(8,19)]
 
 host = 'ftp.cdc.noaa.gov'

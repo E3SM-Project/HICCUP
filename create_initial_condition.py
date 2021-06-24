@@ -19,7 +19,7 @@ parser.add_option('--init_date',dest='init_date',default=None,help='Sets the ini
 # Comment out a line or set to False to disable a section
 verbose = True            # Global verbosity flag
 # unpack_nc_files = True    # unpack data files (convert short to float)
-# create_map_file = True    # grid and map file creation
+create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
 do_sfc_adjust   = True    # perform surface T and P adjustments
 remap_data_vert = True    # vertical remap
@@ -27,6 +27,9 @@ do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 # create_sst_data = True    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
+
+# opts.vert_grid = 'L50'
+# opts.init_date = '2008-10-01'
 
 # Specify output atmosphere horizontal grid
 if opts.horz_grid is not None:
@@ -39,7 +42,7 @@ if opts.vert_grid is not None:
     dst_vert_grid,vert_file_name = opts.vert_grid,None
     # vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
     if dst_vert_grid=='L72' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_E3SM.nc'
-    if dst_vert_grid=='L50' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L50_v1.nc'
+    if dst_vert_grid=='L50' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L50_v2.nc'
     if dst_vert_grid=='L100': vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L100_v1.nc'
     if dst_vert_grid=='L120': vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L120_v1.nc'
     if vert_file_name is None: raise InputError(f'No vertical grid specified for {dst_vert_grid}')
@@ -82,7 +85,8 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,grid_dir=data_root
                                     ,map_dir=data_root
                                     ,tmp_dir=data_root
-                                    ,verbose=verbose)
+                                    ,verbose=verbose
+                                    ,check_input_files=True)
 
 # Print some informative stuff
 print('\n  Input Files')
@@ -188,7 +192,7 @@ if create_sst_data :
 
     # Remap the sst/ice data after time slicing and combining (if necessary)
     hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,
-                                       time_slice_method='initial',
+                                       time_slice_method='match_atmos',
                                        atm_file=output_atm_file_name)
 
     # Rename the variables and remove unnecessary variables and attributes
