@@ -6,7 +6,7 @@
 # ==================================================================================================
 import os, optparse
 from hiccup import hiccup_data_class as hdc
-from hiccup import hiccup_state_adjustment as hsa
+# from hiccup import hiccup_state_adjustment as hsa # this gets imported as part of hdc
 # ------------------------------------------------------------------------------
 # Parse the command line options
 parser = optparse.OptionParser()
@@ -19,14 +19,17 @@ verbose = True            # Global verbosity flag
 # ------------------------------------------------------------------------------
 
 # Specify output atmosphere horizontal grid
+# dst_horz_grid = 'ne45np4'
+# dst_horz_grid = 'ne30np4'
 dst_horz_grid = 'ne4np4'
 
 # Specify output atmosphere vertical grid
 # dst_vert_grid = opts.vert_grid if opts.vert_grid is not None else 'L100'
 # vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
 # vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/UP_L125.nc'
-# dst_vert_grid,vert_file_name = 'L100',os.getenv('HOME')+f'/E3SM/vert_grid_files/L100_v1.nc'
-dst_vert_grid,vert_file_name = 'L72',os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_v1.nc'
+# dst_vert_grid,vert_file_name = 'L50',os.getenv('HOME')+f'/E3SM/vert_grid_files/L50_v1.nc'
+dst_vert_grid,vert_file_name = 'L50',os.getenv('HOME')+f'/E3SM/vert_grid_files/L50_v2.nc'
+# dst_vert_grid,vert_file_name = 'L72',os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_v1.nc'
 
 
 # Specify the output file names
@@ -50,7 +53,8 @@ if dst_horz_grid=='ne45np4': cami_file = f'{scratch_ic_path}/cami_mam3_Linoz_ne4
 
 # output_atm_file_name = f'{data_root}HICCUP.AQUA.{dst_horz_grid}.{dst_vert_grid}.nc'
 # output_atm_file_name = f'{data_root}HICCUP.{dst_horz_grid}.{dst_vert_grid}.nc'
-output_atm_file_name = f'{data_root}HICCUP.cami_mam3_Linoz_{dst_horz_grid}.{dst_vert_grid}_alt.nc'
+output_atm_file_name = f'{data_root}HICCUP.cami_mam3_Linoz_{dst_horz_grid}.{dst_vert_grid}.nc'
+
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.

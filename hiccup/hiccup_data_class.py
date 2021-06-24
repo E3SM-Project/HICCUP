@@ -12,7 +12,6 @@ import datetime
 # import cftime
 import os, sys, re, shutil
 from time import perf_counter
-from . import hiccup_state_adjustment as hsa
 
 # default output paths
 default_output_dir  = './data/'
@@ -238,7 +237,8 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                        map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                        sstice_combined_file=None,sstice_name=None,
                        sst_file=None,ice_file=None,topo_file=None,
-                       lev_type='',verbose=False):
+                       lev_type='',verbose=False,
+                       check_input_files=True):
     """ 
     Create HICCUP data class object, check for required input variables and 
     create specified output directories if they do not exist
@@ -266,7 +266,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                       ,lev_type=lev_type)
 
             # Check input files for for required variables
-            obj.check_file_vars()
+            if check_input_files: obj.check_file_vars()
 
             # Create the output, grid, and map folders if they do not exist
             if not os.path.exists(output_dir) : os.makedirs(output_dir)
@@ -1306,7 +1306,8 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def sstice_slice_and_remap(self,output_file_name,time_slice_method='initial',
+    def sstice_slice_and_remap(self,output_file_name,
+                               time_slice_method='match_atmos',
                                atm_file=None,verbose=None):
         """
         Horizontally remap the SST and sea ice data after time slicing and 
@@ -1387,6 +1388,10 @@ class hiccup_data(object):
         # exit()
 
         if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
+
+        # make sure output file is deleted (overwrite flag not working?)
+        if os.path.isfile(output_file_name): 
+            hdc.run_cmd(f'rm {output_file_name}',verbose)
 
         # remap the SST data onto the target grid for the model
         cmd =  f'ncremap {ncremap_alg} '
