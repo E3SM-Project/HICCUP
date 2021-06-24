@@ -14,13 +14,13 @@ get_atm = True
 get_sfc = True
 get_lnd = False
 
-# yr_list = ['2008']
-# mn_list = ['10']
-# dy_list = ['01']
+### single date
+yr_list,mn_list,dy_list = ['2008'],['10'],['01']
 
-yr_list = [str(y+2000) for y in range(8,19)]
-mn_list = ['10']*len(yr_list)
-dy_list = ['01']*len(yr_list)
+### list of one date acros many years
+# yr_list = [str(y+2000) for y in range(8,19)]
+# mn_list = ['10']*len(yr_list)
+# dy_list = ['01']*len(yr_list)
 
 # time_list = ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00']
 time_list = ['00:00']*len(yr_list)
@@ -124,7 +124,8 @@ for i in range(len(yr_list)):
                             # ,'volumetric_soil_water_layer_2'
                             # ,'volumetric_soil_water_layer_3'
                             # ,'volumetric_soil_water_layer_4'
-                            ,'orography'
+                            # ,'orography'
+                            ,'geopotential'
                             ,'sea_ice_cover'
                             ],
       }, output_file_sfc)
