@@ -22,8 +22,7 @@ nlat_src,nlon_src = 721,1440
 # nlat_dst,nlon_dst = 90,180
 nlat_dst,nlon_dst = 180,360
 
-# date = '2016-08-01'
-date = '2011-05-20'
+date = '2008-10-01'
 
 var_list = ['Z','T','Q','U','V','TS','PS']
 
