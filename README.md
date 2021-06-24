@@ -3,9 +3,9 @@
 This is a tool for creating [E3SM](https://e3sm.org/) initial condition files from reanalysis with 
 a focus on simplicity and portability.
 
-The tool is used by editing and running:
+The tool is used by editing and running one of the template scripts:
 
-  `create_initial_condition.py`
+  `template_scripts/create_initial_condition_from_obs.py`
 
 --------------------------------------------------------------------------------
 
@@ -126,9 +126,9 @@ atmosphere component.
 ### Generating HICCUP Initial Conditions
 
 After the input data is aquired, HICCUP can be used to generate initial conditions 
-by editing and running the `create_initial_condition.py` script. This script 
-controls the workflow for generating the atmosphere initial condition as well as 
-the SST/sea-ice data file.
+by editing and running the `template_scripts/create_initial_condition_from_obs.py` 
+script. This script controls the workflow for generating the atmosphere initial 
+condition as well as the SST/sea-ice data file.
 
 The HICCUP workflow centers on a "hiccup_data" object that carries the information 
 needed for processing the data as well as class methods for processing the data. 
