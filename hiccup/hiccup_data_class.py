@@ -537,9 +537,9 @@ class hiccup_data(object):
         # Set the map options (do we need the --mono flag?)
         self.map_opts = ''
 
-        if dst_type=='GLL':
+        if src_type=='GLL':
             self.map_opts = self.map_opts+' --in_type cgll --in_np 4 ' 
-        elif dst_type=='FV':
+        elif src_type=='FV':
             self.map_opts = self.map_opts+' --in_type fv --in_np 2 ' 
 
         if dst_type=='GLL':
