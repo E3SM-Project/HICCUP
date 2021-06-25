@@ -825,29 +825,19 @@ class hiccup_data(object):
         # Load topo data for surface adjustment - use same chunking
         ds_topo = xr.open_dataset(self.topo_file,chunks=self.get_chunks())
 
+        # Adjust surface temperature to match new surface height
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-
-            # Adjust surface temperature to match new surface height
-            timer_start_adj = perf_counter()
             hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
-            ds_data.compute()
-            # print_timer(timer_start_adj,caller=' - adjust_surface_temperature')
-
+            ds_data = ds_data.compute()
         ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
+        ds_data.close()
 
+        # Adjust surface pressure to match new surface height
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-
-            # Adjust surface pressure to match new surface height
-            timer_start_adj = perf_counter()
-            hsa.adjust_surface_pressure( ds_data, ds_topo \
-                                        ,pressure_var_name=self.lev_name
-                                        ,lev_coord_name=self.lev_name
-                                        ,verbose=verbose )
-            ds_data.compute()
-            # print_timer(timer_start_adj,caller=' - adjust_surface_pressure')
-
+            hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
+                                        ,lev_coord_name=self.lev_name, verbose=verbose )
+            ds_data = ds_data.compute()
         ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
-
         ds_data.close()
 
         if do_timers: print_timer(timer_start)
