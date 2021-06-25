@@ -12,6 +12,7 @@ import datetime
 # import cftime
 import os, sys, re, shutil
 from time import perf_counter
+from hiccup import hiccup_state_adjustment as hsa
 
 # default output paths
 default_output_dir  = './data/'
