@@ -196,8 +196,7 @@ def get_host_name():
     # NERSC machines
     if 'cori'   in host: host = 'nersc'
     # OLCF machines
-    if 'summit' in host: host = 'olcf'
-    if 'rhea'   in host: host = 'olcf'
+    if 'andes-login' in host: host = 'olcf'
     return host
 # ------------------------------------------------------------------------------
 # Get default topography file name
