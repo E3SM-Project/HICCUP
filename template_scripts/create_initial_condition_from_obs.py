@@ -122,7 +122,7 @@ if create_map_file :
     # hiccup_data.dst_grid_file = '/global/homes/w/whannah/E3SM/data_grid/conusx4v1.g'
 
     # Create mapping file
-    hiccup_data.create_map_file(src_type='GLL')
+    hiccup_data.create_map_file()
 
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap
