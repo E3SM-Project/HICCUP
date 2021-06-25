@@ -562,7 +562,7 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def get_multifile_dict(self,verbose=None):
+    def get_multifile_dict(self,verbose=None,timestamp=None):
         """
         Create dict of temporary file names associated with each variable
         """
@@ -581,7 +581,7 @@ class hiccup_data(object):
 
         # use timestamp to ensure these files are distinct from 
         # other instances of HICCUP that might be running concurrently
-        timestamp = datetime.datetime.utcnow().strftime('%Y%m%d.%H%M%S')
+        if timestamp is None: timestamp = datetime.datetime.utcnow().strftime('%Y%m%d.%H%M%S')
 
         # Horzontally remap atmospher and surface data to individual files
         for key,var in var_dict_all.items() :
@@ -596,6 +596,7 @@ class hiccup_data(object):
                     tmp_file_name += f'.{timestamp}'
                     tmp_file_name += f'.nc'
                     tmp_file_dict.update({key:tmp_file_name})
+                    if verbose: print(f'  {key:10}   {tmp_file_name}')
 
         return tmp_file_dict
     # --------------------------------------------------------------------------
