@@ -32,7 +32,7 @@ import os, cdsapi, datetime
 server = cdsapi.Client()
 
 get_atm = True
-get_sfc = True
+get_sfc = False
 
 # Build a list of year,month,day values
 ndays = 5
@@ -53,10 +53,10 @@ time_list = ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00']
 
 atm_var_dict = {}
 atm_var_dict.update({'Z':'geopotential'})
-atm_var_dict.update({'T':'temperature'})
-atm_var_dict.update({'Q':'specific_humidity'})
-atm_var_dict.update({'U':'u_component_of_wind'})
-atm_var_dict.update({'V':'v_component_of_wind'})
+# atm_var_dict.update({'T':'temperature'})
+# atm_var_dict.update({'Q':'specific_humidity'})
+# atm_var_dict.update({'U':'u_component_of_wind'})
+# atm_var_dict.update({'V':'v_component_of_wind'})
 
 sfc_var_dict = {}
 sfc_var_dict.update({'TS':'skin_temperature'})
@@ -66,7 +66,8 @@ sfc_var_dict.update({'PS':'surface_pressure'})
 # sfc_var_dict.update({'':'snow_depth'})
 
 # output_path = os.getenv('PWD')+'/validation_data/'
-output_path = '/global/cscratch1/sd/whannah/HICCUP/data/'
+# output_path = '/global/cscratch1/sd/whannah/HICCUP/data/' ### NERSC
+output_path = '/gpfs/alpine/scratch/hannah6/cli115/HICCUP/data' ### OLCF
 
 #-------------------------------------------------------------------------------
 # atmossphere pressure level data
@@ -77,7 +78,7 @@ if get_atm:
     if key=='U': lev = ['200','850']
     if key=='V': lev = ['200','850']
     if key=='Q': lev = ['850']
-    output_file = output_path+f'ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+    output_file = f'{output_path}/ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
     server.retrieve('reanalysis-era5-pressure-levels',{
         'product_type'  : 'reanalysis',
         'pressure_level': lev,
@@ -92,7 +93,7 @@ if get_atm:
 # surface data
 if get_sfc:
   for key in sfc_var_dict.keys():
-    output_file = output_path+f'ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+    output_file = f'{output_path}/ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
     server.retrieve('reanalysis-era5-single-levels',{
         'product_type'  : 'reanalysis',
         'time'          : time_list,

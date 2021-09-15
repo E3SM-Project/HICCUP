@@ -16,7 +16,7 @@ import subprocess as sp
 # CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30np4_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
 # CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30pg2_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30pg2_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
 
-hiccup_root = os.getenv('HOME')+'/HICCUP/'
+hiccup_root = os.getenv('HOME')+'/HICCUP'
 
 nlat_src,nlon_src = 721,1440
 # nlat_dst,nlon_dst = 90,180
@@ -24,7 +24,8 @@ nlat_dst,nlon_dst = 180,360
 
 date = '2008-10-01'
 
-var_list = ['Z','T','Q','U','V','TS','PS']
+# var_list = ['Z','T','Q','U','V','TS','PS']
+var_list = ['Z']
 
 alg = '-a tempest'
 
@@ -37,6 +38,14 @@ def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
     dst_grid_file = f'{hiccup_root}/files_grid/scrip_{dst_grid_name}.nc'
 
     map_file = f'{hiccup_root}/files_mapping/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
+
+    print()
+    print(f'  src_grid_file: {src_grid_file}')
+    print(f'  dst_grid_file: {dst_grid_file}')
+    print(f'  map_file     : {map_file}')
+    print()
+    # exit()
+
 
     # --------------------------------------------------------------------------
     if create_map:
@@ -67,7 +76,7 @@ def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
         # cmd += f'-g {dst_grid_file} '
         # run_cmd(cmd)
 
-        dst_grid_file = '/global/homes/w/whannah/E3SM/data_grid/cmip6_180x360_scrip.20181001.nc'
+        dst_grid_file = os.getenv('HOME')+'/E3SM/data_grid/cmip6_180x360_scrip.20181001.nc'
         
         # Need to make sure the 'grid_imask' variable is an integer for TempestRemap
         # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {src_grid_file} {src_grid_file} --ovr')
