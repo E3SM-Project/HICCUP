@@ -1508,7 +1508,7 @@ class hiccup_data(object):
 
         # make sure output file is deleted (overwrite flag not working?)
         if os.path.isfile(output_file_name): 
-            hdc.run_cmd(f'rm {output_file_name}',verbose)
+            run_cmd(f'rm {output_file_name}',verbose)
 
         # remap the SST data onto the target grid for the model
         cmd =  f'ncremap {ncremap_alg} '
