@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #===================================================================================================
-#  Nov, 2017 - Walter Hannah - Lawrence Livermore National Lab
-#  This script prints the tail end of the most recently modified HICCUP output log
+#  This script is for inspecting the input data for HICCUP and check for invalid values
 #===================================================================================================
 import sys, os, glob, errno
 import subprocess as sp
