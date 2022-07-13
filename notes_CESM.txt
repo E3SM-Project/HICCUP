@@ -1,76 +1,101 @@
---------------------------------------------------------------------------------
-### the initial condition files we would like to remap
---------------------------------------------------------------------------------
+Generating initial conditions files for CESM with the FV dycor is a complicated
+by the need to consider the grid staggering. This file contains some useful 
+commands to create a CESM initial condition.
 
-/project/projectdirs/ccsm1/inputdata/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc
-
---------------------------------------------------------------------------------
-### commands for putting PS on staggered grid
---------------------------------------------------------------------------------
-
-### grid file names
-
-/global/homes/w/whannah/HICCUP/files_grid/scrip_192x288.nc     # scalar / unstaggered grid
-/global/homes/w/whannah/HICCUP/files_grid/scrip_191x288_US.nc  # U staggering
-/global/homes/w/whannah/HICCUP/files_grid/scrip_192x288_VS.nc  # V staggering
-
-### generate the grid files
-
-ncremap -G ttl='Equi-Angular grid 192x288'#latlon=192,288#lat_typ=fv#lat_drc=s2n#lon_typ=grn_ctr  -g /global/homes/w/whannah/HICCUP/files_grid/scrip_192x288.nc
-ncremap -G ttl='Equi-Angular grid 191x288'#latlon=191,288#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g /global/homes/w/whannah/HICCUP/files_grid/scrip_191x288_US.nc
-ncremap -G ttl='Equi-Angular grid 191x288'#latlon=192,288#lat_typ=fv#lat_drc=s2n#lon_typ=grn_wst  -g /global/homes/w/whannah/HICCUP/files_grid/scrip_192x288_VS.nc
-
-### generate the mapping files
-
-ncremap --src_grd=/global/homes/w/whannah/HICCUP/files_grid/scrip_192x288.nc --dst_grd=/global/homes/w/whannah/HICCUP/files_grid/scrip_191x288_US.nc -m /global/homes/w/whannah/HICCUP/files_mapping/map_192x288_to_191x288_US.nc
-ncremap --src_grd=/global/homes/w/whannah/HICCUP/files_grid/scrip_192x288.nc --dst_grd=/global/homes/w/whannah/HICCUP/files_grid/scrip_192x288_VS.nc -m /global/homes/w/whannah/HICCUP/files_mapping/map_192x288_to_192x288_VS.nc
-
-### remap the pressure variable
-
-ncremap -v PS -m /global/homes/w/whannah/HICCUP/files_mapping/map_192x288_to_191x288_US.nc -i /project/projectdirs/ccsm1/inputdata/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc -o /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc 
-ncremap -v PS -m /global/homes/w/whannah/HICCUP/files_mapping/map_192x288_to_192x288_VS.nc -i /project/projectdirs/ccsm1/inputdata/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc -o /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc 
-
-### fix coodinates
-
-ncks -C -x -v w_stag,slat,slon /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc  --ovr
-ncks -C -x -v w_stag,slat,slon /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc  --ovr
-
-ncrename -d lat,slat -v lat,slat /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc 
-ncrename -d lon,slon -v lon,slon /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc 
+If anyone feels that upgrading HICCUP to support this situation 
+then we can consider baking this stuff into the workflow 
 
 --------------------------------------------------------------------------------
-### extract variables for normal (scalar) grid
+# First set some environment variables for paths
 --------------------------------------------------------------------------------
 
-ncks -x -v US,VS,w_stag,slat,slon /project/projectdirs/ccsm1/inputdata/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_no-wind.nc
+HICCUP_SCRATCH=/global/cscratch1/sd/whannah/HICCUP/data
+INPUTDATA_ROOT=/project/projectdirs/ccsm1/inputdata
 
 --------------------------------------------------------------------------------
-### extract variables for staggered grid
+# the initial condition files we would like to remap
 --------------------------------------------------------------------------------
 
-ncks -v US /project/projectdirs/ccsm1/inputdata/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_US.nc
-ncks -v VS /project/projectdirs/ccsm1/inputdata/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_VS.nc
+${INPUTDATA_ROOT}/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc
 
 --------------------------------------------------------------------------------
-### rename the un-staggered pressure in the wind file and append staggered version
-### (just removing PS doesnt work)
+# commands for putting PS on staggered grid
 --------------------------------------------------------------------------------
 
-ncrename -v PS,PS_unstaggered /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_US.nc
-ncrename -v PS,PS_unstaggered /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_VS.nc
+# grid file names
 
-ncks -A /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_US.nc 
-ncks -A /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc /global/cscratch1/sd/whannah/HICCUP/data/cami_1987-01-01_0.9x1.25_L26_c060703_VS.nc
+${HOME}/HICCUP/files_grid/scrip_192x288.nc     # scalar / unstaggered grid
+${HOME}/HICCUP/files_grid/scrip_191x288_US.nc  # U staggering
+${HOME}/HICCUP/files_grid/scrip_192x288_VS.nc  # V staggering
+
+# generate the grid files
+
+ncremap -G ttl='Equi-Angular grid 192x288'#latlon=192,288#lat_typ=fv#lat_drc=s2n#lon_typ=grn_ctr  -g ${HOME}/HICCUP/files_grid/scrip_192x288.nc
+
+ncremap -G ttl='Equi-Angular grid 191x288'#latlon=191,288#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g ${HOME}/HICCUP/files_grid/scrip_191x288_US.nc
+
+ncremap -G ttl='Equi-Angular grid 191x288'#latlon=192,288#lat_typ=fv#lat_drc=s2n#lon_typ=grn_wst  -g ${HOME}/HICCUP/files_grid/scrip_192x288_VS.nc
+
+# generate the mapping files
+
+ncremap --src_grd=${HOME}/HICCUP/files_grid/scrip_192x288.nc --dst_grd=${HOME}/HICCUP/files_grid/scrip_191x288_US.nc -m ${HOME}/HICCUP/files_mapping/map_192x288_to_191x288_US.nc
+
+ncremap --src_grd=${HOME}/HICCUP/files_grid/scrip_192x288.nc --dst_grd=${HOME}/HICCUP/files_grid/scrip_192x288_VS.nc -m ${HOME}/HICCUP/files_mapping/map_192x288_to_192x288_VS.nc
+
+# remap the pressure variable
+
+ncremap -v PS -m ${HOME}/HICCUP/files_mapping/map_192x288_to_191x288_US.nc -i ${INPUTDATA_ROOT}/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc -o ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc 
+
+ncremap -v PS -m ${HOME}/HICCUP/files_mapping/map_192x288_to_192x288_VS.nc -i ${INPUTDATA_ROOT}/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc -o ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc 
+
+# fix coodinates
+
+ncks -C -x -v w_stag,slat,slon ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc  --ovr
+
+ncks -C -x -v w_stag,slat,slon ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc  --ovr
+
+ncrename -d lat,slat -v lat,slat ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc
+
+ncrename -d lon,slon -v lon,slon ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc 
 
 --------------------------------------------------------------------------------
-### append the vertically remapped files
+# extract variables for normal (scalar) grid
 --------------------------------------------------------------------------------
 
-VGRID=72; FILE=/global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125;cp ${FILE}_no-wind.nc ${FILE}.nc;ncks -A ${FILE}_VS.nc ${FILE}.nc;ncks -A ${FILE}_US.nc ${FILE}.nc
+ncks -x -v US,VS,w_stag,slat,slon ${INPUTDATA_ROOT}/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_no-wind.nc
 
-VGRID=38; cp /global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125_no-wind.nc /global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125.nc
-VGRID=38; ncks -A /global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125_US.nc /global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125.nc
-VGRID=38; ncks -A /global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125_VS.nc /global/cscratch1/sd/whannah/HICCUP/data/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125.nc
+--------------------------------------------------------------------------------
+# extract variables for staggered grid
+--------------------------------------------------------------------------------
+
+ncks -v US ${INPUTDATA_ROOT}/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_US.nc
+
+ncks -v VS ${INPUTDATA_ROOT}/atm/cam/inic/fv/cami_1987-01-01_0.9x1.25_L26_c060703.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_VS.nc
+
+--------------------------------------------------------------------------------
+# rename the un-staggered pressure in the wind file and append staggered version
+# (just removing PS doesnt work)
+--------------------------------------------------------------------------------
+
+ncrename -v PS,PS_unstaggered ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_US.nc
+
+ncrename -v PS,PS_unstaggered ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_VS.nc
+
+ncks -A ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_US.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_US.nc 
+
+ncks -A ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_PS_VS.nc ${HICCUP_SCRATCH}/cami_1987-01-01_0.9x1.25_L26_c060703_VS.nc
+
+--------------------------------------------------------------------------------
+# append the vertically remapped files
+--------------------------------------------------------------------------------
+
+VGRID=72; FILE=${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125;cp ${FILE}_no-wind.nc ${FILE}.nc;ncks -A ${FILE}_VS.nc ${FILE}.nc;ncks -A ${FILE}_US.nc ${FILE}.nc
+
+VGRID=38; cp ${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125_no-wind.nc ${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125.nc
+
+VGRID=38; ncks -A ${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125_US.nc ${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125.nc
+
+VGRID=38; ncks -A ${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125_VS.nc ${HICCUP_SCRATCH}/HICCUP.cami_1987-01-01_0.9x1.25_L${VGRID}_20210125.nc
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
