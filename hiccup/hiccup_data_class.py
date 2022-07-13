@@ -379,19 +379,15 @@ class hiccup_data(object):
         """
         Return number of elements of target model grid
         """
-        if 'ne' in self.dst_horz_grid:
-            return re.search('ne(.*)np', self.dst_horz_grid).group(1)
-        else:
-            return 0
+        result = re.search('ne(.*)np', self.dst_horz_grid)
+        return result.group(1) if result else 0
     # --------------------------------------------------------------------------
     def get_grid_npg(self):
         """
         Return number of FV physgrid cells (npg) of target model grid
         """
-        if 'pg' in self.dst_horz_grid: 
-            return re.search('pg(.*)', self.dst_horz_grid).group(1)
-        else:
-            return 0
+        result = re.search('pg(.*)', self.dst_horz_grid)
+        return result.group(1) if result else 0
     # --------------------------------------------------------------------------
     def get_chunks(self):
         """
