@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-import xarray as xr
-import numpy as np
-import ngl
-import os
+# ------------------------------------------------------------------------------
+# This scripts will plot the data output from HICCUP as a sanity check (requires PyNGL)
+# ------------------------------------------------------------------------------
+import xarray as xr, numpy as np, ngl, os
 from optparse import OptionParser
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=None):
 
-   if ifile is None: ifile = 'data/HICCUP_TEST.output.atm.nc'
-   if gfile is None: gfile = 'files_grid/scrip_ne30np4.nc'
+   if ifile is None: ifile = '../data/HICCUP_TEST.output.atm.nc'
+   if gfile is None: gfile = '../files_grid/scrip_ne30np4.nc'
 
    # Specify list of variables to plot
    if var_list is None:
@@ -263,7 +263,9 @@ def bin_YbyX (Vy,Vx,bins=[],bin_min=0,bin_max=1,bin_spc=1,wgt=[],keep_time=False
 #---------------------------------------------------------------------------------------------------
 if __name__ == '__main__': 
    # Parse the command line options
-   parser = OptionParser()
+   help_header = 'usage: ./%prog [file] [file] ...\n'
+   help_header += '\nThis scripts will plot the data output from HICCUP as a sanity check (requires PyNGL)'
+   parser = OptionParser(usage=help_header)
    parser.add_option('-i',dest='ifile',default=None,help='input file name')
    parser.add_option('--grid_file',dest='gfile',default=None,help='grid file name')
    parser.add_option('--vars',dest='vars',default=None,help='comma separated list of variables to plot')
