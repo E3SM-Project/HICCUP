@@ -15,8 +15,7 @@ parser.add_option('--vgrid',    dest='vert_grid',default=None,help='Sets the out
 parser.add_option('--init_date',dest='init_date',default=None,help='Sets the initialization date')
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
-# Logical flags for controlling what this script will do
-# Comment out a line or set to False to disable a section
+# Logical flags for controlling what this script will do (comment out to disable)
 verbose = True            # Global verbosity flag
 # unpack_nc_files = True    # unpack data files (convert short to float)
 create_map_file = True    # grid and map file creation
@@ -28,8 +27,9 @@ combine_files   = True    # combine temporary data files and delete
 # create_sst_data = True    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
 
-# opts.vert_grid = 'L50'
-# opts.init_date = '2008-10-01'
+# local path for grid and mapping files (move this a scratch space for large grids)
+hiccup_root = os.getenv('HOME')+'/HICCUP'
+
 
 # Specify output atmosphere horizontal grid
 if opts.horz_grid is not None:
@@ -40,17 +40,10 @@ else:
 # Specify output atmosphere vertical grid
 if opts.vert_grid is not None:
     dst_vert_grid,vert_file_name = opts.vert_grid,None
-    # vert_file_name = os.getenv('HOME')+f'/HICCUP/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
-    if dst_vert_grid=='L72' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_E3SM.nc'
-    if dst_vert_grid=='L50' : vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L50_v2.nc'
-    if dst_vert_grid=='L100': vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L100_v1.nc'
-    if dst_vert_grid=='L120': vert_file_name = os.getenv('HOME')+f'/E3SM/vert_grid_files/L120_v1.nc'
+    if dst_vert_grid=='L72' : vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_L72.nc'
     if vert_file_name is None: raise InputError(f'No vertical grid specified for {dst_vert_grid}')
 else:
     raise InputError('No vertical grid provided!')
-    # dst_vert_grid,vert_file_name = 'L72',os.getenv('HOME')+f'/E3SM/vert_grid_files/L72_E3SM.nc'
-    # dst_vert_grid,vert_file_name = 'L100',os.getenv('HOME')+f'/E3SM/vert_grid_files/L100_v1.nc'
-    # dst_vert_grid,vert_file_name = 'L125',os.getenv('HOME')+f'/HICCUP/files_vert/UP_L125.nc'
 
 # specify date of data
 if opts.init_date is not None:
@@ -119,7 +112,6 @@ if create_map_file :
     # Create grid description files needed for the mapping file
     hiccup_data.create_src_grid_file()
     hiccup_data.create_dst_grid_file()
-    # hiccup_data.dst_grid_file = '/global/homes/w/whannah/E3SM/data_grid/conusx4v1.g'
 
     # Create mapping file
     hiccup_data.create_map_file()

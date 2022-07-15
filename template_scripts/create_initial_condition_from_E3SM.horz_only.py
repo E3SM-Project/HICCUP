@@ -4,7 +4,7 @@
 # This tool automates the creation of atmospheric initial condition files for 
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
-import os, optparse
+import os, optparse, datetime
 from hiccup import hiccup_data_class as hdc
 # ------------------------------------------------------------------------------
 # Parse the command line options
@@ -13,16 +13,18 @@ parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output 
 parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
-# Logical flags for controlling what this script will do
+# Logical flags for controlling what this script will do (comment out to disable)
 create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
-verbose = True            # Global verbosity flag
 # ------------------------------------------------------------------------------
 
+# local path for grid and mapping files (move this a scratch space for large grids)
+hiccup_root = os.getenv('HOME')+'/HICCUP'
+
 # Path for data output
-data_root = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
+data_root = os.getenv('SCRATCH')+'/HICCUP/data' # NERSC
 # data_root = os.getenv('MEMBERWORK')+'/cli115/HICCUP/data/'  # OLCF
 
 # Path for supported E3SM input data
@@ -38,10 +40,11 @@ dst_horz_grid = 'ne16np4'
 dst_vert_grid = 'L72'
 
 # specify input file name
+# cami_file = f'{inputdata_path}/atm/cam/inic/homme/eam_i_mam3_Linoz_ne30np4_L60_c20210917.nc'
 cami_file = f'{inputdata_path}/atm/cam/inic/homme/cami_mam3_Linoz_ne30np4_L72_c160214.nc'
 
 # specify output file
-output_atm_file_name = f'{data_root}HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
+output_atm_file_name = f'{data_root}/HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
 
 # topo file of output grid - replace this with file path if no default is set
 topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
@@ -59,10 +62,10 @@ hiccup_data = hdc.create_hiccup_data(name='EAM'
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid=dst_vert_grid
                                     ,output_dir=data_root
-                                    ,grid_dir=data_root
-                                    ,map_dir=data_root
-                                    ,tmp_dir=data_root
-                                    ,verbose=verbose)
+                                    ,grid_dir=f'{hiccup_root}/files_grid'
+                                    ,map_dir=f'{hiccup_root}/files_map'
+                                    ,tmp_dir=f'{hiccup_root}/files_tmp'
+                                    ,verbose=True)
 
 # Print some informative stuff
 print('\n  Input Files')
@@ -77,35 +80,33 @@ print(f'    output atm file: {output_atm_file_name}')
 
 dst_horz_grid_pg = dst_horz_grid.replace('np4','pg2')
 
-# Get dict of temporary files for each variable
-file_dict_np4 = hiccup_data.get_multifile_dict_eam(dst_horz_grid=dst_horz_grid   ,var_name_dict=hiccup_data.atm_var_name_dict)
-file_dict_pg2 = hiccup_data.get_multifile_dict_eam(dst_horz_grid=dst_horz_grid_pg,var_name_dict=hiccup_data.atm_var_name_dict_pg2)
+# use separate timestamp for temporary files to ensure these files 
+# are distinct from other instances of HICCUP that might be running.
+# The routine to generate the multifile dict will generate it's own
+# timestamp, but it wil use minutes and seconds, which can become a 
+# problem when iteratively debugging a HICCUP script
+tmp_timestamp = datetime.datetime.utcnow().strftime('%Y%m%d')
 
-file_dict_all = {}
-file_dict_all.update(file_dict_np4)
-file_dict_all.update(file_dict_pg2)
+# Get dict of temporary files for each variable
+file_dict_np = hiccup_data.get_multifile_dict_eam(dst_horz_grid=hiccup_data.dst_horz_grid_np,
+                                                  var_name_dict=hiccup_data.atm_var_name_dict_np,
+                                                  timestamp=tmp_timestamp)
+file_dict_pg = hiccup_data.get_multifile_dict_eam(dst_horz_grid=hiccup_data.dst_horz_grid_pg,
+                                                  var_name_dict=hiccup_data.atm_var_name_dict_pg,
+                                                  timestamp=tmp_timestamp)
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 # ------------------------------------------------------------------------------
 if 'create_map_file' not in locals(): create_map_file = False
-# if create_map_file :
+if create_map_file :
 
     # Create grid description files needed for the mapping file
-    # hiccup_data.create_src_grid_file()
-    # hiccup_data.create_dst_grid_file()
-    
-    # hiccup_data.src_grid_file = '/global/homes/w/whannah/E3SM/data_grid/ne30.g'
-    # hiccup_data.dst_grid_file = '/global/homes/w/whannah/E3SM/data_grid/ne16.g'
+    hiccup_data.create_src_grid_file()
+    hiccup_data.create_dst_grid_file()
 
-    # # Create mapping file
-    # hiccup_data.create_map_file()
-
-# ncremap --alg_typ=tempest --src_grd=${HOME}/E3SM/data_grid/ne45.g           --dst_grd=${HOME}/E3SM/data_grid/ne16.g           --map_file=${HOME}/maps/map_ne45np4_to_ne16np4_mono_20220707.nc --wgt_opt=' --in_type cgll --in_np 4 --out_type cgll --out_np 4  --out_double '
-# ncremap --alg_typ=tempest --src_grd=${HOME}/E3SM/data_grid/ne45pg2_scrip.nc --dst_grd=${HOME}/E3SM/data_grid/ne16pg2_scrip.nc --map_file=${HOME}/maps/map_ne45pg2_to_ne16pg2_aave_20220707.nc --wgt_opt=' --in_type fv   --in_np 2 --out_type fv   --out_np 2  --out_double '
-
-map_file_np = os.getenv('HOME')+f'/maps/RRM/map_ne45np4_to_{dst_horz_grid   }_mono_20220707.nc'
-map_file_pg = os.getenv('HOME')+f'/maps/RRM/map_ne45pg2_to_{dst_horz_grid_pg}_aave_20220707.nc'
+    # Create mapping files
+    hiccup_data.create_map_file()
 
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap
@@ -114,16 +115,16 @@ if 'remap_data_horz' not in locals(): remap_data_horz = False
 if remap_data_horz :
 
     # Horizontally regrid np4 data
-    hiccup_data.map_file = map_file_np
-    hiccup_data.remap_horizontal_multifile_eam(file_dict=file_dict_np4)
+    hiccup_data.map_file = hiccup_data.map_file_np
+    hiccup_data.remap_horizontal_multifile_eam(file_dict=file_dict_np)
 
     # Horizontally regrid pg2 data
-    hiccup_data.map_file = map_file_pg 
-    hiccup_data.remap_horizontal_multifile_eam(file_dict=file_dict_pg2)
+    hiccup_data.map_file = hiccup_data.map_file_pg 
+    hiccup_data.remap_horizontal_multifile_eam(file_dict=file_dict_pg)
 
     # Add time/date information
-    hiccup_data.add_time_date_variables_multifile_eam(file_dict=file_dict_np4)
-    hiccup_data.add_time_date_variables_multifile_eam(file_dict=file_dict_pg2)
+    hiccup_data.add_time_date_variables_multifile_eam(file_dict=file_dict_np)
+    hiccup_data.add_time_date_variables_multifile_eam(file_dict=file_dict_pg)
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
@@ -131,14 +132,19 @@ if remap_data_horz :
 if 'do_state_adjust' not in locals(): do_state_adjust = False
 if do_state_adjust :
 
-    # only adjust data on np4 grid
-    hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict_np4)
+    # only need to adjust data on np4 grid
+    hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict_np)
 
 # ------------------------------------------------------------------------------
 # Combine files
 # ------------------------------------------------------------------------------
 if 'combine_files' not in locals(): combine_files = False
 if combine_files :
+
+    # combine file names into a single dict
+    file_dict_all = {}
+    file_dict_all.update(file_dict_np)
+    file_dict_all.update(file_dict_pg)
 
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict_all
