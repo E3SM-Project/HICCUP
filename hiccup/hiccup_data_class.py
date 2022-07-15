@@ -13,12 +13,13 @@ import datetime
 import os, sys, re, shutil
 from time import perf_counter
 from hiccup import hiccup_state_adjustment as hsa
+from hiccup import hiccup_utilities as hu
 
 # default output paths
 default_output_dir  = './data/'
 default_grid_dir    = './files_grid/'
 default_map_dir     = './files_mapping/'
-default_tmp_dir     = './files_tmp/'
+default_tmp_dir     = './files_tmp'
 
 # algorithm flag for ncremap
 ncremap_alg         = ' --alg_typ=tempest '    
@@ -125,81 +126,6 @@ def print_timer_summary():
             print(f'  {msg}')
     return
 # ------------------------------------------------------------------------------
-# Method for checking if required software is installed
-# ------------------------------------------------------------------------------
-def check_dependency(cmd):
-    """ 
-    Check for required system commands 
-    """
-    if shutil.which(cmd) is None : raise OSError(f'{cmd} is not in system path')
-    return
-# ------------------------------------------------------------------------------
-# Methods for parsing and comparing version strings for required software
-# ------------------------------------------------------------------------------
-def suffix_as_tuple(suffix):
-    """
-    """
-    order = ['alpha', 'beta', '']
-    suffix_text = "".join(c for c in suffix if not c.isdigit())
-    suffix_num = "".join(c for c in suffix if c.isdigit())
-    assert(suffix_text in order)
-    return (order.index(suffix_text), int(suffix_num) if suffix_num else -1)
-def parse_version(version='4.9.2-alpha'):
-    """
-    parse a version string into a tuple of values, 
-    plus a suffix described alpha or beta modifiers
-    """
-    version_list = version.split('-')
-    main_version = tuple(int(n) for n in version_list[0].split("."))
-    suffix = version_list[-1] if len(version_list) == 2 else ""
-    return main_version, suffix_as_tuple(suffix)
-def compare_version(version, required_version='4.9.2-alpha'):
-    """
-    use tuple version of parsed version string to
-    return True if version >= required_version 
-    """
-    if version == required_version: return True
-    v0, suffix0 = parse_version(version)
-    v1, suffix1 = parse_version(required_version)
-    return (v0 > v1) or ((v0 == v1) and suffix0 >= suffix1)
-# ------------------------------------------------------------------------------
-# Check version of NCO - and fail if not recent enough
-# ------------------------------------------------------------------------------
-def check_nco_version():
-    """
-    NCO needs to include a vertical interpolation bug fix added in 4.9.2-alpha09
-    This method parses the version string to check if the version is correct.
-    I'm not sure how to handle the "alpha" part of the version string...
-    Note - ncks reports the version information through STDERR instead of STDOUT
-    """
-    msg,err = sp.Popen(['ncks','--version'],stdout=sp.PIPE,stderr=sp.PIPE
-                      ,universal_newlines=True).communicate()
-    # grab the second line of the version string
-    version_str = err.split('\n',1)[1]
-    # grab the characters that come after "version" and remove newline character
-    version_str = version_str.split('version ',1)[1].replace('\n','')
-    min_version = '4.9.2-alpha9'
-    if not compare_version(version_str, required_version='4.9.2-alpha'): 
-        # current version is not valid, so exit
-        err_msg = f'NCO version {version_str} is too old.'
-        err_msg += f'\nHICCUP requires NCO version {min_version} or higher'
-        raise EnvironmentError(err_msg)
-    return
-# ------------------------------------------------------------------------------
-# Get machine/host name
-# ------------------------------------------------------------------------------
-def get_host_name():
-    """
-    Determine machine/host name for setting default paths
-    Using uname might be problematic on compute nodes - need a better method...
-    """
-    host = os.uname()[1]
-    # NERSC machines
-    if 'cori'   in host: host = 'nersc'
-    # OLCF machines
-    if 'andes-login' in host: host = 'olcf'
-    return host
-# ------------------------------------------------------------------------------
 # Get default topography file name
 # ------------------------------------------------------------------------------
 def get_default_topo_file_name(grid,topo_file_root=None):
@@ -208,7 +134,7 @@ def get_default_topo_file_name(grid,topo_file_root=None):
     """
     # Set root directory path if not provided
     if topo_file_root is None:
-        host = get_host_name()
+        host = hu.get_host_name()
         if host=='nersc': topo_file_path = '/global/cfs/projectdirs/e3sm/inputdata'
         # if host=='olcf': topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata'
         if host=='olcf': topo_file_path = '/gpfs/alpine/cli115/world-shared/e3sm/inputdata'
@@ -244,7 +170,7 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
     """
     global hiccup_verbose
     hiccup_verbose = verbose
-    check_nco_version()
+    hu.check_nco_version()
     for subclass in hiccup_data.__subclasses__():
         if subclass.is_name_for(name):
             # Create the object
@@ -320,12 +246,6 @@ class hiccup_data(object):
         if grid_dir=='' or grid_dir==None : grid_dir = default_grid_dir
         if map_dir=='' or map_dir==None : map_dir = default_map_dir
         if tmp_dir=='' or tmp_dir==None : tmp_dir = default_tmp_dir
-
-        # Make sure directory strings are formatted with trailing slash
-        if not output_dir.endswith('/'): output_dir += '/'
-        if not grid_dir.endswith('/'): grid_dir += '/'
-        if not map_dir.endswith('/'): map_dir += '/'
-        if not tmp_dir.endswith('/'): tmp_dir += '/'
 
         self.output_dir = output_dir
         self.grid_dir = grid_dir
@@ -457,7 +377,7 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nUnpacking data files...')
 
-        check_dependency('ncpdq')
+        hu.check_dependency('ncpdq')
 
         for f in [ self.atm_file, self.sfc_file, 
                    self.sst_file, self.ice_file,
@@ -480,9 +400,9 @@ class hiccup_data(object):
             
             # Spectral element grid with physics on GLL nodes
             ne = self.get_dst_grid_ne()
-            self.dst_grid_file = self.grid_dir+f'exodus_ne{ne}.g'
+            self.dst_grid_file = f'{self.grid_dir}/exodus_ne{ne}.g'
             
-            check_dependency('GenerateCSMesh')
+            hu.check_dependency('GenerateCSMesh')
             cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file}'
             cmd += f' >> {tempest_log_file}'
             run_cmd(cmd,verbose,shell=True)
@@ -503,7 +423,7 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating mapping file...')
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         # Check that grid file fields are not empty
         if self.src_grid_file is None : raise ValueError('src_grid_file is not defined!')
@@ -616,7 +536,7 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming variables to match model variable names...')
 
-        check_dependency('ncrename')
+        hu.check_dependency('ncrename')
 
         # Alternate approach - build a single large command to rename all at once
         var_dict_all = self.atm_var_name_dict.copy()
@@ -650,7 +570,7 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming variables to match model variable names...')
 
-        check_dependency('ncrename')
+        hu.check_dependency('ncrename')
 
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
@@ -695,8 +615,8 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nAdding reference pressure (P0)...')
 
-        check_dependency('ncap2')
-        check_dependency('ncatted')
+        hu.check_dependency('ncap2')
+        hu.check_dependency('ncatted')
 
         # Add the variable
         run_cmd(f"ncap2 --hst -A -s 'P0=100000.' {file_name} {file_name}",
@@ -729,8 +649,8 @@ class hiccup_data(object):
         if os.path.isfile(atm_tmp_file_name): run_cmd(f'rm {atm_tmp_file_name} ',verbose)
         if os.path.isfile(sfc_tmp_file_name): run_cmd(f'rm {sfc_tmp_file_name} ',verbose)
 
-        check_dependency('ncremap')
-        check_dependency('ncks')
+        hu.check_dependency('ncremap')
+        hu.check_dependency('ncks')
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
@@ -784,7 +704,7 @@ class hiccup_data(object):
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
         if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
@@ -830,7 +750,7 @@ class hiccup_data(object):
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
         if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         # Horzontally remap atmosphere and surface data to individual files
         for var,tmp_file_name in file_dict.items():
@@ -916,7 +836,7 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nVertically remapping the data...')
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         # Specify temporary file for vertically interpolated output
         # This allows for input and output files to be the same
@@ -1197,7 +1117,7 @@ class hiccup_data(object):
                            'input_file', 'map_file', 'remap_version', 'remap_hostname', 
                            'remap_command', 'remap_script', 'NCO' ]
         
-        check_dependency('ncatted')
+        hu.check_dependency('ncatted')
 
         # Remove the attributes listed in global_att_list
         cmd = 'ncatted -O '
@@ -1220,7 +1140,7 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose: print('\nCombining temporary files into new file...')
 
-        check_dependency('ncks')
+        hu.check_dependency('ncks')
 
         if os.path.isfile(output_file_name): 
             run_cmd(f'rm {output_file_name} ',verbose)
@@ -1412,8 +1332,8 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print(f'\nTime slicing {self.sstice_name} SST and sea ice data...')
 
-        check_dependency('ncatted')
-        check_dependency('ncremap')
+        hu.check_dependency('ncatted')
+        hu.check_dependency('ncremap')
 
         # Define temporary file to hold the time sliced data for regridding
         sstice_tmp_file_name = f'{self.tmp_dir}tmp_sstice_timeslice_data.nc'
@@ -1506,9 +1426,9 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nRenaming SST and sea ice variables...')
 
-        check_dependency('ncrename')
-        check_dependency('ncks')
-        check_dependency('ncatted')
+        hu.check_dependency('ncrename')
+        hu.check_dependency('ncks')
+        hu.check_dependency('ncatted')
 
         # rename variables
         cmd = f'ncrename --hst'
@@ -1742,9 +1662,9 @@ class ERA5(hiccup_data):
         self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
 
         self.src_horz_grid = f'{self.src_nlat}x{self.src_nlon}'
-        self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_horz_grid}.nc'
+        self.src_grid_file = f'{self.grid_dir}/scrip_{self.name}_{self.src_horz_grid}.nc'
 
-        self.map_file = self.map_dir+f'map_{self.src_horz_grid}_to_{self.dst_horz_grid}.nc'
+        self.map_file = f'{self.map_dir}/map_{self.src_horz_grid}_to_{self.dst_horz_grid}.nc'
 
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):
@@ -1758,7 +1678,7 @@ class ERA5(hiccup_data):
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if os.path.isfile(self.src_grid_file): run_cmd(f'rm {self.src_grid_file} ',verbose)
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         cmd  = f'ncremap {ncremap_alg} ' 
         cmd += f' --tmp_dir={self.tmp_dir}'
@@ -1856,14 +1776,14 @@ class EAM(hiccup_data):
         src_ne = self.get_src_grid_ne()
         dst_ne = self.get_dst_grid_ne()
 
-        self.src_grid_file_np = self.grid_dir+f'exodus_ne{src_ne}.g'
-        self.src_grid_file_pg = self.grid_dir+f'scrip_{ self.src_horz_grid_pg}.nc'
+        self.src_grid_file_np = f'{self.grid_dir}/exodus_ne{src_ne}.g'
+        self.src_grid_file_pg = f'{self.grid_dir}/scrip_{ self.src_horz_grid_pg}.nc'
 
-        self.dst_grid_file_np = self.grid_dir+f'exodus_ne{dst_ne}.g'
-        self.dst_grid_file_pg = self.grid_dir+f'scrip_{ self.dst_horz_grid_pg}.nc'
+        self.dst_grid_file_np = f'{self.grid_dir}/exodus_ne{dst_ne}.g'
+        self.dst_grid_file_pg = f'{self.grid_dir}/scrip_{ self.dst_horz_grid_pg}.nc'
 
-        self.map_file_np = self.map_dir+f'map_{self.src_horz_grid_np}_to_{self.dst_horz_grid_np}.nc'
-        self.map_file_pg = self.map_dir+f'map_{self.src_horz_grid_pg}_to_{self.dst_horz_grid_pg}.nc'
+        self.map_file_np = f'{self.map_dir}/map_{self.src_horz_grid_np}_to_{self.dst_horz_grid_np}.nc'
+        self.map_file_pg = f'{self.map_dir}/map_{self.src_horz_grid_pg}_to_{self.dst_horz_grid_pg}.nc'
 
 
         # Atmospheric variables - need separate treatment for np4 and pgN data
@@ -1894,20 +1814,20 @@ class EAM(hiccup_data):
         if self.src_grid_file is not None:
             if os.path.isfile(self.src_grid_file): run_cmd(f'rm {self.src_grid_file} ',verbose)
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         # Spectral element grid
         ne = self.get_src_grid_ne()
         npg = self.get_src_grid_npg()
 
-        check_dependency('GenerateCSMesh')
+        hu.check_dependency('GenerateCSMesh')
         cmd = f'GenerateCSMesh --alt --res {ne} --file {self.src_grid_file_np}'
         cmd += f' >> {tempest_log_file}'
         run_cmd(cmd,verbose,shell=True)
 
         # Next switch to volumetric mesh that matches the physgrid
-        tmp_exodus_file = self.grid_dir+f'/exodus_{self.src_horz_grid_pg}.g'
-        check_dependency('GenerateVolumetricMesh')
+        tmp_exodus_file = f'{self.grid_dir}/exodus_{self.src_horz_grid_pg}.g'
+        hu.check_dependency('GenerateVolumetricMesh')
         cmd = 'GenerateVolumetricMesh'
         cmd += f' --in {self.src_grid_file_np} '
         cmd += f' --out {tmp_exodus_file} '
@@ -1916,8 +1836,8 @@ class EAM(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         # Create pgN scrip file
-        check_dependency('ConvertExodusToSCRIP')
-        scrip_file = self.grid_dir+f'scrip_{self.dst_horz_grid_pg}.nc'
+        hu.check_dependency('ConvertExodusToSCRIP')
+        scrip_file = f'{self.grid_dir}/scrip_{self.dst_horz_grid_pg}.nc'
         cmd = 'ConvertExodusToSCRIP'
         cmd += f' --in {tmp_exodus_file} '
         cmd += f' --out {self.src_grid_file_pg} '
@@ -1948,14 +1868,14 @@ class EAM(hiccup_data):
         npg = self.get_dst_grid_npg()
 
         # First create exodus file
-        check_dependency('GenerateCSMesh')
+        hu.check_dependency('GenerateCSMesh')
         cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file_np}'
         cmd += f' >> {tempest_log_file}'
         run_cmd(cmd,verbose,shell=True)
         
         # Next switch to volumetric mesh that matches the physgrid
-        tmp_exodus_file = self.grid_dir+f'/exodus_{self.dst_horz_grid_pg}.g'
-        check_dependency('GenerateVolumetricMesh')
+        tmp_exodus_file = f'{self.grid_dir}/exodus_{self.dst_horz_grid_pg}.g'
+        hu.check_dependency('GenerateVolumetricMesh')
         cmd = 'GenerateVolumetricMesh'
         cmd += f' --in {self.dst_grid_file_np} '
         cmd += f' --out {tmp_exodus_file} '
@@ -1964,7 +1884,7 @@ class EAM(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         # Create scrip file while we're at it (can be slow)
-        check_dependency('ConvertExodusToSCRIP')
+        hu.check_dependency('ConvertExodusToSCRIP')
         cmd = 'ConvertExodusToSCRIP'
         cmd += f' --in {tmp_exodus_file} '
         cmd += f' --out {self.dst_grid_file_pg} '
@@ -1990,7 +1910,7 @@ class EAM(hiccup_data):
         if verbose is None : verbose = hiccup_verbose
         if verbose : print('\nGenerating mapping files (np+pg)...')
 
-        check_dependency('ncremap')
+        hu.check_dependency('ncremap')
 
         dst_ne = self.get_dst_grid_ne()
         src_ne = self.get_src_grid_ne()
@@ -2035,6 +1955,5 @@ class EAM(hiccup_data):
 
         return
     # --------------------------------------------------------------------------
-    
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
