@@ -55,9 +55,6 @@ hiccup_data = hdc.create_hiccup_data(name='EAM'
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid=dst_vert_grid
                                     ,output_dir=data_root
-                                    ,grid_dir=f'{hiccup_root}/files_grid'
-                                    ,map_dir=f'{hiccup_root}/files_map'
-                                    ,tmp_dir=f'{hiccup_root}/files_tmp'
                                     ,verbose=True)
 
 # Print some informative stuff
