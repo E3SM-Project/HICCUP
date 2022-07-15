@@ -301,7 +301,7 @@ class hiccup_data(object):
         self.src_nlon = -1
         self.dst_horz_grid = dst_horz_grid
         self.dst_vert_grid = dst_vert_grid
-        self.src_grid_name = ''
+        self.src_horz_grid = ''
         self.src_grid_file = None
         self.dst_grid_file = None
         self.map_file = None
@@ -375,19 +375,43 @@ class hiccup_data(object):
 
         return str_out
     # --------------------------------------------------------------------------
-    def get_grid_ne(self):
+    def get_src_grid_ne(self):
+        """
+        Return number of elements of source grid (if starting from model data)
+        """
+        if hasattr(self, 'src_horz_grid_np'):
+            result = re.search('ne(.*)np', self.src_horz_grid_np)
+            return result.group(1) if result else 0
+        else:
+            raise AttributeError('src_horz_grid_np not found in HICCUP object')
+    # --------------------------------------------------------------------------
+    def get_src_grid_npg(self):
+        """
+        Return number of FV physgrid cells (npg) of source grid (if starting from model data)
+        """
+        if hasattr(self, 'src_horz_grid_pg'):
+            result = re.search('pg(.*)', self.src_horz_grid_pg)
+            return result.group(1) if result else 0
+        else:
+            raise AttributeError('src_horz_grid_pg not found!')
+    # --------------------------------------------------------------------------
+    def get_dst_grid_ne(self):
         """
         Return number of elements of target model grid
         """
         result = re.search('ne(.*)np', self.dst_horz_grid)
         return result.group(1) if result else 0
     # --------------------------------------------------------------------------
-    def get_grid_npg(self):
+    def get_dst_grid_npg(self):
         """
         Return number of FV physgrid cells (npg) of target model grid
         """
-        result = re.search('pg(.*)', self.dst_horz_grid)
-        return result.group(1) if result else 0
+        if hasattr(self, 'dst_horz_grid_pg'):
+            result = re.search('pg(.*)', self.dst_horz_grid_pg)
+            return result.group(1) if result else 0
+        else:
+            result = re.search('pg(.*)', self.dst_horz_grid)
+            return result.group(1) if result else 0
     # --------------------------------------------------------------------------
     def get_chunks(self):
         """
@@ -396,7 +420,7 @@ class hiccup_data(object):
         # By default we do not want to use chunk, but for very fine grids
         # it is useful to load into a dask array by setting the chunk size
         chunks = None
-        ne,npg = int(self.get_grid_ne()),int(self.get_grid_npg())
+        ne,npg = int(self.get_dst_grid_ne()),int(self.get_dst_grid_npg())
         # divide total physics column count by 2 for large grids
         if ne>120 and npg==0: chunks = {'ncol':int((ne*ne*54+2)/2)} 
         if ne>120 and npg>0 : chunks = {'ncol':int((ne*ne*6*npg)/2)} 
@@ -445,7 +469,8 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=None):
         """ 
-        Generate destination model grid file 
+        Generate destination model grid file. Normally, we only care about 
+        mapping to the GLL/np4 grid, unless the source data is an EAM file
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
@@ -454,7 +479,7 @@ class hiccup_data(object):
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
             # Spectral element grid with physics on GLL nodes
-            ne = self.get_grid_ne()
+            ne = self.get_dst_grid_ne()
             self.dst_grid_file = self.grid_dir+f'exodus_ne{ne}.g'
             
             check_dependency('GenerateCSMesh')
@@ -462,47 +487,17 @@ class hiccup_data(object):
             cmd += f' >> {tempest_log_file}'
             run_cmd(cmd,verbose,shell=True)
 
-        elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid : 
-            
-            # Spectral element grid with FV physics grid (ex. ne30pg2)
-            ne  = self.get_grid_ne()
-            npg = self.get_grid_npg()
-            exodus_file = self.grid_dir+f'exodus_ne{ne}.g'
-
-            # First create exodus file
-            check_dependency('GenerateCSMesh')
-            cmd = f'GenerateCSMesh --alt --res {ne} --file {exodus_file}'
-            cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose,shell=True)
-            
-            # Next switch to volumetric mesh that matches the physgrid
-            self.dst_grid_file = self.grid_dir+f'exodus_{self.dst_horz_grid}.nc'
-            check_dependency('GenerateVolumetricMesh')
-            cmd = 'GenerateVolumetricMesh'
-            cmd += f' --in {exodus_file} '
-            cmd += f' --out {self.dst_grid_file} '
-            cmd += f' --np {npg} --uniform'
-            cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose,shell=True)
-
-            # # Create scrip file while we're at it (can be slow)
-            check_dependency('ConvertExodusToSCRIP')
-            scrip_file = self.grid_dir+f'scrip_{self.dst_horz_grid}.nc'
-            cmd = 'ConvertExodusToSCRIP'
-            cmd += f' --in {self.dst_grid_file} '
-            cmd += f' --out {scrip_file} '
-            cmd += f' >> {tempest_log_file}'
-            run_cmd(cmd,verbose,shell=True)
-
         else:
-            raise ValueError(f'grid_name={self.dst_horz_grid} is not currently supported')
+            raise ValueError(f'dst_horz_grid={self.dst_horz_grid} is not currently supported')
 
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
     def create_map_file(self,verbose=None,src_type=None,dst_type=None):
         """ 
-        Generate mapping file after grid files have been created 
+        Generate mapping file after grid files have been created.
+        This routine assumes that the destination is always GLL/np4.
+        For mapping EAM to EAM data this method is overloaded below. 
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
@@ -511,40 +506,19 @@ class hiccup_data(object):
         check_dependency('ncremap')
 
         # Check that grid file fields are not empty
-        if self.src_grid_file == None : 
-            raise ValueError('src_grid_file is not defined for hiccup_data object')
-        if self.dst_grid_file == None : 
-            raise ValueError('dst_grid_file is not defined for hiccup_data object')
+        if self.src_grid_file is None : raise ValueError('src_grid_file is not defined!')
+        if self.dst_grid_file is None : raise ValueError('dst_grid_file is not defined!')
 
-
-        # assume input is FV
-        if src_type is None: src_type = 'FV'
-
-        # speciic special options depending on target atmos grid
-        ne = self.get_grid_ne()
-        if dst_type is None:
-            if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
-                dst_type = 'GLL'
-            elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
-                dst_type = 'FV'
-            else:
-                raise ValueError(f'dst_horz_grid={self.dst_horz_grid} does not seem to be valid')
+        if src_type is None: src_type = 'FV' # assume input is FV
+        if dst_type is None: dst_type = 'GLL' # assume dst grid is GLL/np4
+        
+        ne = self.get_dst_grid_ne()
 
         # Set the map options (do we need the --mono flag?)
         self.map_opts = ''
-
-        if src_type=='GLL':
-            self.map_opts = self.map_opts+' --in_type cgll --in_np 4 ' 
-        elif src_type=='FV':
-            self.map_opts = self.map_opts+' --in_type fv --in_np 2 ' 
-
-        if dst_type=='GLL':
-            self.map_opts = self.map_opts+' --out_type cgll --out_np 4 '
-        elif dst_type=='FV':
-            self.map_opts = self.map_opts+' --out_type fv --out_np 2 --volumetric '
-        
+        self.map_opts = self.map_opts+' --in_type cgll --in_np 4 ' 
+        self.map_opts = self.map_opts+' --out_type cgll --out_np 4 '
         self.map_opts = self.map_opts+' --out_double '
-            
         
         # Create the map file
         cmd = f'ncremap {ncremap_alg} '
@@ -553,7 +527,8 @@ class hiccup_data(object):
         cmd += f' --map_file={self.map_file}'
         cmd += f' --wgt_opt=\'{self.map_opts}\' '
         # Add special flag for "very fine" grids
-        if int(ne)>100 : cmd += ' --lrg2sml '
+        # (this assumes that source data has ~0.5 degree spacing like ERA5)
+        if int(ne)>100 : cmd += ' --lrg2sml ' 
         run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
@@ -622,7 +597,7 @@ class hiccup_data(object):
         # Horzontally remap atmospher and surface data to individual files
         for key,var in var_name_dict.items() :
             # if var not in [lat_var,lon_var]:
-            tmp_file_name = f'{self.tmp_dir}tmp_data'
+            tmp_file_name = f'{self.tmp_dir}/tmp_data'
             tmp_file_name += f'.{dst_horz_grid}'
             tmp_file_name += f'.{self.dst_vert_grid}'
             tmp_file_name += f'.{key}'
@@ -1766,10 +1741,10 @@ class ERA5(hiccup_data):
         self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
 
-        self.src_grid_name = f'{self.src_nlat}x{self.src_nlon}'
-        self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
+        self.src_horz_grid = f'{self.src_nlat}x{self.src_nlon}'
+        self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_horz_grid}.nc'
 
-        self.map_file = self.map_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
+        self.map_file = self.map_dir+f'map_{self.src_horz_grid}_to_{self.dst_horz_grid}.nc'
 
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):
@@ -1787,7 +1762,7 @@ class ERA5(hiccup_data):
 
         cmd  = f'ncremap {ncremap_alg} ' 
         cmd += f' --tmp_dir={self.tmp_dir}'
-        cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
+        cmd += f' -G ttl=\'Equi-Angular grid {self.src_horz_grid}\'' 
         cmd += f'#latlon={self.src_nlat},{self.src_nlon}'                    
         cmd +=  '#lat_typ=uni'
         cmd +=  '#lat_drc=n2s'
@@ -1856,32 +1831,55 @@ class EAM(hiccup_data):
         self.lev_name = 'lev'
         self.new_lev_name = 'plev'
 
-        # Atmospheric variables - only consider data on np4 grid
-        self.atm_var_name_dict_pg2 = {}
+        self.npg = 2
+
+        self.dst_horz_grid_np = self.dst_horz_grid
+        self.dst_horz_grid_pg = self.dst_horz_grid.replace('np4',f'pg{self.npg}')
+
+        # Determine source grid from input atmosphere file
+        ds = xr.open_dataset(atm_file)
+        if 'ne' in ds.attrs:
+            ne = ds.attrs['ne']
+        elif 'ncol' in ds.sizes:
+            # use ncol formula to solve for # elements (ne): ncol_dyn = ne^2*6*9+2
+            ne = int( np.sqrt( (ds.sizes['ncol']-2)/(6*9) ) )
+        else:
+            raise KeyError(f'Cannot determine source grid from atm_file: {atm_file}')
+
+        self.src_horz_grid     = f'ne{ne}np4'
+        self.src_horz_grid_np = f'ne{ne}np4'
+        self.src_horz_grid_pg = f'ne{ne}pg{self.npg}'
+
+        ncol_size_np = np.square(ne)*6*9+2
+        ncol_size_pg = np.square(ne)*6*np.square(self.npg)
+
+        src_ne = self.get_src_grid_ne()
+        dst_ne = self.get_dst_grid_ne()
+
+        self.src_grid_file_np = self.grid_dir+f'exodus_ne{src_ne}.g'
+        self.src_grid_file_pg = self.grid_dir+f'scrip_{ self.src_horz_grid_pg}.nc'
+
+        self.dst_grid_file_np = self.grid_dir+f'exodus_ne{dst_ne}.g'
+        self.dst_grid_file_pg = self.grid_dir+f'scrip_{ self.dst_horz_grid_pg}.nc'
+
+        self.map_file_np = self.map_dir+f'map_{self.src_horz_grid_np}_to_{self.dst_horz_grid_np}.nc'
+        self.map_file_pg = self.map_dir+f'map_{self.src_horz_grid_pg}_to_{self.dst_horz_grid_pg}.nc'
+
+
+        # Atmospheric variables - need separate treatment for np4 and pgN data
+        self.atm_var_name_dict_np = {}
+        self.atm_var_name_dict_pg = {}
         ds = xr.open_dataset(self.atm_file)
         for key in ds.variables.keys(): 
             if key in ['lat','lon','lat_d','lon_d']:
                 continue
             if 'ncol_d' in ds[key].dims: 
-                self.atm_var_name_dict.update({key:key})
-            if 'ncol' in ds[key].dims: 
-                self.atm_var_name_dict_pg2.update({key:key})
-            # if 'ncol_d' in ds[key].dims: 
-            #     # print(f'  {key:20}  {ds[key].dims}')
-            #     if key=='lat_d':
-            #         self.atm_var_name_dict.update({'lat':'lat_d'})
-            #     elif key=='lon_d':
-            #         self.atm_var_name_dict.update({'lon':'lon_d'})
-            #     else:    
-            #         self.atm_var_name_dict.update({key:key})
-
-        # self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
-        # self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
-
-        # self.src_grid_name = f'{self.src_nlat}x{self.src_nlon}'
-        # self.src_grid_file = self.grid_dir+f'scrip_{self.name}_{self.src_grid_name}.nc'
-
-        # self.map_file = self.map_dir+f'map_{self.src_grid_name}_to_{self.dst_horz_grid}.nc'
+                self.atm_var_name_dict_np.update({key:key})
+            if 'ncol' in ds[key].dims:
+                if ds.sizes['ncol']==ncol_size_np:
+                    self.atm_var_name_dict_np.update({key:key})
+                if ds.sizes['ncol']==ncol_size_pg:
+                    self.atm_var_name_dict_pg.update({key:key})
 
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):
@@ -1890,7 +1888,7 @@ class EAM(hiccup_data):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating src grid file...')
+        if verbose : print('\nGenerating src grid files (np+pg)...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if self.src_grid_file is not None:
@@ -1898,30 +1896,135 @@ class EAM(hiccup_data):
 
         check_dependency('ncremap')
 
-        exit('create_src_grid_file() Not currently supported for EAM')
-
         # Spectral element grid
-        ne = self.get_grid_ne()
-        self.src_grid_file = self.grid_dir+f'exodus_ne{ne}.g'
+        ne = self.get_src_grid_ne()
+        npg = self.get_src_grid_npg()
 
         check_dependency('GenerateCSMesh')
-        cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file}'
+        cmd = f'GenerateCSMesh --alt --res {ne} --file {self.src_grid_file_np}'
         cmd += f' >> {tempest_log_file}'
         run_cmd(cmd,verbose,shell=True)
 
+        # Next switch to volumetric mesh that matches the physgrid
+        tmp_exodus_file = self.grid_dir+f'/exodus_{self.src_horz_grid_pg}.g'
+        check_dependency('GenerateVolumetricMesh')
+        cmd = 'GenerateVolumetricMesh'
+        cmd += f' --in {self.src_grid_file_np} '
+        cmd += f' --out {tmp_exodus_file} '
+        cmd += f' --np {npg} --uniform'
+        cmd += f' >> {tempest_log_file}'
+        run_cmd(cmd,verbose,shell=True)
 
-        # cmd  = f'ncremap {ncremap_alg} ' 
-        # cmd += f' --tmp_dir={self.tmp_dir}'
-        # cmd += f' -G ttl=\'Equi-Angular grid {self.src_grid_name}\'' 
-        # cmd += f'#latlon={self.src_nlat},{self.src_nlon}'                    
-        # cmd +=  '#lat_typ=uni'
-        # cmd +=  '#lat_drc=n2s'
-        # cmd +=  '#lon_typ=grn_ctr '
-        # cmd += f' -g {self.src_grid_file} '
-        # run_cmd(cmd,verbose,shell=True)
+        # Create pgN scrip file
+        check_dependency('ConvertExodusToSCRIP')
+        scrip_file = self.grid_dir+f'scrip_{self.dst_horz_grid_pg}.nc'
+        cmd = 'ConvertExodusToSCRIP'
+        cmd += f' --in {tmp_exodus_file} '
+        cmd += f' --out {self.src_grid_file_pg} '
+        cmd += f' >> {tempest_log_file}'
+        run_cmd(cmd,verbose,shell=True)
+
+        # fix grid_imask type
+        run_cmd(f'ncap2 --overwrite -s \'grid_imask=int(grid_imask)\' '
+                +f'{self.src_grid_file_pg} {self.src_grid_file_pg}',verbose,shell=True)
+
+        # delete temporary exodus file
+        run_cmd(f'rm {tmp_exodus_file} ',verbose)
 
         if do_timers: print_timer(timer_start)
         return 
+    # --------------------------------------------------------------------------
+    def create_dst_grid_file(self,verbose=None):
+        """ 
+        Generate destination model grid file. For the case where EAM data 
+        is the source we need both np4 and pgN grids
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nGenerating dst grid files (np+pg)...')
+        
+        # Spectral element grid with physics on GLL nodes
+        ne  = self.get_dst_grid_ne()
+        npg = self.get_dst_grid_npg()
+
+        # First create exodus file
+        check_dependency('GenerateCSMesh')
+        cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file_np}'
+        cmd += f' >> {tempest_log_file}'
+        run_cmd(cmd,verbose,shell=True)
+        
+        # Next switch to volumetric mesh that matches the physgrid
+        tmp_exodus_file = self.grid_dir+f'/exodus_{self.dst_horz_grid_pg}.g'
+        check_dependency('GenerateVolumetricMesh')
+        cmd = 'GenerateVolumetricMesh'
+        cmd += f' --in {self.dst_grid_file_np} '
+        cmd += f' --out {tmp_exodus_file} '
+        cmd += f' --np {npg} --uniform'
+        cmd += f' >> {tempest_log_file}'
+        run_cmd(cmd,verbose,shell=True)
+
+        # Create scrip file while we're at it (can be slow)
+        check_dependency('ConvertExodusToSCRIP')
+        cmd = 'ConvertExodusToSCRIP'
+        cmd += f' --in {tmp_exodus_file} '
+        cmd += f' --out {self.dst_grid_file_pg} '
+        cmd += f' >> {tempest_log_file}'
+        run_cmd(cmd,verbose,shell=True)
+
+        # fix grid_imask type
+        run_cmd('ncap2 --overwrite -s \'grid_imask=int(grid_imask)\' '
+                +f'{self.dst_grid_file_pg} {self.dst_grid_file_pg}',verbose,shell=True)
+
+        # delete temporary exodus file
+        run_cmd(f'rm {tmp_exodus_file} ',verbose)
+
+        if do_timers: print_timer(timer_start)
+        return 
+    # --------------------------------------------------------------------------
+    def create_map_file(self,verbose=None):
+        """ 
+        Generate mapping files for EAM after grid files have been created 
+        (overloads default routine that assumes only one map file is needed)
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print('\nGenerating mapping files (np+pg)...')
+
+        check_dependency('ncremap')
+
+        dst_ne = self.get_dst_grid_ne()
+        src_ne = self.get_src_grid_ne()
+
+        # Check that grid file fields are not empty
+        if self.src_grid_file_np is None : raise ValueError('src_grid_file_np is not defined!')
+        if self.src_grid_file_pg is None : raise ValueError('src_grid_file_pg is not defined!')
+        if self.dst_grid_file_np is None : raise ValueError('dst_grid_file_np is not defined!')
+        if self.dst_grid_file_pg is None : raise ValueError('dst_grid_file_pg is not defined!')
+
+        # Set the map options
+        self.map_opts_np = '  --out_double  --in_type cgll --in_np 4  --out_type cgll --out_np 4 '
+        self.map_opts_pg = '  --out_double  --in_type fv --in_np 2  --out_type fv --out_np 2 --volumetric '
+
+        # Create the np4 map file
+        cmd = f'ncremap {ncremap_alg} '
+        cmd += f' --src_grd={self.src_grid_file_np}'
+        cmd += f' --dst_grd={self.dst_grid_file_np}'
+        cmd += f' --map_file={self.map_file_np}'
+        cmd += f' --wgt_opt=\'{self.map_opts_np}\' '
+        if dst_ne>src_ne : cmd += ' --lrg2sml '
+        run_cmd(cmd,verbose,shell=True)
+
+        # Create the pgN map file
+        cmd = f'ncremap {ncremap_alg} '
+        cmd += f' --src_grd={self.src_grid_file_pg}'
+        cmd += f' --dst_grd={self.dst_grid_file_pg}'
+        cmd += f' --map_file={self.map_file_pg}'
+        cmd += f' --wgt_opt=\'{self.map_opts_pg}\' '
+        if dst_ne>src_ne : cmd += ' --lrg2sml '
+        run_cmd(cmd,verbose,shell=True)
+
+        if do_timers: print_timer(timer_start)
+        return
     # --------------------------------------------------------------------------
     def rename_vars_special(self,ds,verbose=None,do_timers=do_timers
                            ,new_lev_name=None,change_pressure_name=True
