@@ -14,7 +14,7 @@ parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output 
 (opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
-# create_map_file = True    # grid and map file creation
+create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
 remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
