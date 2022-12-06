@@ -61,20 +61,6 @@ def check_nco_version():
         err_msg += f'\nHICCUP requires NCO version {min_version} or higher'
         raise EnvironmentError(err_msg)
     return
-# ------------------------------------------------------------------------------
-# Get machine/host name
-# ------------------------------------------------------------------------------
-def get_host_name():
-    """
-    Determine machine/host name for setting default paths
-    Using uname might be problematic on compute nodes - need a better method...
-    """
-    host = os.uname()[1]
-    # NERSC machines
-    if 'cori'   in host: host = 'nersc'
-    # OLCF machines
-    if 'andes-login' in host: host = 'olcf'
-    return host
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
