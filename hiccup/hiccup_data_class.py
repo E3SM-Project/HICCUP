@@ -132,27 +132,29 @@ def get_default_topo_file_name(grid,topo_file_root=None):
     """
     return default topo file associated with input grid name
     """
+    root_err_msg = 'No default for topo_file_root! Topo file root must be manually specified.'
+    file_err_msg = 'No default for topo_file_name! Topo file path must be manually specified.'
+
     # Set root directory path if not provided
     if topo_file_root is None:
-        host = hu.get_host_name()
-        if host=='nersc': topo_file_path = '/global/cfs/projectdirs/e3sm/inputdata'
-        # if host=='olcf': topo_file_path = '/gpfs/alpine/world-shared/csc190/e3sm/cesm/inputdata'
-        if host=='olcf': topo_file_path = '/gpfs/alpine/cli115/world-shared/e3sm/inputdata'
-        topo_file_path = f'{topo_file_path}/atm/cam/topo'
+        nersc_inputdata_path = '/global/cfs/projectdirs/e3sm/inputdata'
+        olcf_inputdata_path  = '/gpfs/alpine/cli115/world-shared/e3sm/inputdata'
+        if os.path.exists(nersc_inputdata_path): topo_file_root = f'{nersc_inputdata_path}/atm/cam/topo'
+        if os.path.exists(olcf_inputdata_path) : topo_file_root = f'{ olcf_inputdata_path}/atm/cam/topo'
+        if topo_file_root is None: raise ValueError(root_err_msg)
     
     # Set default topo file
     topo_file_name = None
-    if grid=='ne1024np4': topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
-    if grid=='ne256np4' : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
-    if grid=='ne120np4' : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
-    if grid=='ne45np4'  : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne45np4pg2_16xdel2.c20200615.nc'
-    if grid=='ne30np4'  : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
-    if grid=='ne16np4'  : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne16np4pg2_16xdel2_20200527.nc'
-    if grid=='ne11np4'  : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne11np4_16xconsistentSGH.c20160612.nc'
-    if grid=='ne4np4'   : topo_file_name = f'{topo_file_path}/USGS-gtopo30_ne4pg2_16xdel2-PFC-consistentSGH.c20190618.nc'
+    if grid=='ne1024np4': topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+    if grid=='ne256np4' : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
+    if grid=='ne120np4' : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+    if grid=='ne45np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne45np4pg2_16xdel2.c20200615.nc'
+    if grid=='ne30np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
+    if grid=='ne16np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne16np4pg2_16xdel2_20200527.nc'
+    if grid=='ne11np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne11np4_16xconsistentSGH.c20160612.nc'
+    if grid=='ne4np4'   : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne4pg2_16xdel2-PFC-consistentSGH.c20190618.nc'
     
-    if topo_file_name is None:
-        raise ValueError('No default topo file found! Topo file path must be manually specified.')
+    if topo_file_name is None: raise ValueError(file_err_msg)
     return topo_file_name
 # ------------------------------------------------------------------------------
 # Method for returning class object
