@@ -231,25 +231,9 @@ coarse 2 degree grid in order to simplify the calculation of global metrics.
 
 --------------------------------------------------------------------------------
 
-### Data for Testing and Development
+### Testing
 
-a low-resolution version of ERA5 pressure level data is included in this repo:
-  
-  `HICCUP_TEST.ERA5.atm.low-res.nc`
-  
-  `HICCUP_TEST.ERA5.sfc.low-res.nc`
-
-To aquire new test data, use the get_ERA5_data.py script, follwed by unpacking 
-the data with the following command:
-  ```
-  ncpdq -U HICCUP_TEST.ERA5.atm.nc HICCUP_TEST.ERA5.atm.upack.nc
-  ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
-  ```
-followed by running (check to make sure file names match):
-  
-  `remap.test_data.ERA5.py`
-  
-which is a simple script for reducing the resolution of the test data
+For simple testing of HICCUP functionality the repo includes low-resolution test data from ERA5 and NOAA in the `test_data` folder. These files are used by the `test_scripts/test_*` to exercise the typical HICCUP workflow for generating model input data from observation data and reanalysis. There are also remapping scripts that can be used to regenerate the low-res test data. A unit test script `unit_test_state_adjustment.py` is also provided to directly test the surface adjustment routines, and hopefully more unit tests will be added in the future. 
 
 --------------------------------------------------------------------------------
 
@@ -257,11 +241,12 @@ which is a simple script for reducing the resolution of the test data
 
 Current plans for HICCUP enhancments and fixes:
 
+- **Support transient SST data** - Currently the SST data that HICCUP produces will be "static" in the simulation. The workflow for SST/ice data needs to change in order to produce a time-varying data to allow longer hindcast without static surface conditions.
 - **Detect whether input files are packed** - The ERA5 data from CDS come "packed" and the NCO unpacking command takes quite a while, even for small files that are already unpacked. The current workflow requires the user to know the state of the input files, so a method for automatically checking whether unpacking needs to be done would be very helpful. This would simplify the workflow a bit because we could delete the flag and line for this unpacking step and just have it done when the hiccup_data object is created.
 - **Add run scripts for hindcasts and land spin up** - I have a script for this, but it's very specific to a certain machine. A more general and simplified script for this would be helpful. 
 - **Validation data framework?** - Currently there are few scripts for obtaining ERA5 validation data, but I think this could be improved and maybe add a whole separate workflow.
 - **Fix support for using ERA5 SST and sea-ice**
-- **Add support for CFSR / GFS / MERRA**
+- **Add support for CFSR / GFS / MERRA / JRA55**
 
 
 --------------------------------------------------------------------------------
