@@ -159,7 +159,8 @@ def get_default_topo_file_name(grid,topo_file_root=None):
 # ------------------------------------------------------------------------------
 # Method for returning class object
 # ------------------------------------------------------------------------------
-def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
+def create_hiccup_data(name,dst_horz_grid=None,dst_vert_grid=None,
+                       atm_file=None,sfc_file=None,
                        output_dir=default_output_dir,grid_dir=default_grid_dir,
                        map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                        sstice_combined_file=None,sstice_name=None,
@@ -196,9 +197,9 @@ def create_hiccup_data(name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
             if check_input_files: obj.check_file_vars()
 
             # Create the output, grid, and map folders if they do not exist
-            if not os.path.exists(output_dir) : os.makedirs(output_dir)
-            if not os.path.exists(grid_dir)   : os.makedirs(grid_dir)
-            if not os.path.exists(map_dir)    : os.makedirs(map_dir)
+            for d in [output_dir,grid_dir,map_dir]:
+                if d is not None: 
+                    if not os.path.exists(d): os.makedirs(d)
 
             global timer_start_total
             timer_start_total = perf_counter()
@@ -273,8 +274,8 @@ class hiccup_data(object):
                     raise ValueError(f'input file does not exist: {file_name}')
 
         # Load input files into xarray datasets
-        self.ds_atm = xr.open_dataset(self.atm_file)
-        self.ds_sfc = xr.open_dataset(self.sfc_file)
+        if self.atm_file is not None: self.ds_atm = xr.open_dataset(self.atm_file)
+        if self.sfc_file is not None: self.ds_sfc = xr.open_dataset(self.sfc_file)
     # --------------------------------------------------------------------------
     def __str__(self):
         indent = '    '
@@ -650,8 +651,8 @@ class hiccup_data(object):
         if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
         # Define temporary files that will be deleted at the end
-        atm_tmp_file_name = f'{self.tmp_dir}tmp_atm_data.nc'
-        sfc_tmp_file_name = f'{self.tmp_dir}tmp_sfc_data.nc'
+        atm_tmp_file_name = f'{self.tmp_dir}/tmp_atm_data.nc'
+        sfc_tmp_file_name = f'{self.tmp_dir}/tmp_sfc_data.nc'
 
         # Remove temporary files if they exist
         if os.path.isfile(atm_tmp_file_name): run_cmd(f'rm {atm_tmp_file_name} ',verbose)
@@ -1217,7 +1218,7 @@ class hiccup_data(object):
         src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
 
         # Define the source grid file to be created
-        self.sstice_src_grid_file = f'{self.grid_dir}scrip_{src_grid}.nc'
+        self.sstice_src_grid_file = f'{self.grid_dir}/scrip_{src_grid}.nc'
 
         # Create the source grid file
         if force_overwrite or not os.path.isfile(self.sstice_src_grid_file) :
@@ -1274,7 +1275,7 @@ class hiccup_data(object):
 
         # Define the destination grid file to be created
         # (add 's2n' in case input data is same grid with opposite orientation)
-        self.sstice_dst_grid_file = f'{self.grid_dir}scrip_{dst_grid}_s2n.nc'
+        self.sstice_dst_grid_file = f'{self.grid_dir}/scrip_{dst_grid}_s2n.nc'
 
         # Create the destination grid file
         if force_overwrite or not os.path.isfile(self.sstice_dst_grid_file) :
@@ -1301,7 +1302,7 @@ class hiccup_data(object):
         src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
         dst_grid = f'{self.sstice_nlat_dst}x{self.sstice_nlon_dst}'
 
-        self.sstice_map_file = f'{self.map_dir}map_{src_grid}_to_{dst_grid}_s2n.nc'
+        self.sstice_map_file = f'{self.map_dir}/map_{src_grid}_to_{dst_grid}_s2n.nc'
 
         # Generate mapping file
         if force_overwrite or not os.path.isfile(self.sstice_map_file) :
@@ -1338,7 +1339,7 @@ class hiccup_data(object):
         hu.check_dependency('ncremap')
 
         # Define temporary file to hold the time sliced data for regridding
-        sstice_tmp_file_name = f'{self.tmp_dir}tmp_sstice_timeslice_data.nc'
+        sstice_tmp_file_name = f'{self.tmp_dir}/tmp_sstice_timeslice_data.nc'
 
         # Check that the time_slice_method is supported
         if time_slice_method not in ['initial','match_atmos'] :
@@ -1723,6 +1724,47 @@ class ERA5(hiccup_data):
         
         if do_timers: print_timer(timer_start)
         return
+# ------------------------------------------------------------------------------
+# Simple sub-class for generating SST/ice data
+# ------------------------------------------------------------------------------
+class NOAA(hiccup_data):
+    @classmethod
+    def is_name_for(cls,name) : return name == 'NOAA'
+    def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
+                 output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 map_dir=default_map_dir,tmp_dir=default_tmp_dir,
+                 sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
+                 sstice_combined_file=None,lev_type=''):
+        super().__init__(atm_file=atm_file
+                        ,sfc_file=sfc_file
+                        ,dst_horz_grid=dst_horz_grid
+                        ,dst_vert_grid=dst_vert_grid
+                        ,sstice_name=sstice_name
+                        ,sst_file=sst_file
+                        ,ice_file=ice_file
+                        ,sstice_combined_file=sstice_combined_file
+                        ,topo_file = topo_file
+                        ,output_dir=output_dir
+                        ,grid_dir=grid_dir
+                        ,map_dir=map_dir
+                        ,tmp_dir=tmp_dir
+                        ,lev_type=lev_type)
+        
+        self.name = 'NOAA'
+        self.sstice_name=='NOAA'
+        self.sst_name = 'sst'
+        self.ice_name = 'icec'
+
+        self.ds_sst = xr.open_dataset(self.sst_file)
+        self.ds_ice = xr.open_dataset(self.sst_file)
+
+        self.src_nlat = len( self.ds_sst['latitude'].values )
+        self.src_nlon = len( self.ds_sst['longitude'].values )
+
+        self.src_horz_grid = f'{self.src_nlat}x{self.src_nlon}'
+        self.src_grid_file = f'{self.grid_dir}/scrip_{self.name}_{self.src_horz_grid}.nc'
+
+        self.map_file = f'{self.map_dir}/map_{self.src_horz_grid}_to_{self.dst_horz_grid}.nc'
 # ------------------------------------------------------------------------------
 # subclass for remapping EAM data
 # ------------------------------------------------------------------------------

@@ -66,14 +66,14 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
+                                    ,dst_horz_grid=dst_horz_grid
+                                    ,dst_vert_grid=dst_vert_grid
                                     ,atm_file=f'{data_root}ERA5.atm.{init_date}.nc'
                                     ,sfc_file=f'{data_root}ERA5.sfc.{init_date}.nc'
                                     ,sstice_name='NOAA'
                                     ,sst_file=f'{data_root}sst.day.mean.{init_year}.nc'
                                     ,ice_file=f'{data_root}icec.day.mean.{init_year}.nc'
                                     ,topo_file=topo_file_name
-                                    ,dst_horz_grid=dst_horz_grid
-                                    ,dst_vert_grid=dst_vert_grid
                                     ,output_dir=data_root
                                     ,grid_dir=data_root
                                     ,map_dir=data_root

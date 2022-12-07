@@ -56,11 +56,11 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 # name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='EAM'
+                                    ,dst_horz_grid=dst_horz_grid
+                                    ,dst_vert_grid=dst_vert_grid
                                     ,atm_file=cami_file
                                     ,sfc_file=cami_file
                                     ,topo_file=topo_file_name
-                                    ,dst_horz_grid=dst_horz_grid
-                                    ,dst_vert_grid=dst_vert_grid
                                     ,output_dir=data_root
                                     ,verbose=True)
 
@@ -103,7 +103,7 @@ if create_map_file :
     hiccup_data.create_dst_grid_file()
 
     # Create mapping files
-    hiccup_data.create_map_file()
+    hiccup_data.create_map_file(src_type='GLL')
 
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap

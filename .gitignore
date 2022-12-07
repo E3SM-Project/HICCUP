@@ -9,7 +9,8 @@ map_*
 files_grid/*
 files_mapping/*
 files_tmp/*
-data/*
+test_data_tmp/*
+data_scratch/*
 slurm*out
 build/
 dist/
