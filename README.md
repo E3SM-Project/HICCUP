@@ -233,7 +233,7 @@ coarse 2 degree grid in order to simplify the calculation of global metrics.
 
 ### Testing
 
-For simple testing of HICCUP functionality the repo includes low-resolution test data from ERA5 and NOAA in the `test_data` folder. These files are used by the `test_scripts/test_*` to exercise the typical HICCUP workflow for generating model input data from observation data and reanalysis. There are also remapping scripts that can be used to regenerate the low-res test data. A unit test script `unit_test_state_adjustment.py` is also provided to directly test the surface adjustment routines, and hopefully more unit tests will be added in the future. 
+For simple testing of HICCUP functionality the repo includes low-resolution test data from ERA5 and NOAA in the `test_data` folder. These files are used by the `test_scripts/test.*` to exercise the typical HICCUP workflow for generating model input data from observation data and reanalysis. There are also remapping scripts that can be used to regenerate the low-res test data. A unit test script `unit_test.state_adjustment.py` is also provided to directly test the surface adjustment routines, and hopefully more unit tests will be added in the future. 
 
 --------------------------------------------------------------------------------
 
