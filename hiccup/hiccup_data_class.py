@@ -433,14 +433,20 @@ class hiccup_data(object):
 
         if src_type is None: src_type = 'FV' # assume input is FV
         if dst_type is None: dst_type = 'GLL' # assume dst grid is GLL/np4
+
+        if src_type is not None and src_type not in ['FV','GLL']:
+            raise ValueError(f'The value of src_type={src_type} is not supported')
+        if dst_type is not None and dst_type not in ['GLL']:
+            raise ValueError(f'The value of src_type={src_type} is not supported')
         
         ne = self.get_dst_grid_ne()
 
         # Set the map options (do we need the --mono flag?)
         self.map_opts = ''
-        self.map_opts = self.map_opts+' --in_type cgll --in_np 4 ' 
-        self.map_opts = self.map_opts+' --out_type cgll --out_np 4 '
-        self.map_opts = self.map_opts+' --out_double '
+        if src_type=='FV' : self.map_opts += ' --in_type fv --in_np 1 '
+        if src_type=='GLL': self.map_opts += ' --in_type cgll --in_np 4 '
+        if dst_type=='GLL': self.map_opts += ' --out_type cgll --out_np 4 '
+        self.map_opts += ' --out_double '
         
         # Create the map file
         cmd = f'ncremap {ncremap_alg} '
@@ -481,8 +487,8 @@ class hiccup_data(object):
         for key,var in var_dict_all.items() :
             if var not in [lat_var,lon_var]:
                 tmp_file_name = None
-                if key in self.sfc_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}tmp_sfc_data'
-                if key in self.atm_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}tmp_atm_data'
+                if key in self.sfc_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}/tmp_sfc_data'
+                if key in self.atm_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}/tmp_atm_data'
                 if tmp_file_name is not None: 
                     tmp_file_name += f'.{self.dst_horz_grid}'
                     tmp_file_name += f'.{self.dst_vert_grid}'
@@ -1150,15 +1156,9 @@ class hiccup_data(object):
         # Append each file to the output file - use netcdf4 for performance, then convert afterwards
         for var,file_name in file_dict.items() :
             # if do_timers: timer_start_combine = perf_counter()
-            cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl --fl_fmt=netcdf4 {file_name} {output_file_name} '
+            cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl --fl_fmt={ncremap_file_fmt} {file_name} {output_file_name} '
             run_cmd(cmd,verbose,prepend_line=False)
             # if do_timers: print_timer(timer_start_combine,caller=f'  append file - {var}')
-
-        # convert file to desired format
-        if ncremap_file_fmt != 'netcdf4':
-            # if do_timers: timer_start_convert = perf_counter()
-            cmd = f'ncks --hdr_pad={hdr_pad} --fl_fmt={ncremap_file_fmt} {output_file_name} {output_file_name} '
-            # if do_timers: print_timer(timer_start_combine,caller=f'  convert file format from netcdf4 to {ncremap_file_fmt}')
 
         # Delete temp files
         if delete_files:
