@@ -205,9 +205,11 @@ does the modifications described above:
 ### Plotting Initial Condition Data
 
 A plotting script is also included (plot.sanity_check.py), but it requires 
-PyNGL (https://www.pyngl.ucar.edu/)to be installed in the python environment.
+PyNGL (https://www.pyngl.ucar.edu/) to be installed in the python environment.
 This was done becase PyNGL has excellent support for plotting data on 
-unstructured grids. In the future we may add a plotting script for MatPlotLib.
+unstructured grids. However, PyNGL has been put into "maintenance mode", so in 
+the future we need to change these scripts to use MatPlotLib https://matplotlib.org/ 
+or GeoCAT (https://geocat.ucar.edu/).
 
 --------------------------------------------------------------------------------
 
