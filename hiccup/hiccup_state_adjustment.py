@@ -99,6 +99,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
     ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
 
+  if 'ncol_d' in ds_data.dims :
+    ds_data = ds_data.rename({'ncol_d':'ncol'})
+
   # Check for required variables in input datasets
   for var in ['time','ncol',lev_coord_name] :
     if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')

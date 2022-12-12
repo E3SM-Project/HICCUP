@@ -794,7 +794,8 @@ class hiccup_data(object):
 
         return 
     # --------------------------------------------------------------------------
-    def surface_adjustment_multifile(self,file_dict,verbose=None):
+    def surface_adjustment_multifile(self,file_dict,verbose=None,
+                                    adj_TS=True,adj_PS=True):
         """
         Perform surface temperature and pressure adjustments 
         using a multifile xarray dataset
@@ -816,19 +817,21 @@ class hiccup_data(object):
         ds_topo = xr.open_dataset(self.topo_file,chunks=self.get_chunks())
 
         # Adjust surface temperature to match new surface height
-        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-            hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
-            ds_data = ds_data.compute()
-        ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
-        ds_data.close()
+        if adj_TS:
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
+                ds_data = ds_data.compute()
+            ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
+            ds_data.close()
 
         # Adjust surface pressure to match new surface height
-        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-            hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
-                                        ,lev_coord_name=self.lev_name, verbose=verbose )
-            ds_data = ds_data.compute()
-        ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
-        ds_data.close()
+        if adj_PS:
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
+                                            ,lev_coord_name=self.lev_name, verbose=verbose )
+                ds_data = ds_data.compute()
+            ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
+            ds_data.close()
 
         if do_timers: print_timer(timer_start)
 
