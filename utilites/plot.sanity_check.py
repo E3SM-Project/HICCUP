@@ -13,8 +13,8 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=N
 
    # Specify list of variables to plot
    if var_list is None:
-      # var = ['PS']
-      var = ['PS','TS','T','Q','U','CLDLIQ']
+      var = ['PS']
+      # var = ['PS','TS','T','Q','U','CLDLIQ']
       # var = ['T','Q','U','V']
       # var = ['t','q','u','v']
 
@@ -29,14 +29,23 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=N
    # Create dataset objects
    ds = xr.open_dataset(ifile)
    scrip_ds = xr.open_dataset(gfile)
+
+   # print(); print(ds[var[0]])
+   # print(); print(scrip_ds)
+   # exit()
+   
    #----------------------------------------------------------------------------
    # Set up plot stuff
    plot = []
    wks = ngl.open_wks(fig_type,fig_file)
    res = get_resources(map_plot=True)
    res.cnFillMode    = 'CellFill'
-   res.sfXCellBounds = scrip_ds['grid_corner_lon'].values
-   res.sfYCellBounds = scrip_ds['grid_corner_lat'].values
+   # res.sfXCellBounds = scrip_ds['grid_corner_lon'].values
+   # res.sfYCellBounds = scrip_ds['grid_corner_lat'].values
+   res.sfXArray         = scrip_ds.variables['grid_center_lon'].values
+   res.sfXCellBounds    = scrip_ds.variables['grid_corner_lon'].values
+   res.sfXArray         = scrip_ds.variables['grid_center_lon'].values
+   res.sfXCellBounds    = scrip_ds.variables['grid_corner_lon'].values
 
    # separate resources for zonal mean plot
    res2 = get_resources()
