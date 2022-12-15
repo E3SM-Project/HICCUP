@@ -44,7 +44,7 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 
 # ------------------------------------------------------------------------------
 # Create HICCUP data class instance
-# ------------------------------------------------------------------------------
+
 # this includes xarray file dataset objects and variable 
 # name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
@@ -66,7 +66,6 @@ print(f'    output atm file: {output_atm_file_name}')
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
-# ------------------------------------------------------------------------------
 
 hiccup_data.remap_vertical(input_file_name=cami_file,
                            output_file_name=output_atm_file_name,
@@ -74,7 +73,6 @@ hiccup_data.remap_vertical(input_file_name=cami_file,
 
 # ------------------------------------------------------------------------------
 # Print final output file name
-# ------------------------------------------------------------------------------
 
 print()
 print(f'output_atm_file_name: {output_atm_file_name}')

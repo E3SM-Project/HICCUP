@@ -51,7 +51,7 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 
 # ------------------------------------------------------------------------------
 # Create HICCUP data class instance
-# ------------------------------------------------------------------------------
+
 # this includes xarray file dataset objects and variable 
 # name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
@@ -73,7 +73,6 @@ print(f'    output atm file: {output_atm_file_name}')
 
 # ------------------------------------------------------------------------------
 # create file name dictionaries for np4 and pg2 data (both are needed)
-# ------------------------------------------------------------------------------
 
 dst_horz_grid_pg = dst_horz_grid.replace('np4','pg2')
 
@@ -94,7 +93,6 @@ file_dict_pg = hiccup_data.get_multifile_dict_eam(dst_horz_grid=hiccup_data.dst_
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
-# ------------------------------------------------------------------------------
 if 'create_map_file' not in locals(): create_map_file = False
 if create_map_file :
 
@@ -107,7 +105,6 @@ if create_map_file :
 
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap
-# ------------------------------------------------------------------------------
 if 'remap_data_horz' not in locals(): remap_data_horz = False
 if remap_data_horz :
 
@@ -125,7 +122,6 @@ if remap_data_horz :
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
-# ------------------------------------------------------------------------------
 if 'do_state_adjust' not in locals(): do_state_adjust = False
 if do_state_adjust :
 
@@ -134,7 +130,6 @@ if do_state_adjust :
 
 # ------------------------------------------------------------------------------
 # Vertically remap the data
-# ------------------------------------------------------------------------------
 if 'remap_data_vert' not in locals(): remap_data_vert = False
 if remap_data_vert :
 
@@ -146,7 +141,6 @@ if remap_data_vert :
 
 # ------------------------------------------------------------------------------
 # Combine files
-# ------------------------------------------------------------------------------
 if 'combine_files' not in locals(): combine_files = False
 if combine_files :
 
@@ -165,7 +159,6 @@ if combine_files :
 
 # ------------------------------------------------------------------------------
 # Print final output file name
-# ------------------------------------------------------------------------------
 
 print()
 print(f'output_atm_file_name: {output_atm_file_name}')
