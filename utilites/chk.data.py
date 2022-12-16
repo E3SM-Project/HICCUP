@@ -27,27 +27,29 @@ indent = ' '*4
 #-------------------------------------------------------------------------------
 # Simple routine for chcecking variable values - useful for debugging
 #-------------------------------------------------------------------------------
-def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  '):
-  """ 
-  Simple routine for printing various statistics or properites of a variable.
-  The characters of the "stat" string variable are used to specify the order 
-  and type of quantities to calculate
-    n   minimum value
-    a   average across all dimensions
-    x   maximum value
-    s   standard deviation
-    h   shape
-  """
-  if fmt=='f' : fmt = '%f'
+def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  ',compact=True):
+  """ Print min, avg, max, and std deviation of input """
+  if fmt=='f' : fmt = '%20.10f'
   if fmt=='e' : fmt = '%e'
-  if unit!='' : unit = '['+str(unit)+']'
-  print('\n'+indent+name+' '+unit)
+  if unit!='' : unit = f'[{unit}]'
+  name_len = 12 if compact else len(name)
+  msg = ''
+  line = f'{indent}{name:{name_len}} {unit}'
+  # if not compact: print(line)
+  if not compact: msg += line+'\n'
   for c in list(stat):
-      if c=='n' : print(indent+'min: '+fmt%x.min() )
-      if c=='a' : print(indent+'avg: '+fmt%x.mean())
-      if c=='x' : print(indent+'max: '+fmt%x.max() )
-      if c=='s' : print(indent+'std: '+fmt%x.std() )
-      if c=='h' : print(indent+'shp: '+str(x.shape) )
+    if not compact: line = indent
+    if c=='h' : line += '   shp: '+str(x.shape)
+    if c=='a' : line += '   avg: '+fmt%x.mean()
+    if c=='n' : line += '   min: '+fmt%x.min()
+    if c=='x' : line += '   max: '+fmt%x.max()
+    if c=='s' : line += '   std: '+fmt%x.std()
+    # if not compact: print(line)
+    if not compact: msg += line+'\n'
+  # if compact: print(line)
+  if compact: msg += line#+'\n'
+  print(msg)
+  return msg
 #===================================================================================================
 #===================================================================================================
 
@@ -77,13 +79,13 @@ for file_name in files :
 
         # Print stats, but skip time related and other variables
         if var not in ['lat_vertices','lon_vertices','time_bnds','area'] and ds[var].dims!=('time',):
-            print_stat(ds[var],name=var,indent=indent,stat='nxh')
+          print_stat(ds[var],name=var,indent=indent,stat='nxh')
 
-        inf_cnt = ds[var].where( xr.ufuncs.isinf(ds[var]) ).count().values
-        nan_cnt = ds[var].where( xr.ufuncs.isnan(ds[var]) ).count().values
+          inf_cnt = ds[var].where( np.isinf(ds[var]) ).count().values
+          nan_cnt = ds[var].where( np.isnan(ds[var]) ).count().values
 
-        if inf_cnt>0: print(f'{indent}{var}: inf values found! ({inf_cnt})')
-        if nan_cnt>0: print(f'{indent}{var}: inf values found! ({nan_cnt})')
+          if inf_cnt>0: print(f'{indent}{var}: inf values found! ({inf_cnt})')
+          if nan_cnt>0: print(f'{indent}{var}: inf values found! ({nan_cnt})')
 
 print('\ndone.\n')
 
