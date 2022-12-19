@@ -214,6 +214,7 @@ class hiccup_data(object):
     """ 
     Base class for HICCUP data object 
     """
+    # from hiccup import hiccup_sst_methods
     def __init__(self,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
@@ -1328,11 +1329,10 @@ class hiccup_data(object):
         combining SST and sea ice files (if they are separate)
         Extract a temporal subset of the SST and sea ice data
         and combine into new temporary file for later regridding
-        method options (only initial is currently supported):
-        - initial           just use first time
-        - match_atmos       find time that corresponds to time in atmos data
-        - date_range_avg    produce an average over a specified date range
-        - use_all           one output file per time slice
+        supported time_slice_method options:
+        - initial           use initial time
+        - match_atmos       use corresponding time in atmos initial condition
+        - use_all           use all times available - simplest way to have transient SST
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
@@ -1345,11 +1345,12 @@ class hiccup_data(object):
         sstice_tmp_file_name = f'{self.tmp_dir}/tmp_sstice_timeslice_data.nc'
 
         # Check that the time_slice_method is supported
-        if time_slice_method not in ['initial','match_atmos'] :
+        if time_slice_method not in ['initial','match_atmos','use_all'] :
             raise ValueError(f'time_slice_method: {time_slice_method} is not a supported method')
 
         if time_slice_method == 'initial' :
             time_slice = 0
+        
         if time_slice_method == 'match_atmos' :
             if atm_file is None : 
                 raise ValueError('atm_file can not be None for time_slice_method= \'match_atmos\'')
@@ -1363,9 +1364,16 @@ class hiccup_data(object):
                 raise ValueError('No matching time slice found between SST and atmos data!')
             # If there are multiple matching times, just use the first instance
             if time_slice.size > 1 : time_slice = time_slice[0]
+        
+        if time_slice_method == 'use_all' :
+            sst_file = self.get_sst_file()
+            ds_sst = xr.open_dataset(sst_file)
+            time_slice = slice(0,len(ds_sst.time)+1)
+            ds_sst.close()
 
         # Load time sliced data
-        ds_out = self.open_combined_sstice_dataset().isel(time=time_slice).load()
+        ds_out = self.open_combined_sstice_dataset()
+        if 'time_slice' in locals(): ds_out = ds_out.isel(time=time_slice).load()
         # Drop any extra variables
         for var in ds_out.variables :
             if var not in [self.sst_name,self.ice_name] and var not in ds_out.coords : 
@@ -1397,9 +1405,6 @@ class hiccup_data(object):
         #     run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.ice_name}'),verbose,shell=True,prepend_line=False)
         #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True,prepend_line=False)
         #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True,prepend_line=False)
-
-        # run_cmd(f'ncdump -h {sstice_tmp_file_name}')
-        # exit()
 
         if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
 
