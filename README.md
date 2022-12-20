@@ -103,29 +103,18 @@ pre-existing model data file as follows:
 
 ### SST and Sea Ice Initial Conditions
 
-HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
-currently the only supported option for this, but HICCUP can easily use ERA5 data. 
-The NOAA data comes in yearly files of daily averages, and the default behavior 
-of the sstice_slice_and_remap() method is to find the time that matches the 
-provided atmosphere initial condition file (i.e. time_slice_method="match_atmos"). 
+HICCUP can generate a file with SST and sea ice data that matches the format that E3SM expects when running a hindcast with prescribed ocean/ice conditions. NOAA OI data is currently the only supported option for this, but HICCUP can easily use ERA5 data. 
 
-If transient SSTs are desired, the time_slice_method="use_all" option will remapp 
-all SST and sea ice data available in the files provided. This can provide a notable 
-improvement in model accuracy for simulations longer than 1-2 weeks. The initial 
-1-2 weeks does not exhibit obvious benefits from using transient SSTs, partly because 
-the model drift away from observations is so large. At longer lags the transient 
-SSTs can provide a notable error reduction as shown in the plots below.
-
-
-For a typical ne30pg2 simulation, the size of one year of SST and sea ice data is
-comparable to the size of the atmospheric intial condition file. 
-I've copied some file sizes from example files produced by HICCUP below to illustrate this:
-
+Several options are implemented in the `sstice_slice_and_remap()` routine to control how the time coordinate of this data is handled:
 ```
-528 KB - 1-day of regridded NOAA SST/ice data file 
-181 MB - 1-year of regridded NOAA SST/ice data file 
-193 MB - A single atmosphere initial condition file 
+time_slice_method='match_atmos'   match the time coordinate with the date of the atmospheric initial condition
+time_slice_method='initial'       use the first time index of the SST and sea ice data
+time_slice_method='use_all'       remap all times provided for transient SSTs
 ```
+
+For more information on the difference between these approaches see this wiki page => [Fixed vs. Transient SST](https://github.com/E3SM-Project/HICCUP/wiki/Fixed-vs.-Transient-SST)
+
+The first two methods will yield a simulation with SST and sea conditions that are "fixed" at the time of initialization, while the third option provides a simple way to produce a simulation with transient SST and sea ice conditions. 
 
 We plan to implement other methods in the future for handling the time of SST data 
 to be more flexible for hig-res runs, such as specifying a specific window of 
