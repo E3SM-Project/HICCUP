@@ -1012,41 +1012,41 @@ class hiccup_data(object):
 
         # miscellaneous time/date variables
         if 'date' not in ds.variables :
-            ds['date'] = xr.DataArray( np.array(date_int,dtype=np.int), 
+            ds['date'] = xr.DataArray( np.array(date_int,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['date'].attrs['long_name'] = 'current date (YYYYMMDD)'
         if 'datesec' not in ds.variables :
-            ds['datesec'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['datesec'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['datesec'].attrs['long_name'] = 'current seconds of current date'
         if 'ndcur' not in ds.variables :
-            ds['ndcur'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['ndcur'] = xr.DataArray( np.full(time_shape,0.,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['ndcur'].attrs['long_name'] = 'current day (from base day)'
         if 'nscur' not in ds.variables :
-            ds['nscur'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['nscur'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nscur'].attrs['long_name'] = 'current seconds of current day'
         if 'nsteph' not in ds.variables :
-            ds['nsteph'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['nsteph'] = xr.DataArray( np.full(time_shape,0.,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nsteph'].attrs['long_name'] = 'current timestep'
 
         # Base day time - not sure what this is for
         if 'nbdate' not in ds.variables :
-            ds['nbdate'] = xr.DataArray( np.array(date_int,dtype=np.int), 
+            ds['nbdate'] = xr.DataArray( np.array(date_int,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nbdate'].attrs['long_name'] = 'base date (YYYYMMDD)'
         if 'ndbase' not in ds.variables :
-            ds['ndbase'] = xr.DataArray( np.array(day,dtype=np.int), 
+            ds['ndbase'] = xr.DataArray( np.array(day,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['ndbase'].attrs['long_name'] = 'base day'
         if 'nsbase' not in ds.variables :
-            ds['nsbase'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['nsbase'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nsbase'].attrs['long_name'] = 'seconds of base day'
         if 'nbsec' not in ds.variables :
-            ds['nbsec'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['nbsec'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nbsec'].attrs['long_name'] = 'seconds of base date'
 
@@ -1529,8 +1529,8 @@ class hiccup_data(object):
 
         # Create date and datesec variables
         time_index = pd.DatetimeIndex( ds['time'].values )
-        date = np.array( time_index.year*1e4+time_index.month*1e2+time_index.day, dtype=np.int )
-        datesec = np.array( time_index.second, dtype=np.int )
+        date = np.array( time_index.year*1e4+time_index.month*1e2+time_index.day, dtype=int )
+        datesec = np.array( time_index.second, dtype=int )
 
         # # Create alternate time index - doesn't work
         # cftime_index = pd.to_datetime(time_index).astype('cftime.DatetimeNoLeap')
