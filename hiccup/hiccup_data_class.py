@@ -1930,9 +1930,9 @@ class EAM(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         # Create pgN scrip file
-        hu.check_dependency('ConvertExodusToSCRIP')
+        hu.check_dependency('ConvertMeshToSCRIP')
         scrip_file = f'{self.grid_dir}/scrip_{self.dst_horz_grid_pg}.nc'
-        cmd = 'ConvertExodusToSCRIP'
+        cmd = 'ConvertMeshToSCRIP'
         cmd += f' --in {tmp_exodus_file} '
         cmd += f' --out {self.src_grid_file_pg} '
         cmd += f' >> {tempest_log_file}'
@@ -1978,8 +1978,8 @@ class EAM(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         # Create scrip file while we're at it (can be slow)
-        hu.check_dependency('ConvertExodusToSCRIP')
-        cmd = 'ConvertExodusToSCRIP'
+        hu.check_dependency('ConvertMeshToSCRIP')
+        cmd = 'ConvertMeshToSCRIP'
         cmd += f' --in {tmp_exodus_file} '
         cmd += f' --out {self.dst_grid_file_pg} '
         cmd += f' >> {tempest_log_file}'
