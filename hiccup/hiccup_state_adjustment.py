@@ -105,8 +105,15 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # Check for required variables in input datasets
   for var in ['time','ncol',lev_coord_name] :
     if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')
-  for var in ['PHIS','PS','T',pressure_var_name] :
+  for var in ['PS','T',pressure_var_name] :
     if var not in ds_data.variables : raise KeyError(f'{var} is missing from ds_data')
+  if 'PHIS' not in ds_data.variables :
+    if 'PHIS_d' in ds_data.variables :
+      ds_data = ds_data.rename({'PHIS_d':'PHIS'})
+    else:
+      raise KeyError(f'PHIS is missing from ds_data')
+
+  # Check for required variables in target topography
   if 'PHIS' not in ds_topo.variables : raise KeyError(f'PHIS is missing from ds_data')
 
   if debug :

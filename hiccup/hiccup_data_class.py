@@ -1702,7 +1702,7 @@ class ERA5(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
-        return 
+        return
     # --------------------------------------------------------------------------
     def rename_vars_special(self,ds,verbose=None,do_timers=do_timers
                            ,new_lev_name=None,change_pressure_name=True
@@ -1801,7 +1801,7 @@ class EAM(hiccup_data):
         
         self.name = 'EAM'
         self.lev_name = 'lev'
-        self.new_lev_name = 'plev'
+        self.new_lev_name = 'lev'
 
         self.npg = 2
 
@@ -1888,9 +1888,9 @@ class EAM(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         # Create pgN scrip file
-        hu.check_dependency('ConvertExodusToSCRIP')
+        hu.check_dependency('ConvertMeshToSCRIP')
         scrip_file = f'{self.grid_dir}/scrip_{self.dst_horz_grid_pg}.nc'
-        cmd = 'ConvertExodusToSCRIP'
+        cmd = 'ConvertMeshToSCRIP'
         cmd += f' --in {tmp_exodus_file} '
         cmd += f' --out {self.src_grid_file_pg} '
         cmd += f' >> {tempest_log_file}'
@@ -1936,8 +1936,8 @@ class EAM(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         # Create scrip file while we're at it (can be slow)
-        hu.check_dependency('ConvertExodusToSCRIP')
-        cmd = 'ConvertExodusToSCRIP'
+        hu.check_dependency('ConvertMeshToSCRIP')
+        cmd = 'ConvertMeshToSCRIP'
         cmd += f' --in {tmp_exodus_file} '
         cmd += f' --out {self.dst_grid_file_pg} '
         cmd += f' >> {tempest_log_file}'
@@ -1975,7 +1975,7 @@ class EAM(hiccup_data):
 
         # Set the map options
         self.map_opts_np = '  --out_double  --in_type cgll --in_np 4  --out_type cgll --out_np 4 '
-        self.map_opts_pg = '  --out_double  --in_type fv --in_np 2  --out_type fv --out_np 2 --volumetric '
+        self.map_opts_pg = '  --out_double  --in_type fv --in_np 2  --out_type fv --out_np 2 '# --volumetric '
 
         # Create the np4 map file
         cmd = f'ncremap {ncremap_alg} '
