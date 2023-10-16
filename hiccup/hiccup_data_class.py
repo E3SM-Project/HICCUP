@@ -1744,7 +1744,7 @@ class ERA5(hiccup_data):
         run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
-        return 
+        return
     # --------------------------------------------------------------------------
     def rename_vars_special(self,ds,verbose=None,do_timers=do_timers
                            ,new_lev_name=None,change_pressure_name=True
@@ -1843,7 +1843,7 @@ class EAM(hiccup_data):
         
         self.name = 'EAM'
         self.lev_name = 'lev'
-        self.new_lev_name = 'plev'
+        self.new_lev_name = 'lev'
 
         self.npg = 2
 
@@ -2017,7 +2017,7 @@ class EAM(hiccup_data):
 
         # Set the map options
         self.map_opts_np = '  --out_double  --in_type cgll --in_np 4  --out_type cgll --out_np 4 '
-        self.map_opts_pg = '  --out_double  --in_type fv --in_np 2  --out_type fv --out_np 2 --volumetric '
+        self.map_opts_pg = '  --out_double  --in_type fv --in_np 2  --out_type fv --out_np 2 '# --volumetric '
 
         # Create the np4 map file
         cmd = f'ncremap {ncremap_alg} '

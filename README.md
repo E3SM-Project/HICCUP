@@ -103,13 +103,22 @@ pre-existing model data file as follows:
 
 ### SST and Sea Ice Initial Conditions
 
-HICCUP can also generate a data file with SST and sea ice data. NOAA OI data is
-typically used for this, but HICCUP also currently supports using ERA5 data. 
-The NOAA data comes in yearly files of daily averages, and the default behavior 
-of the sstice_slice_and_remap() method is to find the time that matches the 
-provided atmosphere initial condition file. We plan to implement other methods
-for handling the time of SST data, such as producing a weekly average centered 
-on the initialization day. 
+HICCUP can generate a file with SST and sea ice data that matches the format that E3SM expects when running a hindcast with prescribed ocean/ice conditions. NOAA OI data is currently the only supported option for this, but HICCUP can easily use ERA5 data. 
+
+Several options are implemented in the `sstice_slice_and_remap()` routine to control how the time coordinate of this data is handled:
+```
+time_slice_method='match_atmos'   match the time coordinate with the date of the atmospheric initial condition
+time_slice_method='initial'       use the first time index of the SST and sea ice data
+time_slice_method='use_all'       remap all times provided for transient SSTs
+```
+
+For more information on the difference between these approaches see this wiki page => [Fixed vs. Transient SST](https://github.com/E3SM-Project/HICCUP/wiki/Fixed-vs.-Transient-SST)
+
+The first two methods will yield a simulation with SST and sea conditions that are "fixed" at the time of initialization, while the third option provides a simple way to produce a simulation with transient SST and sea ice conditions. 
+
+We plan to implement other methods in the future for handling the time of SST data 
+to be more flexible for hig-res runs, such as specifying a specific window of 
+SST/ice data to remap and include in the file output file. 
 
 --------------------------------------------------------------------------------
 

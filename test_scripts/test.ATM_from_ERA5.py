@@ -30,8 +30,8 @@ output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_era5.{dst_horz_grid}.
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
                 ,dst_horz_grid=dst_horz_grid
                 ,dst_vert_grid=dst_vert_grid
-                ,atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res2.nc'
-                ,sfc_file=f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res2.nc'
+                ,atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc'
+                ,sfc_file=f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res.nc'
                 ,topo_file=f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
                 ,grid_dir=data_tmp
                 ,map_dir=data_tmp
