@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-import os
-import glob
-import subprocess as sp
-
+import os, glob, subprocess as sp
+# --------------------------------------------------------------------------------------------------
 # Generate map file for E3SM ne30np4: 
 # ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30.g --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30np4_to_90x180.nc --wgt_opt='--in_type cgll --in_np 4 --out_type fv --out_np 2 --out_double'
 
@@ -15,37 +13,36 @@ import subprocess as sp
 # export MSCRATCH=/global/cscratch1/sd/whannah/e3sm_scratch/cori-knl/
 # CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30np4_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
 # CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30pg2_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30pg2_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
-
-hiccup_root = os.getenv('HOME')+'/HICCUP'
+# --------------------------------------------------------------------------------------------------
+hiccup_data_root = os.getenv('HOME')+'/HICCUP/data_scratch'
 
 nlat_src,nlon_src = 721,1440
-# nlat_dst,nlon_dst = 90,180
-nlat_dst,nlon_dst = 180,360
 
-date = '2008-10-01'
+nlat_dst,nlon_dst = 90,180
+# nlat_dst,nlon_dst = 180,360
 
-# var_list = ['Z','T','Q','U','V','TS','PS']
-var_list = ['Z']
+date = '2005-06-01'
 
-alg = '-a tempest'
+var_list = ['Z','T','Q','U','V','TS','PS']
 
+alg = ''
+# alg = '-a tempest'
+# --------------------------------------------------------------------------------------------------
 def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
 
     src_grid_name = f'{nlat_src}x{nlon_src}_n2s'
     dst_grid_name = f'{nlat_dst}x{nlon_dst}_s2n'
 
-    src_grid_file = f'{hiccup_root}/files_grid/scrip_{src_grid_name}.nc'
-    dst_grid_file = f'{hiccup_root}/files_grid/scrip_{dst_grid_name}.nc'
+    src_grid_file = f'{hiccup_data_root}/files_grid/scrip_{src_grid_name}.nc'
+    dst_grid_file = f'{hiccup_data_root}/files_grid/scrip_{dst_grid_name}.nc'
 
-    map_file = f'{hiccup_root}/files_mapping/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
+    map_file = f'{hiccup_data_root}/files_map/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 
     print()
     print(f'  src_grid_file: {src_grid_file}')
     print(f'  dst_grid_file: {dst_grid_file}')
     print(f'  map_file     : {map_file}')
     print()
-    # exit()
-
 
     # --------------------------------------------------------------------------
     if create_map:
@@ -67,16 +64,17 @@ def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
         run_cmd(cmd)
         
         # Generate target grid file:
-        # cmd  = f'ncremap {alg} -G '
-        # cmd += f'ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\''
-        # cmd += f'#latlon={nlat_dst},{nlon_dst}'
-        # cmd += f'#lat_typ=uni'
-        # cmd += f'#lat_drc=s2n'
-        # cmd += f'#lon_typ=grn_ctr '
-        # cmd += f'-g {dst_grid_file} '
-        # run_cmd(cmd)
+        cmd  = f'ncremap {alg} -G '
+        cmd += f'ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\''
+        cmd += f'#latlon={nlat_dst},{nlon_dst}'
+        cmd += f'#lat_typ=uni'
+        cmd += f'#lat_drc=s2n'
+        cmd += f'#lon_typ=grn_ctr '
+        cmd += f'-g {dst_grid_file} '
+        run_cmd(cmd)
 
-        dst_grid_file = os.getenv('HOME')+'/E3SM/data_grid/cmip6_180x360_scrip.20181001.nc'
+        # dst_grid_file = os.getenv('HOME')+'/E3SM/data_grid/cmip6_180x360_scrip.20181001.nc'
+        # dst_grid_file = os.getenv('HOME')+'/E3SM/data_grid/cmip6_90x180_scrip.20181001.nc'
         
         # Need to make sure the 'grid_imask' variable is an integer for TempestRemap
         # run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {src_grid_file} {src_grid_file} --ovr')
@@ -93,18 +91,17 @@ def main( regrid_data=True, create_map=True, unpack=True, clean=True ):
     # --------------------------------------------------------------------------
     for var in var_list:
 
-        src_file_name = f'{hiccup_root}/data_scratch/ERA5_validation.{var}.{date}.nc'
+        src_file_name = f'{hiccup_data_root}/ERA5_validation.{var}.{date}.nc'
         dst_file_name = src_file_name.replace('.nc',f'.remap_{nlat_dst}x{nlon_dst}.nc')
         
         # ----------------------------------------------------------------------
         if unpack: run_cmd(f'ncpdq --ovr -U {src_file_name} {src_file_name}')
         # ----------------------------------------------------------------------
         # remap the data
-        run_cmd(f'ncremap {alg} -m {map_file} -i {src_file_name} -o {dst_file_name}  ')
-
-        # run_cmd(f'ncrename -v lat,latitude -v lon,longitude {dst_file_name} ')
-        # --------------------------------------------------------------------------
-        print(f'\n\nsrc file: {src_file_name}\ndst file: {dst_file_name}\n')
+        if regrid_data:
+            run_cmd(f'ncremap {alg} -m {map_file} -i {src_file_name} -o {dst_file_name}  ')
+            # run_cmd(f'ncrename -v lat,latitude -v lon,longitude {dst_file_name} ')
+            print(f'\n\nsrc file: {src_file_name}\ndst file: {dst_file_name}\n')
 
 # --------------------------------------------------------------------------------------------------
 class tcolor:
