@@ -21,6 +21,9 @@ default_grid_dir    = './files_grid/'
 default_map_dir     = './files_mapping/'
 default_tmp_dir     = './files_tmp'
 
+# default target model is atmos component of E3SM (EAM)
+target_model = 'EAM'
+
 # algorithm flag for ncremap
 ncremap_alg         = ' --alg_typ=tempest '    
 
@@ -43,6 +46,7 @@ hdr_pad = 100000
 
 # Global verbosity default
 hiccup_verbose = False
+verbose_indent = ''
 
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
@@ -121,9 +125,9 @@ def print_timer_summary():
     if timer_start_total is not None: 
         print_timer(timer_start_total,caller=f'Total',print_msg=False)
     if do_timers:
-        print('\nHICCUP Timer results:')
+        print(verbose_indent+'\nHICCUP Timer results:')
         for msg in timer_msg_all:
-            print(f'  {msg}')
+            print(verbose_indent+f'  {msg}')
     return
 # ------------------------------------------------------------------------------
 # Get default topography file name
@@ -379,7 +383,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nUnpacking data files...')
+        if verbose : print(verbose_indent+'\nUnpacking data files...')
 
         hu.check_dependency('ncpdq')
 
@@ -398,7 +402,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating dst grid file...')
+        if verbose : print(verbose_indent+'\nGenerating dst grid file...')
 
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
@@ -425,7 +429,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating mapping file...')
+        if verbose : print(verbose_indent+'\nGenerating mapping file...')
 
         hu.check_dependency('ncremap')
 
@@ -470,7 +474,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nCreating list of temporary files...')
+        if verbose : print(verbose_indent+'\nCreating list of temporary files...')
 
         # define file list to be returned
         tmp_file_dict = {}
@@ -485,7 +489,7 @@ class hiccup_data(object):
         # other instances of HICCUP that might be running concurrently
         if timestamp is None: timestamp = datetime.datetime.utcnow().strftime('%Y%m%d.%H%M%S')
 
-        # Horzontally remap atmospher and surface data to individual files
+        # Horzontally remap atmosphere and surface data to individual files
         for key,var in var_dict_all.items() :
             if var not in [lat_var,lon_var]:
                 tmp_file_name = None
@@ -498,7 +502,7 @@ class hiccup_data(object):
                     tmp_file_name += f'.{timestamp}'
                     tmp_file_name += f'.nc'
                     tmp_file_dict.update({key:tmp_file_name})
-                    if verbose: print(f'  {key:10}   {tmp_file_name}')
+                    if verbose: print(verbose_indent+f'  {key:10}   {tmp_file_name}')
 
         return tmp_file_dict
     # --------------------------------------------------------------------------
@@ -508,7 +512,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nCreating list of temporary files...')
+        if verbose : print(verbose_indent+'\nCreating list of temporary files...')
 
         # define file list to be returned
         tmp_file_dict = {}
@@ -534,7 +538,7 @@ class hiccup_data(object):
             tmp_file_name += f'.{timestamp}'
             tmp_file_name += f'.nc'
             tmp_file_dict.update({key:tmp_file_name})
-            if verbose: print(f'  {key:10}   {tmp_file_name}')
+            if verbose: print(verbose_indent+f'  {key:10}   {tmp_file_name}')
 
         return tmp_file_dict
     # --------------------------------------------------------------------------
@@ -544,7 +548,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nRenaming variables to match model variable names...')
+        if verbose : print(verbose_indent+'\nRenaming variables to match model variable names...')
 
         hu.check_dependency('ncrename')
 
@@ -578,7 +582,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nRenaming variables to match model variable names...')
+        if verbose : print(verbose_indent+'\nRenaming variables to match model variable names...')
 
         hu.check_dependency('ncrename')
 
@@ -623,7 +627,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nAdding reference pressure (P0)...')
+        if verbose : print(verbose_indent+'\nAdding reference pressure (P0)...')
 
         hu.check_dependency('ncap2')
         hu.check_dependency('ncatted')
@@ -645,7 +649,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nHorizontally remapping the data to temporary files...')
+        if verbose : print(verbose_indent+'\nHorizontally remapping the data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -685,7 +689,7 @@ class hiccup_data(object):
         # Remove output file if it already exists
         if os.path.isfile(output_file_name): run_cmd(f'rm {output_file_name} ',verbose)
 
-        if verbose : print('\nCombining temporary remapped files...')
+        if verbose : print(verbose_indent+'\nCombining temporary remapped files...')
 
         # Add atmosphere temporary file data into the final output file
         run_cmd(f'ncks -A --hdr_pad={hdr_pad} {atm_tmp_file_name} {output_file_name} ',
@@ -708,7 +712,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nHorizontally remapping the multi-file data to temporary files...')
+        if verbose : print(verbose_indent+'\nHorizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -754,7 +758,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nHorizontally remapping the multi-file data to temporary files...')
+        if verbose : print(verbose_indent+'\nHorizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -803,14 +807,25 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose: print('\nPerforming surface adjustments...')
+        if verbose: print(verbose_indent+'\nPerforming surface adjustments...')
 
         # update lev name in case it has not been updated previously
         self.lev_name = self.new_lev_name
 
         # build list of file names for variables needed for adjustment
+        var_list = []
+        if target_model=='EAM':
+            if adj_TS: var_list.append('TS')
+            if adj_PS: var_list = var_list+['PS','PHIS','T']
+        if target_model=='EAMXX':
+            if adj_TS:
+                adj_TS = False
+                print('WARNING - surface_adjustment_multifile: '+
+                      f'adj_TS in  is not supported for {target_model}, disabling.')
+            # if adj_PS: var_list = var_list+['ps','phis','T_mid']
+            if adj_PS: var_list = var_list+['PS','PHIS','T']
+
         file_list = []
-        var_list = ['TS','PS','PHIS','T']
         for var,file_name in file_dict.items():
             if var in var_list: file_list.append(file_name)
 
@@ -847,7 +862,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nVertically remapping the data...')
+        if verbose : print(verbose_indent+'\nVertically remapping the data...')
 
         hu.check_dependency('ncremap')
 
@@ -902,7 +917,7 @@ class hiccup_data(object):
         specifically needed for very fine grids like ne1024
         """
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nVertically remapping the multi-file data...')
+        if verbose : print(verbose_indent+'\nVertically remapping the multi-file data...')
 
         # temporarily disable timers and put a timer around the vertical remap loop
         global do_timers
@@ -936,7 +951,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose: print('\nPerforming state adjustments...')
+        if verbose: print(verbose_indent+'\nPerforming state adjustments...')
 
         # build list of file names for variables needed for adjustment
         file_list = []
@@ -978,7 +993,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nEditing time and date variables...')
+        if verbose : print(verbose_indent+'\nEditing time and date variables...')
 
         # time coordinate information
         time_shape = ( len(ds['time']) )
@@ -1012,41 +1027,41 @@ class hiccup_data(object):
 
         # miscellaneous time/date variables
         if 'date' not in ds.variables :
-            ds['date'] = xr.DataArray( np.array(date_int,dtype=np.int), 
+            ds['date'] = xr.DataArray( np.array(date_int,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['date'].attrs['long_name'] = 'current date (YYYYMMDD)'
         if 'datesec' not in ds.variables :
-            ds['datesec'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['datesec'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['datesec'].attrs['long_name'] = 'current seconds of current date'
         if 'ndcur' not in ds.variables :
-            ds['ndcur'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['ndcur'] = xr.DataArray( np.full(time_shape,0.,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['ndcur'].attrs['long_name'] = 'current day (from base day)'
         if 'nscur' not in ds.variables :
-            ds['nscur'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['nscur'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nscur'].attrs['long_name'] = 'current seconds of current day'
         if 'nsteph' not in ds.variables :
-            ds['nsteph'] = xr.DataArray( np.full(time_shape,0.,dtype=np.int), 
+            ds['nsteph'] = xr.DataArray( np.full(time_shape,0.,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nsteph'].attrs['long_name'] = 'current timestep'
 
         # Base day time - not sure what this is for
         if 'nbdate' not in ds.variables :
-            ds['nbdate'] = xr.DataArray( np.array(date_int,dtype=np.int), 
+            ds['nbdate'] = xr.DataArray( np.array(date_int,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nbdate'].attrs['long_name'] = 'base date (YYYYMMDD)'
         if 'ndbase' not in ds.variables :
-            ds['ndbase'] = xr.DataArray( np.array(day,dtype=np.int), 
+            ds['ndbase'] = xr.DataArray( np.array(day,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['ndbase'].attrs['long_name'] = 'base day'
         if 'nsbase' not in ds.variables :
-            ds['nsbase'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['nsbase'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nsbase'].attrs['long_name'] = 'seconds of base day'
         if 'nbsec' not in ds.variables :
-            ds['nbsec'] = xr.DataArray( np.array(sec,dtype=np.int), 
+            ds['nbsec'] = xr.DataArray( np.array(sec,dtype=int),
                                         coords=time_coord, dims=time_dim )
             ds['nbsec'].attrs['long_name'] = 'seconds of base date'
 
@@ -1068,7 +1083,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nEditing time and date variables...')
+        if verbose : print(verbose_indent+'\nEditing time and date variables...')
 
         for file_name in file_dict.values() :
             with xr.open_dataset(file_name) as ds_data:
@@ -1085,7 +1100,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nEditing time and date variables...')
+        if verbose : print(verbose_indent+'\nEditing time and date variables...')
 
         ds_in = xr.open_dataset(self.atm_file)
 
@@ -1124,7 +1139,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose: print('\nCleaning up excessive global attributes...')
+        if verbose: print(verbose_indent+'\nCleaning up excessive global attributes...')
         
         global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
                            'input_file', 'map_file', 'remap_version', 'remap_hostname', 
@@ -1151,7 +1166,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose: print('\nCombining temporary files into new file...')
+        if verbose: print(verbose_indent+'\nCombining temporary files into new file...')
 
         hu.check_dependency('ncks')
 
@@ -1167,9 +1182,9 @@ class hiccup_data(object):
 
         # Delete temp files
         if delete_files:
-            if verbose: print('\nDeleting temporary files...')
+            if verbose: print(verbose_indent+'\nDeleting temporary files...')
             for file_name in file_dict.values() :
-                run_cmd(f'rm {file_name}',verbose,prepend_line=False)
+                run_cmd(verbose_indent+f'rm {file_name}',verbose,prepend_line=False)
 
         if do_timers: print_timer(timer_start)
         return
@@ -1226,7 +1241,7 @@ class hiccup_data(object):
 
         # Create the source grid file
         if force_overwrite or not os.path.isfile(self.sstice_src_grid_file) :
-            if verbose : print(f'\nCreating source grid file for SST and sea ice data...')
+            if verbose : print(verbose_indent+f'\nCreating source grid file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} --tmp_dir={self.tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
             cmd += f'#latlon={self.sstice_nlat_src},{self.sstice_nlon_src}'
@@ -1283,7 +1298,7 @@ class hiccup_data(object):
 
         # Create the destination grid file
         if force_overwrite or not os.path.isfile(self.sstice_dst_grid_file) :
-            if verbose : print(f'\nCreating target grid file for SST and sea ice data...')
+            if verbose : print(verbose_indent+f'\nCreating target grid file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} --tmp_dir={self.tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {dst_grid}\'' 
             cmd += f'#latlon={self.sstice_nlat_dst},{self.sstice_nlon_dst}'
@@ -1310,7 +1325,7 @@ class hiccup_data(object):
 
         # Generate mapping file
         if force_overwrite or not os.path.isfile(self.sstice_map_file) :
-            if verbose : print(f'\nCreating mapping file for SST and sea ice data...')
+            if verbose : print(verbose_indent+f'\nCreating mapping file for SST and sea ice data...')
             cmd  = f'ncremap {ncremap_alg} '
             cmd +=  ' -a fv2fv '
             cmd += f' --src_grd={self.sstice_src_grid_file}'
@@ -1336,7 +1351,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print(f'\nTime slicing {self.sstice_name} SST and sea ice data...')
+        if verbose : print(verbose_indent+f'\nTime slicing {self.sstice_name} SST and sea ice data...')
 
         hu.check_dependency('ncatted')
         hu.check_dependency('ncremap')
@@ -1406,7 +1421,7 @@ class hiccup_data(object):
         #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True,prepend_line=False)
         #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True,prepend_line=False)
 
-        if verbose : print(f'\nRemapping {self.sstice_name} SST and sea ice data...')
+        if verbose : print(verbose_indent+f'\nRemapping {self.sstice_name} SST and sea ice data...')
 
         # make sure output file is deleted (overwrite flag not working?)
         if os.path.isfile(output_file_name): 
@@ -1435,7 +1450,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nRenaming SST and sea ice variables...')
+        if verbose : print(verbose_indent+'\nRenaming SST and sea ice variables...')
 
         hu.check_dependency('ncrename')
         hu.check_dependency('ncks')
@@ -1483,7 +1498,7 @@ class hiccup_data(object):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nAdjusting SST and sea ice data values...')
+        if verbose : print(verbose_indent+'\nAdjusting SST and sea ice data values...')
 
         # Open remapped and combined data file
         ds = xr.open_dataset(output_file_name).load()
@@ -1529,8 +1544,8 @@ class hiccup_data(object):
 
         # Create date and datesec variables
         time_index = pd.DatetimeIndex( ds['time'].values )
-        date = np.array( time_index.year*1e4+time_index.month*1e2+time_index.day, dtype=np.int )
-        datesec = np.array( time_index.second, dtype=np.int )
+        date = np.array( time_index.year*1e4+time_index.month*1e2+time_index.day, dtype=int )
+        datesec = np.array( time_index.second, dtype=int )
 
         # # Create alternate time index - doesn't work
         # cftime_index = pd.to_datetime(time_index).astype('cftime.DatetimeNoLeap')
@@ -1633,41 +1648,68 @@ class ERA5(hiccup_data):
         self.lev_name = 'level'
         self.new_lev_name = 'plev'
 
-        # Atmospheric variables
-        self.atm_var_name_dict.update({'lat':'latitude'})
-        self.atm_var_name_dict.update({'lon':'longitude'})
-        self.atm_var_name_dict.update({'T':'t'})            # temperature
-        self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
-        self.atm_var_name_dict.update({'U':'u'})            # zonal wind
-        self.atm_var_name_dict.update({'V':'v'})            # meridional wind 
-        self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water 
-        self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water 
-        self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio 
-        # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
+        if target_model=='EAM':
+            # Atmospheric variables
+            self.atm_var_name_dict.update({'lat':'latitude'})
+            self.atm_var_name_dict.update({'lon':'longitude'})
+            self.atm_var_name_dict.update({'T':'t'})            # temperature
+            self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
+            self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+            self.atm_var_name_dict.update({'V':'v'})            # meridional wind
+            self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water
+            self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water
+            self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio
+            # self.atm_var_name_dict.update({'Z3':'z'})           # geopotential (not sure we need this)
 
-        # Surface variables
-        self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure 
-        self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature 
-        self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
+            # Surface variables
+            self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure
+            self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature
+            self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
 
-        self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1 
-        self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2 
-        self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3 
-        self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4 
-        self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
-        self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth 
-        
-        # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo 
-        # self.sfc_var_name_dict.update({'':'rsn'})          # Snow density 
-        # self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer 
-        # self.sfc_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation 
-        # self.sfc_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation 
-        # self.sfc_var_name_dict.update({'':'src'})          # Skin reservoir content 
-        # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature 
-        # self.sfc_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1 
-        # self.sfc_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2 
-        # self.sfc_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3 
-        # self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4 
+            self.sfc_var_name_dict.update({'TS1':'stl1'})      # Soil temperature level 1
+            self.sfc_var_name_dict.update({'TS2':'stl2'})      # Soil temperature level 2
+            self.sfc_var_name_dict.update({'TS3':'stl3'})      # Soil temperature level 3
+            self.sfc_var_name_dict.update({'TS4':'stl4'})      # Soil temperature level 4
+            self.sfc_var_name_dict.update({'ICEFRAC':'siconc'})# Sea ice area fraction
+            self.sfc_var_name_dict.update({'SNOWHICE':'sd'})   # Snow depth
+
+            # self.sfc_var_name_dict.update({'':'asn'})          # Snow albedo
+            # self.sfc_var_name_dict.update({'':'rsn'})          # Snow density
+            # self.sfc_var_name_dict.update({'':'tsn'})          # Temperature of snow layer
+            # self.sfc_var_name_dict.update({'':'lai_hv'})       # Leaf area index, high vegetation
+            # self.sfc_var_name_dict.update({'':'lai_lv'})       # Leaf area index, low vegetation
+            # self.sfc_var_name_dict.update({'':'src'})          # Skin reservoir content
+            # self.sfc_var_name_dict.update({'SST':'sst'})       # sea sfc temperature
+            # self.sfc_var_name_dict.update({'':'swvl1'})        # Volumetric soil water level 1
+            # self.sfc_var_name_dict.update({'':'swvl2'})        # Volumetric soil water level 2
+            # self.sfc_var_name_dict.update({'':'swvl3'})        # Volumetric soil water level 3
+            # self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4
+
+        if target_model=='EAMXX':
+            # self.atm_var_name_dict.update({'lat':'latitude'})
+            # self.atm_var_name_dict.update({'lon':'longitude'})
+            # self.atm_var_name_dict.update({'T_mid':'t'})                # temperature
+            # self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
+            # self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
+            # self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
+            # self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
+            # self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
+            # # self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio
+            # self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
+            # self.sfc_var_name_dict.update({'phis':'z'})                 # surface geopotential
+
+            self.atm_var_name_dict.update({'lat':'latitude'})
+            self.atm_var_name_dict.update({'lon':'longitude'})
+            self.atm_var_name_dict.update({'T':'t'})            # temperature
+            self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
+            self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+            self.atm_var_name_dict.update({'V':'v'})            # meridional wind
+            self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water
+            self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water
+            # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio
+            self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure
+            # self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature
+            self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
 
         self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
@@ -1684,7 +1726,7 @@ class ERA5(hiccup_data):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating src grid file...')
+        if verbose : print(verbose_indent+'\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if os.path.isfile(self.src_grid_file): run_cmd(f'rm {self.src_grid_file} ',verbose)
@@ -1860,7 +1902,7 @@ class EAM(hiccup_data):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating src grid files (np+pg)...')
+        if verbose : print(verbose_indent+'\nGenerating src grid files (np+pg)...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if self.src_grid_file is not None:
@@ -1913,7 +1955,7 @@ class EAM(hiccup_data):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating dst grid files (np+pg)...')
+        if verbose : print(verbose_indent+'\nGenerating dst grid files (np+pg)...')
         
         # Spectral element grid with physics on GLL nodes
         ne  = self.get_dst_grid_ne()
@@ -1960,7 +2002,7 @@ class EAM(hiccup_data):
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
-        if verbose : print('\nGenerating mapping files (np+pg)...')
+        if verbose : print(verbose_indent+'\nGenerating mapping files (np+pg)...')
 
         hu.check_dependency('ncremap')
 
