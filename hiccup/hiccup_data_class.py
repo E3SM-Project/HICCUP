@@ -442,7 +442,7 @@ class hiccup_data(object):
 
         if src_type is not None and src_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
-        if dst_type is not None and dst_type not in ['GLL']:
+        if dst_type is not None and dst_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
         
         ne = self.get_dst_grid_ne()
@@ -451,6 +451,7 @@ class hiccup_data(object):
         self.map_opts = ''
         if src_type=='FV' : self.map_opts += ' --in_type fv --in_np 1 '
         if src_type=='GLL': self.map_opts += ' --in_type cgll --in_np 4 '
+        if dst_type=='FV' : self.map_opts += ' --out_type fv --out_np 1 '
         if dst_type=='GLL': self.map_opts += ' --out_type cgll --out_np 4 '
         self.map_opts += ' --out_double '
         
@@ -1710,6 +1711,13 @@ class ERA5(hiccup_data):
             self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure
             # self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature
             self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
+
+        if target_model=='EAMXX-nudging':
+            self.atm_var_name_dict.update({'lat':'latitude'})
+            self.atm_var_name_dict.update({'lon':'longitude'})
+            self.sfc_var_name_dict.update({'PS':'sp'})          # sfc pressure
+            self.atm_var_name_dict.update({'U':'u'})            # zonal wind
+            self.atm_var_name_dict.update({'V':'v'})            # meridional wind
 
         self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
