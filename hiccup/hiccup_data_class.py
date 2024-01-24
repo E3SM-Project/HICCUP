@@ -25,7 +25,7 @@ default_tmp_dir     = './files_tmp'
 target_model = 'EAM'
 
 # algorithm flag for ncremap
-ncremap_alg         = ' --alg_typ=tempest '    
+ncremap_alg         = ' --alg_typ=tempest '
 
 # log file for Tempest output
 tempest_log_file    = 'TempestRemap.log'
@@ -327,7 +327,10 @@ class hiccup_data(object):
         """
         Return number of elements of target model grid
         """
-        result = re.search('ne(.*)np', self.dst_horz_grid)
+        if 'np4' in self.dst_horz_grid:
+            result = re.search('ne(.*)np', self.dst_horz_grid)
+        if 'pg' in self.dst_horz_grid:
+            result = re.search('ne(.*)pg', self.dst_horz_grid)
         return result.group(1) if result else 0
     # --------------------------------------------------------------------------
     def get_dst_grid_npg(self):
@@ -414,6 +417,43 @@ class hiccup_data(object):
             cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file}'
             cmd += f' >> {tempest_log_file}'
             run_cmd(cmd,verbose,shell=True)
+        
+        elif 'ne' in self.dst_horz_grid and 'pg' in self.dst_horz_grid :
+
+            # Spectral element grid with physics on GLL nodes
+            ne  = self.get_dst_grid_ne()
+            npg = self.get_dst_grid_npg()
+
+            # First create exodus file
+            hu.check_dependency('GenerateCSMesh')
+            cmd = f'GenerateCSMesh --alt --res {ne} --file {self.dst_grid_file_np}'
+            cmd += f' >> {tempest_log_file}'
+            run_cmd(cmd,verbose,shell=True)
+            
+            # Next switch to volumetric mesh that matches the physgrid
+            tmp_exodus_file = f'{self.grid_dir}/exodus_{self.dst_horz_grid_pg}.g'
+            hu.check_dependency('GenerateVolumetricMesh')
+            cmd = 'GenerateVolumetricMesh'
+            cmd += f' --in {self.dst_grid_file_np} '
+            cmd += f' --out {tmp_exodus_file} '
+            cmd += f' --np {npg} --uniform'
+            cmd += f' >> {tempest_log_file}'
+            run_cmd(cmd,verbose,shell=True)
+
+            # Create scrip file while we're at it (can be slow)
+            hu.check_dependency('ConvertMeshToSCRIP')
+            cmd = 'ConvertMeshToSCRIP'
+            cmd += f' --in {tmp_exodus_file} '
+            cmd += f' --out {self.dst_grid_file_pg} '
+            cmd += f' >> {tempest_log_file}'
+            run_cmd(cmd,verbose,shell=True)
+
+            # # fix grid_imask type
+            # run_cmd('ncap2 --overwrite -s \'grid_imask=int(grid_imask)\' '
+            #         +f'{self.dst_grid_file_pg} {self.dst_grid_file_pg}',verbose,shell=True)
+
+            # delete temporary exodus file
+            run_cmd(f'rm {tmp_exodus_file} ',verbose)
 
         else:
             raise ValueError(f'dst_horz_grid={self.dst_horz_grid} is not currently supported')
@@ -1181,6 +1221,10 @@ class hiccup_data(object):
             run_cmd(cmd,verbose,prepend_line=False)
             # if do_timers: print_timer(timer_start_combine,caller=f'  append file - {var}')
 
+        # make sure time dimension is "unlimited"
+        cmd = f'ncks -O --fl_fmt={ncremap_file_fmt} --mk_rec_dmn time {output_file_name} {output_file_name} '
+        run_cmd(cmd,verbose,prepend_line=False)
+
         # Delete temp files
         if delete_files:
             if verbose: print(verbose_indent+'\nDeleting temporary files...')
@@ -1718,6 +1762,13 @@ class ERA5(hiccup_data):
             self.sfc_var_name_dict.update({'PS':'sp'})          # sfc pressure
             self.atm_var_name_dict.update({'U':'u'})            # zonal wind
             self.atm_var_name_dict.update({'V':'v'})            # meridional wind
+
+            dst_ne = self.get_dst_grid_ne()
+            self.npg = 2
+            self.dst_horz_grid_np = self.dst_horz_grid.replace(f'pg{self.npg}','np4')
+            self.dst_horz_grid_pg = self.dst_horz_grid.replace('np4',f'pg{self.npg}')
+            self.dst_grid_file_np = f'{self.grid_dir}/exodus_ne{dst_ne}.g'
+            self.dst_grid_file_pg = f'{self.grid_dir}/scrip_{ self.dst_horz_grid_pg}.nc'
 
         self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
