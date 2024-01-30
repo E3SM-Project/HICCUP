@@ -73,12 +73,10 @@ class tcolor:
 # ------------------------------------------------------------------------------
 # Common method for printing and running commands
 # ------------------------------------------------------------------------------
-def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False):
+def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False,prefix='  ',suffix=''):
     """
     Method to encapsulate running system commands and checking for failures
     """
-    prefix='  '
-    suffix=''
     if prepend_line : prefix = '\n'+prefix
     if verbose is None : verbose = hiccup_verbose
     msg = f'{prefix}{cmd}{suffix}'
@@ -1119,19 +1117,28 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def add_time_date_variables_multifile(self,file_dict,verbose=None):
+    def add_time_date_variables_multifile(self,file_dict,verbose=None,ref_date='1850-01-01'):
         """
         """
         if do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose : print(verbose_indent+'\nEditing time and date variables...')
 
+        # xarray will automatically convert the time coordinate,
+        # which can be problematic, especially when generating nudging data.
+        # By specifying the encoding we can avoid this problem
+        time_encoding_dict = {'time':{'units': f'hours since {ref_date} 00:00:00'}}
+
         for file_name in file_dict.values() :
+            # run_cmd(f'ncdump {file_name} -v time | tail | grep "time =" ',verbose,shell=True)
+            # run_cmd(f'ncdump {file_name} -h | grep "time:units" ',verbose,shell=True)
             with xr.open_dataset(file_name) as ds_data:
                 ds_data.load()
                 self.add_time_date_variables(ds_data,verbose=False,do_timers=False)
-            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
+            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w',encoding=time_encoding_dict)
             ds_data.close()
+            # run_cmd(f'ncdump {file_name} -v time | tail | grep "time =" ',verbose,shell=True)
+            # run_cmd(f'ncdump {file_name} -h | grep "time:units" ',verbose,shell=True)
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
