@@ -5,8 +5,7 @@ server = cdsapi.Client()
 get_atm = True
 get_sfc = True
 
-# bdate_str,edate_str = '2006-08-09 00','2006-08-13 21' # 2024 Nimbus - Typhoon Saomai
-bdate_str,edate_str = '2020-01-20 00','2020-01-25 21' # 2024 SCREAM - autocalibration
+bdate_str,edate_str = '2020-01-20 00','2020-01-26 21' # 2024 SCREAM autocalibration (DYAMOND2)
 
 # Create list of date and time 
 beg_date = datetime.datetime.strptime(bdate_str, '%Y-%m-%d %H')
@@ -18,8 +17,9 @@ lev = [  '1',  '2',  '3',  '5',  '7', '10', '20', '30', '50', '70','100','125','
       ,'225','250','300','350','400','450','500','550','600','650','700','750','775','800','825'
       ,'850','875','900','925','950','975','1000']
 
-# output_path = '/global/cfs/cdirs/m2637/whannah/nudge_data'
-output_path = '/global/cfs/cdirs/m3312/whannah/nudge_data'
+output_path = os.getenv('HOME')+'/HICCUP/data_scratch/nudge_data'
+
+os.makedirs(output_path, exist_ok=True)
 
 # ------------------------------------------------------------------------------
 for t in datetime_list:
