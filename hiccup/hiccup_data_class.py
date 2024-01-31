@@ -195,7 +195,8 @@ def create_hiccup_data(name,dst_horz_grid=None,dst_vert_grid=None,
                       ,grid_dir=grid_dir
                       ,map_dir=map_dir
                       ,tmp_dir=tmp_dir
-                      ,lev_type=lev_type)
+                      ,lev_type=lev_type
+                      ,check_input_files=check_input_files)
 
             # Check input files for for required variables
             if check_input_files: obj.check_file_vars()
@@ -223,7 +224,7 @@ class hiccup_data(object):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_combined_file=None,sstice_name=None,topo_file=None,
-                 sst_file=None,ice_file=None,lev_type=''):
+                 sst_file=None,ice_file=None,lev_type='',check_input_files=True):
         self.lev_type = lev_type
         self.atm_file = atm_file
         self.sfc_file = sfc_file
@@ -272,11 +273,12 @@ class hiccup_data(object):
         if self.sstice_name=='ERA5': self.sst_name,self.ice_name = 'sst','siconc'
 
         # Check that input files exist
-        for file_name in [self.atm_file,self.sfc_file,self.sst_file
-                         ,self.ice_file,self.topo_file]:
-            if file_name is not None:
-                if not os.path.exists(file_name):
-                    raise ValueError(f'input file does not exist: {file_name}')
+        if check_input_files:
+            for file_name in [self.atm_file,self.sfc_file,self.sst_file
+                             ,self.ice_file,self.topo_file]:
+                if file_name is not None:
+                    if not os.path.exists(file_name):
+                        raise ValueError(f'input file does not exist: {file_name}')
 
         # Load input files into xarray datasets
         if self.atm_file is not None: self.ds_atm = xr.open_dataset(self.atm_file)
@@ -1629,7 +1631,7 @@ class ERA5(hiccup_data):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
-                 sstice_combined_file=None,lev_type=''):
+                 sstice_combined_file=None,lev_type='',check_input_files=True):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
@@ -1643,7 +1645,8 @@ class ERA5(hiccup_data):
                         ,grid_dir=grid_dir
                         ,map_dir=map_dir
                         ,tmp_dir=tmp_dir
-                        ,lev_type=lev_type)
+                        ,lev_type=lev_type
+                        ,check_input_files=check_input_files)
         
         self.name = 'ERA5'
         self.lev_name = 'level'
@@ -1792,7 +1795,7 @@ class NOAA(hiccup_data):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
-                 sstice_combined_file=None,lev_type=''):
+                 sstice_combined_file=None,lev_type='',check_input_files=True):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
@@ -1806,7 +1809,8 @@ class NOAA(hiccup_data):
                         ,grid_dir=grid_dir
                         ,map_dir=map_dir
                         ,tmp_dir=tmp_dir
-                        ,lev_type=lev_type)
+                        ,lev_type=lev_type
+                        ,check_input_files=check_input_files)
         
         self.name = 'NOAA'
         self.sstice_name=='NOAA'
@@ -1833,7 +1837,7 @@ class EAM(hiccup_data):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
-                 sstice_combined_file=None,lev_type=''):
+                 sstice_combined_file=None,lev_type='',check_input_files=True):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
@@ -1847,7 +1851,8 @@ class EAM(hiccup_data):
                         ,grid_dir=grid_dir
                         ,map_dir=map_dir
                         ,tmp_dir=tmp_dir
-                        ,lev_type=lev_type)
+                        ,lev_type=lev_type
+                        ,check_input_files=check_input_files)
         
         self.name = 'EAM'
         self.lev_name = 'lev'
