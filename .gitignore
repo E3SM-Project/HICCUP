@@ -6,10 +6,13 @@ exodus_*
 scrip_*
 map_*
 *.png
+custom_scripts/*
 files_grid/*
 files_mapping/*
 files_tmp/*
 test_data_tmp/*
+data_scratch
+data/*
 data_scratch/*
 slurm*out
 build/
