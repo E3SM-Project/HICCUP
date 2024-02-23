@@ -24,9 +24,6 @@ default_tmp_dir     = './files_tmp'
 # default target model is atmos component of E3SM (EAM)
 target_model = 'EAM'
 
-# algorithm flag for ncremap
-ncremap_alg         = ' --alg_typ=tempest '
-
 # log file for Tempest output
 tempest_log_file    = 'TempestRemap.log'
 
@@ -168,7 +165,8 @@ def create_hiccup_data(name,dst_horz_grid=None,dst_vert_grid=None,
                        sstice_combined_file=None,sstice_name=None,
                        sst_file=None,ice_file=None,topo_file=None,
                        lev_type='',verbose=False,
-                       check_input_files=True):
+                       check_input_files=True,
+                       RRM_grid=False):
     """ 
     Create HICCUP data class object, check for required input variables and 
     create specified output directories if they do not exist
@@ -194,7 +192,8 @@ def create_hiccup_data(name,dst_horz_grid=None,dst_vert_grid=None,
                       ,map_dir=map_dir
                       ,tmp_dir=tmp_dir
                       ,lev_type=lev_type
-                      ,check_input_files=check_input_files)
+                      ,check_input_files=check_input_files
+                      ,RRM_grid=RRM_grid)
 
             # Check input files for for required variables
             if check_input_files: obj.check_file_vars()
@@ -222,7 +221,8 @@ class hiccup_data(object):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_combined_file=None,sstice_name=None,topo_file=None,
-                 sst_file=None,ice_file=None,lev_type='',check_input_files=True):
+                 sst_file=None,ice_file=None,lev_type='',check_input_files=True,
+                 RRM_grid=False):
         self.lev_type = lev_type
         self.atm_file = atm_file
         self.sfc_file = sfc_file
@@ -238,6 +238,8 @@ class hiccup_data(object):
         self.src_grid_file = None
         self.dst_grid_file = None
         self.map_file = None
+
+        self.RRM_grid = RRM_grid
 
         self.sstice_name = sstice_name
         self.sst_file = sst_file
@@ -351,10 +353,13 @@ class hiccup_data(object):
         # By default we do not want to use chunk, but for very fine grids
         # it is useful to load into a dask array by setting the chunk size
         chunks = None
-        ne,npg = int(self.get_dst_grid_ne()),int(self.get_dst_grid_npg())
-        # divide total physics column count by 2 for large grids
-        if ne>120 and npg==0: chunks = {'ncol':int((ne*ne*54+2)/2)} 
-        if ne>120 and npg>0 : chunks = {'ncol':int((ne*ne*6*npg)/2)} 
+        if self.RRM_grid:
+            chunks = None
+        else:
+            ne,npg = int(self.get_dst_grid_ne()),int(self.get_dst_grid_npg())
+            # divide total physics column count by 2 for large grids
+            if ne>120 and npg==0: chunks = {'ncol':int((ne*ne*54+2)/2)}
+            if ne>120 and npg>0 : chunks = {'ncol':int((ne*ne*6*npg)/2)}
         return chunks
     # --------------------------------------------------------------------------
     def check_file_vars(self):
@@ -487,21 +492,19 @@ class hiccup_data(object):
         
         ne = self.get_dst_grid_ne()
 
-        # Set the map options (do we need the --mono flag?)
-        self.map_opts = ''
-        if src_type=='FV' : self.map_opts += ' --in_type fv --in_np 1 '
-        if src_type=='GLL': self.map_opts += ' --in_type cgll --in_np 4 '
-        if dst_type=='FV' : self.map_opts += ' --out_type fv --out_np 1 '
-        if dst_type=='GLL': self.map_opts += ' --out_type cgll --out_np 4 '
-        self.map_opts += ' --out_double '
+        # Set the mapping algorithm
+        if src_type=='FV' and dst_type=='GLL': alg_flag = '-a fv2se_flx'
+        if src_type=='GLL'and dst_type=='GLL': alg_flag = '-a se2se'
+        if src_type=='FV' and dst_type=='FV' : alg_flag = '-a fv2fv_flx'
+        if src_type=='GLL'and dst_type=='FV' : alg_flag = '-a se2fv_flx'
         
         # Create the map file
-        cmd = f'ncremap {ncremap_alg} '
+        cmd = f'ncremap {alg_flag} '
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
-        cmd += f' --wgt_opt=\'{self.map_opts}\' '
-        # Add special flag for "very fine" grids
+        # Add special flag for "very fine" grids 
+        # (should this be an optional argument instead?)
         # (this assumes that source data has ~0.5 degree spacing like ERA5)
         if int(ne)>100 : cmd += ' --lrg2sml ' 
         run_cmd(cmd,verbose,shell=True)
@@ -638,12 +641,15 @@ class hiccup_data(object):
 
         for var, file_name in file_dict.items():
 
-            with xr.open_dataset(file_name) as ds_data:
+            with xr.open_dataset(file_name,decode_cf=False) as ds_data:
                 ds_data.load()
                 # Rename the variable
-                ds_data = ds_data.rename({var_dict_all[var]:var})
+                if var_dict_all[var] in ds_data: 
+                    ds_data = ds_data.rename({var_dict_all[var]:var})
                 # Rename the vertical coordinate
-                if new_lev_name is not None and '_sfc_' not in file_name:
+                if new_lev_name is not None \
+                and '_sfc_' not in file_name \
+                and self.lev_name in ds_data:
                     ds_data = ds_data.rename({self.lev_name:new_lev_name})
                 # Do additional variable/attribute renaming specific to the input data
                 adjust_pressure_units = False
@@ -709,7 +715,7 @@ class hiccup_data(object):
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
-        cmd =  f'ncremap {ncremap_alg} '
+        cmd =  f'ncremap'
         cmd += f' --map_file={self.map_file} '
         cmd += f' --in_file={self.atm_file} '
         cmd += f' --out_file={atm_tmp_file_name} '
@@ -719,7 +725,7 @@ class hiccup_data(object):
 
         # Horzontally remap surface data
         var_list = ','.join(self.sfc_var_name_dict.values())
-        cmd =  f'ncremap {ncremap_alg} '
+        cmd =  f'ncremap'
         cmd += f' --map_file={self.map_file} '
         cmd += f' --in_file={self.sfc_file} '
         cmd += f' --out_file={sfc_tmp_file_name} '
@@ -778,7 +784,7 @@ class hiccup_data(object):
             in_var_list = f'{in_var}'
             if 'lat' in self.atm_var_name_dict: in_var_list += f',{lat_var}'
             if 'lon' in self.atm_var_name_dict: in_var_list += f',{lon_var}'
-            cmd  = f'ncremap {ncremap_alg} '
+            cmd  = f'ncremap'
             cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
             cmd += f' --map_file={self.map_file}'
             cmd += f' --in_file={in_file}'
@@ -815,7 +821,7 @@ class hiccup_data(object):
             if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
             # Remap the data
             in_var_list = f'{in_var}'
-            cmd  = f'ncremap {ncremap_alg} '
+            cmd  = f'ncremap'
             cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
             cmd += f' --map_file={self.map_file}'
             cmd += f' --in_file={in_file}'
@@ -930,7 +936,7 @@ class hiccup_data(object):
         if os.path.isfile(vert_tmp_file_name): run_cmd(f'rm {vert_tmp_file_name} ',verbose)
 
         # Perform the vertical remapping
-        cmd  = 'ncremap '
+        cmd  = 'ncremap'
         cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' " # doesn't work with vertical regridding?
         cmd += f' --vrt_fl={vert_file_name}'
         cmd += f' --var_lst={vert_remap_var_list}'
@@ -1056,7 +1062,7 @@ class hiccup_data(object):
 
         # add time_bnds variable
         time_bnds = np.full( (len(ds['time']),2), 0. )
-        for t in range(len(ds['time'])) : time_bnds[t,:] = ds['time'].values
+        for t in range(len(ds['time'])) : time_bnds[t,:] = ds['time'][t].values
         ds['time_bnds'] = xr.DataArray( time_bnds, coords=time_coord, dims=['time','nbnd'] )
         ds['time_bnds'].attrs['long_name'] = 'time interval endpoints'
 
@@ -1296,7 +1302,8 @@ class hiccup_data(object):
         # Create the source grid file
         if force_overwrite or not os.path.isfile(self.sstice_src_grid_file) :
             if verbose : print(verbose_indent+f'\nCreating source grid file for SST and sea ice data...')
-            cmd  = f'ncremap {ncremap_alg} --tmp_dir={self.tmp_dir}'
+            cmd  = f'ncremap'
+            cmd += f' --tmp_dir={self.tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
             cmd += f'#latlon={self.sstice_nlat_src},{self.sstice_nlon_src}'
             cmd +=  '#lat_typ=uni'
@@ -1353,7 +1360,8 @@ class hiccup_data(object):
         # Create the destination grid file
         if force_overwrite or not os.path.isfile(self.sstice_dst_grid_file) :
             if verbose : print(verbose_indent+f'\nCreating target grid file for SST and sea ice data...')
-            cmd  = f'ncremap {ncremap_alg} --tmp_dir={self.tmp_dir}'
+            cmd  = f'ncremap'
+            cmd += f' --tmp_dir={self.tmp_dir}'
             cmd += f' -G ttl=\'Equi-Angular grid {dst_grid}\'' 
             cmd += f'#latlon={self.sstice_nlat_dst},{self.sstice_nlon_dst}'
             cmd +=  '#lat_typ=uni'
@@ -1380,8 +1388,7 @@ class hiccup_data(object):
         # Generate mapping file
         if force_overwrite or not os.path.isfile(self.sstice_map_file) :
             if verbose : print(verbose_indent+f'\nCreating mapping file for SST and sea ice data...')
-            cmd  = f'ncremap {ncremap_alg} '
-            cmd +=  ' -a fv2fv '
+            cmd  = f'ncremap -a fv2fv'
             cmd += f' --src_grd={self.sstice_src_grid_file}'
             cmd += f' --dst_grd={self.sstice_dst_grid_file}'
             cmd += f' --map_file={self.sstice_map_file}'
@@ -1482,7 +1489,7 @@ class hiccup_data(object):
             run_cmd(f'rm {output_file_name}',verbose)
 
         # remap the SST data onto the target grid for the model
-        cmd =  f'ncremap {ncremap_alg} '
+        cmd =  f'ncremap'
         cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
         cmd += f' --vars={self.sst_name},{self.ice_name} '
         cmd += f' --map_file={self.sstice_map_file} '
@@ -1682,7 +1689,8 @@ class ERA5(hiccup_data):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
-                 sstice_combined_file=None,lev_type='',check_input_files=True):
+                 sstice_combined_file=None,lev_type='',check_input_files=True,
+                 RRM_grid=False):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
@@ -1697,7 +1705,8 @@ class ERA5(hiccup_data):
                         ,map_dir=map_dir
                         ,tmp_dir=tmp_dir
                         ,lev_type=lev_type
-                        ,check_input_files=check_input_files)
+                        ,check_input_files=check_input_files
+                        ,RRM_grid=RRM_grid)
         
         self.name = 'ERA5'
         self.lev_name = 'level'
@@ -1802,7 +1811,7 @@ class ERA5(hiccup_data):
 
         hu.check_dependency('ncremap')
 
-        cmd  = f'ncremap {ncremap_alg} ' 
+        cmd  = f'ncremap'
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_horz_grid}\'' 
         cmd += f'#latlon={self.src_nlat},{self.src_nlon}'                    
@@ -1840,6 +1849,13 @@ class ERA5(hiccup_data):
         if 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
         if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
         if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+
+        # delete lat/lon coordinates attributes, which can be problematic later
+        if 'lat' in ds.coords: ds = ds.reset_coords(names='lat', drop=True)
+        if 'lon' in ds.coords: ds = ds.reset_coords(names='lon', drop=True)
+
+        # for v in ds.variables:
+        #     if 'eulaVlliF_' in ds[v].attrs: del ds[v].attrs['eulaVlliF_']
         
         if do_timers: print_timer(timer_start)
         return
@@ -1853,7 +1869,8 @@ class NOAA(hiccup_data):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
-                 sstice_combined_file=None,lev_type='',check_input_files=True):
+                 sstice_combined_file=None,lev_type='',check_input_files=True,
+                 RRM_grid=False):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
@@ -1868,7 +1885,8 @@ class NOAA(hiccup_data):
                         ,map_dir=map_dir
                         ,tmp_dir=tmp_dir
                         ,lev_type=lev_type
-                        ,check_input_files=check_input_files)
+                        ,check_input_files=check_input_files
+                        ,RRM_grid=False)
         
         self.name = 'NOAA'
         self.sstice_name=='NOAA'
@@ -1895,7 +1913,8 @@ class EAM(hiccup_data):
                  output_dir=default_output_dir,grid_dir=default_grid_dir,
                  map_dir=default_map_dir,tmp_dir=default_tmp_dir,
                  sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
-                 sstice_combined_file=None,lev_type='',check_input_files=True):
+                 sstice_combined_file=None,lev_type='',check_input_files=True,
+                 RRM_grid=False):
         super().__init__(atm_file=atm_file
                         ,sfc_file=sfc_file
                         ,dst_horz_grid=dst_horz_grid
@@ -1910,7 +1929,8 @@ class EAM(hiccup_data):
                         ,map_dir=map_dir
                         ,tmp_dir=tmp_dir
                         ,lev_type=lev_type
-                        ,check_input_files=check_input_files)
+                        ,check_input_files=check_input_files
+                        ,RRM_grid=False)
         
         self.name = 'EAM'
         self.lev_name = 'lev'
@@ -2086,25 +2106,19 @@ class EAM(hiccup_data):
         if self.dst_grid_file_np is None : raise ValueError('dst_grid_file_np is not defined!')
         if self.dst_grid_file_pg is None : raise ValueError('dst_grid_file_pg is not defined!')
 
-        # Set the map options
-        self.map_opts_np = '  --out_double  --in_type cgll --in_np 4  --out_type cgll --out_np 4 '
-        self.map_opts_pg = '  --out_double  --in_type fv --in_np 2  --out_type fv --out_np 2 '# --volumetric '
-
         # Create the np4 map file
-        cmd = f'ncremap {ncremap_alg} '
+        cmd = f'ncremap -a se2se '
         cmd += f' --src_grd={self.src_grid_file_np}'
         cmd += f' --dst_grd={self.dst_grid_file_np}'
         cmd += f' --map_file={self.map_file_np}'
-        cmd += f' --wgt_opt=\'{self.map_opts_np}\' '
         if dst_ne>src_ne : cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
         # Create the pgN map file
-        cmd = f'ncremap {ncremap_alg} '
+        cmd = f'ncremap -a fv2fv_flx '
         cmd += f' --src_grd={self.src_grid_file_pg}'
         cmd += f' --dst_grd={self.dst_grid_file_pg}'
         cmd += f' --map_file={self.map_file_pg}'
-        cmd += f' --wgt_opt=\'{self.map_opts_pg}\' '
         if dst_ne>src_ne : cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
