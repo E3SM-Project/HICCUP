@@ -35,9 +35,9 @@ lev = [  '1',  '2',  '3',  '5',  '7', '10', '20', '30', '50', '70'
 # lev = [ '50','100','150','200','300','400','500','600'
 #       ,'700','750','800','850','900','950','1000']
 
-output_path = os.getenv('PWD')+'/data_scratch/'
+output_path = os.getenv('PWD')+'/data_scratch'
 
-# output_file_plv = output_path+'HICCUP_TEST.ERA5.atm.nc'
+# output_file_plv = output_path+'/HICCUP_TEST.ERA5.atm.nc'
 # output_file_sfc = output_file_plv.replace('atm.nc','sfc.nc')
 # output_file_lnd = output_file_plv.replace('atm.nc','lnd.nc')
 
@@ -49,7 +49,7 @@ for i in range(len(yr_list)):
   time = time_list[i]
 
   # output_file_plv = output_path+f'ERA5.atm.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
-  output_file_plv = output_path+f'ERA5.atm.{yr}-{mn}-{dy}.nc'
+  output_file_plv = output_path+f'/ERA5.atm.{yr}-{mn}-{dy}.nc'
   output_file_mlv = output_file_plv.replace('.atm.','.mlev.')
   output_file_sfc = output_file_plv.replace('.atm.','.sfc.')
   output_file_lnd = output_file_plv.replace('.atm.','.lnd.')
