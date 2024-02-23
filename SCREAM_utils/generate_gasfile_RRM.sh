@@ -31,11 +31,10 @@ output_gas_file=${output_root}/gas_constituents_ne0np4-saomai-128x8-pg2-L128_`da
 map_file=/global/cfs/cdirs/m2637/whannah/map_ne30np4_to_ne0np4-saomai-128x8.nc
 
 # Convert data format
-echo
-echo srun ncremap -m ${map_file} ${input_gas_file} ${output_gas_file}.permuted
-echo
-srun ncremap -m ${map_file} ${input_gas_file} ${output_gas_file}.permuted
-echo
-echo srun ncpdq --ovr -a time,ncol,lev ${output_gas_file}.permuted ${output_gas_file}
-echo
-srun ncpdq --ovr -a time,ncol,lev ${output_gas_file}.permuted ${output_gas_file}
+CMD=ncremap -m ${map_file} ${input_gas_file} ${output_gas_file}.permuted
+echo; echo srun $CMD
+echo; srun $CMD
+
+CMD=ncpdq --ovr -a time,ncol,lev ${output_gas_file}.permuted ${output_gas_file}
+echo; echo srun $CMD
+echo; srun $CMD

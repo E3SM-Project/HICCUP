@@ -124,9 +124,9 @@ def main(inputfile, gasfile, outputfile):
 
         print_message('Done.')
 
-        print_message()
+        print_message('')
         print_message(f'  outputfile: {outputfile}')
-        print_message()
+        print_message('')
 
 if __name__ == '__main__':
     import plac; plac.call(main)
