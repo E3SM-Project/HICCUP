@@ -8,11 +8,11 @@ regrid_data = True
 # ------------------------------------------------------------------------------
 
 # SST data
-sst_src_file_name = 'data_scratch/sst.day.mean.2008.nc'
+sst_src_file_name = 'test_data/sst.day.mean.2008.nc'
 sst_dst_file_name = 'test_data/HICCUP_TEST.NOAA.sst.nc'
 
 # sea-ice data
-ice_src_file_name = 'data_scratch/icec.day.mean.2008.nc'
+ice_src_file_name = 'test_data/icec.day.mean.2008.nc'
 ice_dst_file_name = 'test_data/HICCUP_TEST.NOAA.ice.nc'
 
 # ------------------------------------------------------------------------------
