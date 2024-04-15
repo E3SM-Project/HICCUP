@@ -466,7 +466,7 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=None,src_type=None,dst_type=None):
+    def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=False):
         """ 
         Generate mapping file after grid files have been created.
         This routine assumes that the destination is always GLL/np4.
@@ -489,8 +489,6 @@ class hiccup_data(object):
             raise ValueError(f'The value of src_type={src_type} is not supported')
         if dst_type is not None and dst_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
-        
-        ne = self.get_dst_grid_ne()
 
         # Set the mapping algorithm
         if src_type=='FV' and dst_type=='GLL': alg_flag = '-a fv2se_flx'
@@ -503,10 +501,7 @@ class hiccup_data(object):
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
-        # Add special flag for "very fine" grids 
-        # (should this be an optional argument instead?)
-        # (this assumes that source data has ~0.5 degree spacing like ERA5)
-        if int(ne)>100 : cmd += ' --lrg2sml ' 
+        if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids 
         run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
