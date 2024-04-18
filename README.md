@@ -61,15 +61,31 @@ The default paths for things like grid files, mapping files, and output data is 
 
 ### Obtaining Input Data
 
-Currently, ERA5 + NOAA SST/ice is the only supported input data option.
+Currently. ERA5 + NOAA SST/ice is the preferred input data option.
 To aquire new ERA5 data, be sure "cdsapi" is in your conda environment
-and set up your ECMWF API key in `~/.ecmwfapirc`,then edit and run:
+and you've sset up your CDS API key in `~/.cdsapirc`.
 
-  `get_hindcast_data.ERA5.py`
+You can then use the `get_hindcast_data.ERA5.py` tool to obtain a single pair of 
+ERA5 pressure level and surface data files with
 
-To aquire NOAA OI daily SST and sea ice data, edit and run:
+  `python get_hindcast_data.ERA5.py --start-date=<yyyymmdd> --output-root=<path>`
 
-  `get_hindcast_data.NOAA_SSTICE.py`
+Alternatively, you can obtain ERA5 files over a range of dates with a specified
+hourly frequency with
+
+  `python get_hindcast_data.ERA5.py --start-date=<yyyymmdd> --final-date=<yyyymmdd> --start-hour=<hh> --final-hour=<hh> --data-freq=3h --output-root=<path>`
+
+Note that while the `--output-root` argument is optional, it is recommended to 
+make sure this points to a location on a scratch disk with sufficient space 
+for large data files.
+
+Similarly, 0.25 degree NOAA OI daily SST and sea ice data can be obtained in
+yearly files by using the `get_hindcast_data.NOAA_SSTICE.py` tool with command
+line arguments to specify a year, or range of years as follows:
+
+  `python get_hindcast_data.NOAA_SSTICE.py --start-year=<yyyy> --final-year=<yyyy> --output-root=<path>`
+
+For a single year, omit the `--final-year` argument.
 
 --------------------------------------------------------------------------------
 
