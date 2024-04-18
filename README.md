@@ -96,9 +96,11 @@ involving numerous, undocumented, subjective decisions mainly by Phil Rasch
 and Po-Lun Ma who did not document the process, so there is no recipe to 
 recreate the grid from scratch. 
 
-A vertical grid file for the L72 grid is included in the HICCUP repository.
+A vertical grid file for the L80 grid used by E3SMv3 atmosphere is included in the HICCUP repository.
   
-  `files_vert/vert_coord_L72.nc`
+  `files_vert/L80_for_E3SMv3.nc`
+
+In addition to other atmosphere vertical grids for other E3SM configuration.
 
 To create a new vertical coordinate file it must be extracted from a 
 pre-existing model data file as follows:
@@ -113,6 +115,8 @@ pre-existing model data file as follows:
   3. Generate a new netcdf file from the edited text file using ncgen:
      
      `ncgen vert_coord.txt -o vert_coord.nc`
+
+Vertical grid information can also be procedurally constructed. Future HICCUP updates will bring in template scripts for modifying existing grids and generating new vertical grids from scratch.
 
 --------------------------------------------------------------------------------
 
