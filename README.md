@@ -3,12 +3,14 @@
 This is a tool for creating [E3SM](https://e3sm.org/) initial condition files from reanalysis with 
 a focus on modularity and portability.
 
-The tool is used by making a copy of one of the template scripts, such as:
+The tool is used by selecting one of the template scripts, such as:
 
   `template_scripts/create_initial_condition_from_obs.py`
 
-which then needs to be edited to update paths and configure the tasks to fit the user's needs.
-The new user script can then be excuted after loading a suitable conda environment (see Setup Notes).
+Make a copy of this in the `user_scripts` directory, which will be ignored by git. This template
+script copy then needs to be edited to update paths and configure the list of tasks to fit the
+user's needs.The new user script can then be excuted after loading a suitable conda environment
+(see Setup Notes).
 
 --------------------------------------------------------------------------------
 
