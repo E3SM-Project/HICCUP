@@ -1,105 +1,110 @@
 #!/usr/bin/env python
-import os, cdsapi, datetime
-server = cdsapi.Client()
-# --------------------------------------------------------------------------------------------------
-# Script for downloading ERA5 data for hindcast validation
+#---------------------------------------------------------------------------------------------------
 # links to CDS web interface:
 #   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
 #   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels
 # A list of available variables can also be found in the ERA5 documentation:
 #   https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+#---------------------------------------------------------------------------------------------------
+import os, cdsapi, datetime, pandas as pd
+server = cdsapi.Client()
+#---------------------------------------------------------------------------------------------------
+class clr:END,RED,GREEN,MAGENTA,CYAN = '\033[0m','\033[31m','\033[32m','\033[35m','\033[36m'
+#---------------------------------------------------------------------------------------------------
+usage = f'''
+This script is intended to streamline the aquisition of ERA5 pressure level 
+and surface data for generating E3SM atmospheric initial conditions with HICCUP
+
+Example of requesting multiple data files spanning a range of dates/times every 3-hours:
+  {clr.GREEN}python get_validation_data.ERA5.py --start-date=<yyyymmdd> --final-date=<yyyymmdd> --output-root=<path>{clr.END}
+'''
+from optparse import OptionParser
+parser = OptionParser(usage=usage)
+parser.add_option('--start-date',  dest='start_date',  default=None,  help='date of first file [yyyymmdd]')
+parser.add_option('--final-date',  dest='final_date',  default=None,  help='date of last file [yyyymmdd] (optional)')
+# parser.add_option('--start-hour',  dest='start_hour',  default='00',  help='UTC hour of first file (default=00Z)')
+# parser.add_option('--final-hour',  dest='final_hour',  default='00',  help='UTC hour of last file (default=00Z)')
+# parser.add_option('--data-freq',   dest='data_freq',   default='3h', help='frequency of data files (default=24h)')
+parser.add_option('--output-root', dest='output_root', default='./',  help='Output path for data files (default is PWD)')
+(opts, args) = parser.parse_args()
+#---------------------------------------------------------------------------------------------------
+# check that input arguments are valid
+if opts.start_date is None: raise ValueError(f'{clr.RED}start date was not specified{clr.END}')
+if opts.final_date is None: raise ValueError(f'{clr.RED}final date was not specified{clr.END}')
+#---------------------------------------------------------------------------------------------------
+# build list of dates and times from input arguments
+beg_date = datetime.datetime.strptime(f'{opts.start_date}', '%Y%m%d')
+end_date = datetime.datetime.strptime(f'{opts.final_date}', '%Y%m%d')
+datetime_list = pd.date_range(beg_date, end_date, freq='24h')
 # --------------------------------------------------------------------------------------------------
-# Typically this data and the hindcast data should be remapped to a common grid
-# So here are some helpful commands for putting everything on a 1 deg grid:
-
-# Unpack the data: FILE=data_scratch/ERA5_validation.Q.2016-08-01.nc ; ncpdq --ovr --unpack $FILE $FILE
-
-# Generate 1-deg grid file: ncremap -a tempest -G ttl='Equi-Angular grid 180x360'#latlon=180,360#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g $HOME/HICCUP/files_grid/scrip_180x360_s2n.nc
-# Generate 2-deg grid file: ncremap -a tempest -G ttl='Equi-Angular grid 90x180'#latlon=90,180#lat_typ=uni#lat_drc=s2n#lon_typ=grn_ctr -g $HOME/HICCUP/files_grid/scrip_90x180_s2n.nc
-
-# Generate map file for ERA5: ncremap --alg_typ=tempest -a fv2fv --src_grd=./files_grid/scrip_ERA5_721x1440.nc --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=./files_mapping/map_721x1440_n2s_to_90x180_s2n.nc
-
-# Generate map file for E3SM ne30np4: ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30.g --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30np4_to_90x180.nc --wgt_opt='--in_type cgll --in_np 4 --out_type fv --out_np 2 --out_double'
-
-# Generate map file for E3SM ne30pg2: ncremap --alg_typ=tempest --src_grd=./files_grid/exodus_ne30pg2.nc --dst_grd=./files_grid/scrip_90x180_s2n.nc --map_file=/global/homes/w/whannah/maps/map_ne30pg2_to_90x180.nc --wgt_opt='--in_type fv --in_np 2 --out_type fv --out_np 2 --out_double'
-
-# Remap the data: ncremap -m <map file> -i <input file> -o <output file>
-# obs example: FILE=data_scratch/ERA5_validation.Z.2016-08-01 ; ncremap -m ./files_mapping/map_721x1440_n2s_to_90x180_s2n.nc -i $FILE.nc -o $FILE.remap_90x180.nc
-# hindcast example:
-# export MSCRATCH=/global/cscratch1/sd/whannah/e3sm_scratch/cori-knl/
-# CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30np4_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
-# CASE=E3SM_HINDCAST-TEST_2016-08-01_ne30pg2_FC5AV1C-L_00 ; FILE=$MSCRATCH/$CASE/run/$CASE.cam.h1.2016-08-01-00000 ; ncremap -m $HOME/maps/map_ne30pg2_to_90x180.nc -i $FILE.nc -o $FILE.remap_90x180.nc
+prs_short_list,prs_era5_list,prs_lev_list = [],[],[]
+sfc_short_list,sfc_era5_list = [],[]
+def add_var(var_type,var_name_short,name_name_era5,lev=None):
+  if var_type=='sfc':
+    sfc_short_list.append(var_name_short)
+    sfc_era5_list.append(name_name_era5)
+  if var_type=='prs':
+    if lev is None: raise ValueError(f'{clr.RED}lev needs to be provided for pressure level variables{clr.END}  var: {var_name_short}')
+    tmp_lev_list = lev if type(lev) is list else [lev]
+    prs_short_list.append(var_name_short)
+    prs_era5_list.append(name_name_era5)
+    prs_lev_list.append(tmp_lev_list)
 # --------------------------------------------------------------------------------------------------
 
 get_atm = True
 get_sfc = False
 
-# Build a list of year,month,day values
-ndays = 60
-sdate = datetime.date(2005, 6, 1)
+file_prefix = 'ERA5_validation'
 
-yr_list,mn_list,dy_list = [],[],[]
-for i in range( (datetime.timedelta(days=ndays)).days ):
-  tdate = sdate + datetime.timedelta(days=i)
-  yr_list.append(str(tdate.year).zfill(4))
-  mn_list.append(str(tdate.month).zfill(2))
-  dy_list.append(str(tdate.day).zfill(2))
-
-time_list = ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00']
-
-# lev = [ '50','100','150','200','300','400','500','600','700','750','800','850','900','950','1000']
-
-# output_path = os.getenv('PWD')+'/validation_data/'
-output_path = '/global/cfs/projectdirs/m3312/whannah/HICCUP' ### NERSC
+hr_mn_list = ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00']
 
 # --------------------------------------------------------------------------------------------------
-atm_var_dict = {}
-atm_var_dict.update({'Z':'geopotential'})
-atm_var_dict.update({'T':'temperature'})
-atm_var_dict.update({'Q':'specific_humidity'})
-atm_var_dict.update({'U':'u_component_of_wind'})
-atm_var_dict.update({'V':'v_component_of_wind'})
+# buidl list of variables
 
-sfc_var_dict = {}
-sfc_var_dict.update({'TS':'skin_temperature'})
-sfc_var_dict.update({'PS':'surface_pressure'})
-# sfc_var_dict.update({'':'sea_surface_temperature'})
-# sfc_var_dict.update({'':'sea_ice_cover'})
-# sfc_var_dict.update({'':'snow_depth'})
+add_var('prs','Z','geopotential',        lev=['100','500','700'])
+add_var('prs','T','temperature',         lev=['500','850'])
+add_var('prs','Q','specific_humidity',   lev=['850'])
+add_var('prs','U','u_component_of_wind', lev=['200','850'])
+add_var('prs','V','v_component_of_wind', lev=['200','850'])
 
+add_var('sfc','TS','skin_temperature')
+add_var('sfc','PS','surface_pressure')
+# add_var('sfc','SST','sea_surface_temperature')
+# add_var('sfc','SIC','sea_ice_cover')
+# add_var('sfc','SNOD','snow_depth')
 
 # --------------------------------------------------------------------------------------------------
-# atmossphere pressure level data
-if get_atm:
-  for key in atm_var_dict.keys():
-    if key=='Z': lev = ['100','500','700']
-    if key=='T': lev = ['500','850']
-    if key=='U': lev = ['200','850']
-    if key=='V': lev = ['200','850']
-    if key=='Q': lev = ['850']
-    output_file = f'{output_path}/ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+for t in datetime_list:
+  # parse date/time information
+  date = t.strftime('%Y-%m-%d')
+  yr = t.strftime("%Y")
+  mn = t.strftime("%m")
+  dy = t.strftime("%d")
+  #-----------------------------------------------------------------------------
+  # atmosphere pressure level variables
+  for v,var in enumerate(prs_short_list):
+    output_file = f'{opts.output_root}/{file_prefix}.{var}.{date}.nc'
     server.retrieve('reanalysis-era5-pressure-levels',{
-        'product_type'  : 'reanalysis',
-        'pressure_level': lev,
-        'time'          : time_list,
-        'day'           : dy_list,
-        'month'         : mn_list,
-        'year'          : yr_list,
-        'format'        : 'netcdf',
-        'variable'      : [atm_var_dict[key]],
+      'product_type'  : 'reanalysis',
+      'format'        : 'netcdf',
+      'time'          : hr_mn_list,
+      'day'           : dy,
+      'month'         : mn,
+      'year'          : yr,
+      'pressure_level': prs_lev_list[v],
+      'variable'      : [prs_era5_list[v]],
     }, output_file)
-# --------------------------------------------------------------------------------------------------
-# surface data
-if get_sfc:
-  for key in sfc_var_dict.keys():
-    output_file = f'{output_path}/ERA5_validation.{key}.{yr_list[0]}-{mn_list[0]}-{dy_list[0]}.nc'
+
+  # single-level variables
+  for v,var in enumerate(sfc_short_list):
+    output_file = f'{opts.output_root}/{file_prefix}.{var}.{date}.nc'
     server.retrieve('reanalysis-era5-single-levels',{
-        'product_type'  : 'reanalysis',
-        'time'          : time_list,
-        'day'           : dy_list,
-        'month'         : mn_list,
-        'year'          : yr_list,
-        'format'        : 'netcdf',
-        'variable'      : [sfc_var_dict[key]],
+      'product_type'  : 'reanalysis',
+      'format'        : 'netcdf',
+      'time'          : hr_mn_list,
+      'day'           : dy,
+      'month'         : mn,
+      'year'          : yr,
+      'variable'      : [sfc_era5_list[v]],
     }, output_file)
 # --------------------------------------------------------------------------------------------------
