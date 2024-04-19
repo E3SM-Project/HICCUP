@@ -1,11 +1,14 @@
 ## HINDCAST INITIAL CONDITION CREATION UTILITY/PROCESSOR (HICCUP)
 
 This is a tool for creating [E3SM](https://e3sm.org/) initial condition files from reanalysis with 
-a focus on simplicity and portability.
+a focus on modularity and portability.
 
-The tool is used by editing and running one of the template scripts:
+The tool is used by making a copy of one of the template scripts, such as:
 
   `template_scripts/create_initial_condition_from_obs.py`
+
+which then needs to be edited to update paths and configure the tasks to fit the user's needs.
+The new user script can then be excuted after loading a suitable conda environment (see Setup Notes).
 
 --------------------------------------------------------------------------------
 
@@ -47,11 +50,13 @@ After creating the environment it can be activated via:
 
   `source activate hiccup_env`
 
-You can (optionally) install HICCUP into your python environment by running `setup.py`, for example:
+You can then install HICCUP into your python environment by running `setup.py`, for example:
 ```
    ./setup.py install
 ```
 which will allow you to import `hiccup` from any directory.
+
+Note that if the user is making changes to the underlying hiccup code, the `./setup.py install` process needs to be repeated for any changes to take effect.
 
 TempestRemap and NCO may already be locally available if you are working on a machine at a super-computing center. They can also be installed manually, but we recommend including them in the hiccup conda environment to avoid conflicts.
 
@@ -267,14 +272,14 @@ For simple testing of HICCUP functionality the repo includes low-resolution test
 
 ### Development Plans
 
-Current plans for HICCUP enhancments and fixes:
+Below are some ideas for future HICCUP enhancments:
 
-- **Support transient SST data** - Currently the SST data that HICCUP produces will be "static" in the simulation. The workflow for SST/ice data needs to change in order to produce a time-varying data to allow longer hindcast without static surface conditions.
+- **Fix EAMxx/SCREAM support** - The current workflow is tailored for EAM, and the user needs to use the conversion script in the SCREAM_utils folder to rename and reshape the data in the initial condition file. This step can be completely comitted by adding some special logic to the EAMxx HICCUP data class to do this renaming and reshaping. 
 - **Detect whether input files are packed** - The ERA5 data from CDS come "packed" and the NCO unpacking command takes quite a while, even for small files that are already unpacked. The current workflow requires the user to know the state of the input files, so a method for automatically checking whether unpacking needs to be done would be very helpful. This would simplify the workflow a bit because we could delete the flag and line for this unpacking step and just have it done when the hiccup_data object is created.
-- **Add run scripts for hindcasts and land spin up** - I have a script for this, but it's very specific to a certain machine. A more general and simplified script for this would be helpful. 
-- **Validation data framework?** - Currently there are few scripts for obtaining ERA5 validation data, but I think this could be improved and maybe add a whole separate workflow.
-- **Fix support for using ERA5 SST and sea-ice**
-- **Add support for CFSR / GFS / MERRA / JRA55**
+- **Add simple run script templates for hindcasts and land spin-up** - I have many scripts for these things that are much simpler than the standard [monolithic] E3SM run script for production coupled runs, but they are specific to individual machines and file systems. A more general and simplified script for this would be helpful. 
+- **Validation data framework?** - Currently there are few python scripts for obtaining ERA5 validation data, but this could be improved by polishing a separate workflow for this, perhaps including an automated calculation of forecast error.
+- **Fix support for using ERA5 SST and sea-ice** - I forget what the issue was here, but this has been requested a few times and I think it would be a valuable feature to have.
+- **Add support for CFSR / GFS / MERRA / JRA55** - This has proven difficult due to the ways these datasets are organized. ERA5 offers a lot of flexibilty to facilitate an automated workflow, but other datasets have a single format that must be accomodated. For example, if files are only offered as one variable per file with multiple time steps then a user who needs a single initial condition file at 00Z will have to download orders of magnitude more data than they, and the HICCUP back-end will require special exceptions for how to load each dataset and how the input arguments are sturctured, which will also require many more specialized checks to ensure the data is self-consistent, which seems error-prone. 
 
 
 --------------------------------------------------------------------------------
