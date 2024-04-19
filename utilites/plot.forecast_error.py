@@ -1,53 +1,39 @@
-import os, ngl, copy, glob, xarray as xr, numpy as np
-import hapy_common as hc, hapy_E3SM   as he, hapy_setres as hs
+import os, copy, glob, xarray as xr, numpy as np
+plot_backend = 'mpl' # mpl / ngl
+if plot_backend == 'mpl': import matplotlib.pyplot as plt
+if plot_backend == 'ngl': import ngl
 #-------------------------------------------------------------------------------
-he.default_data_dir=os.getenv('HOME')+'/E3SM/scratch'
-he.default_data_sub='run'
-#-------------------------------------------------------------------------------
-name,case,case_dir,case_sub,clr,dsh,mrk = [],[],[],[],[],[],[]
-def add_case(case_in,n=None,p=None,s=None,d=0,m=1,c='black'):
-  global name,case,case_dir,case_sub
+case,name,case_dir,case_sub,clr,mrk = [],[],[],[],[],[]
+def add_case(case_in,name=None,root=None,sub='run',dsh=0,clr='black'):
   tmp_name = case_in if n is None else n
   case.append(case_in); name.append(tmp_name)
   case_dir.append(p); case_sub.append(s);
   dsh.append(d) ; clr.append(c) ; mrk.append(m)
 #-------------------------------------------------------------------------------
-var = []
-var_str = []
-var_unit = []
-file_type_list = []
-obs_var_list = []
-obs_file_list = []
-lev_list = []
-def add_var(var_name,obs_var=None,obs_file=None,name='',unit='',lev=None):
-   var.append(var_name)
-   obs_var_list.append(obs_var)
-   obs_file_list.append(obs_file)
-   var_str.append(name)
-   var_unit.append(unit)
-   lev_list.append(lev)
+sim_var_list,obs_var_list,var_str_list = [],[],[]
+def add_var(sim_var,obs_var,var_str,):
+  sim_var_list.append(sim_var); obs_var_list.append(obs_var); var_str_list.append(var_str)
 #-------------------------------------------------------------------------------
 
 init_date = '2005-06-01'
 
-add_case('E3SM.2022-HICCUP-SST-TEST-00.F2010.ne30pg2_oECv3',n='CTL',c='red')
-add_case('E3SM.2022-HICCUP-SST-TEST-01.F2010.ne30pg2_oECv3',n='EXP',c='blue')
+obs_path = f'/global/cfs/projectdirs/m3312/whannah/HICCUP/E3SM_tutorial/ERA5_validation.*.{init_date}.remap_ne30pg2.nc'
 
+#-------------------------------------------------------------------------------
+# Build list of hindcast cases to load
 
-# grid = '180x360'
-grid = '90x180'  # use this for ne30pg2!
+add_case('E3SM.HINDCAST-TEST.ne30pg2_oECv3',name='E3SM',root='',c='red')
 
-obs_path = os.getenv('HOME')+f'/HICCUP/data_scratch/ERA5_validation.*.{init_date}.remap_{grid}.nc'
-
-# list of variables to plot
+#-------------------------------------------------------------------------------
+# build list of variables
 var,lev = [],[]
 
 htype = 'h1'
 var.append(('TS','TS')); lev.append(-999)
 
-add_var('LW_flux_up@tom',obs_var='LW_flux_up_at_model_top',obs_file='CERES.LW_flux_up_at_model_top.AVERAGE.ne30pg2.20200126.nc',name='TOA LW up',unit='')
+add_var(sim_var='Z500',obs_var='Z500',var_str='Z500')
 
-
+#-------------------------------------------------------------------------------
 # var.append(('Z500','z')); lev.append(500)
 
 # single time index to load (no averaging) - time max used for reference "climate" calculation
