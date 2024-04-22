@@ -34,6 +34,7 @@ var.append(('TS','TS')); lev.append(-999)
 add_var(sim_var='Z500',obs_var='Z500',var_str='Z500')
 
 #-------------------------------------------------------------------------------
+
 # var.append(('Z500','z')); lev.append(500)
 
 # single time index to load (no averaging) - time max used for reference "climate" calculation
