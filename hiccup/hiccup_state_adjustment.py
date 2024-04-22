@@ -1,5 +1,4 @@
-import xarray as xr
-import numpy as np
+import xarray as xr, numpy as np, os, datetime
 #-------------------------------------------------------------------------------
 lapse   = 0.0065        # std. atmosphere lapse rate              ~ -6.5 K/km
 gravit  = 9.80616       # acceleration of gravity                 ~ m/s^2
@@ -394,6 +393,39 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None):
 
   ds[frac_var_name].values = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
   ds[frac_var_name].values = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
+  return
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def apply_random_perturbations( ds, var_list=None, seed=None, verbose=None):
+  """
+  Apply random perturbations to the final remapped state variables
+  """
+  if verbose is None : verbose = default_verbose
+  if verbose: print('\nApplying random perturbation...')
+
+  if var_list is None:
+    raise ValueError(f'var_list cannot be None')
+
+  for var in var_list:
+    if var not in ds.variables:
+      raise KeyError(f'{var} is missing from data')
+
+  if seed is None:
+    seed = int(datetime.datetime.utcnow().strftime('%s'))
+    seed = seed*hash(os.getenv('USER'))
+    seed = seed*hash(' '.join(os.listdir()))
+    seed = np.abs(seed)
+
+  # initialize RNG
+  rng = np.random.default_rng(seed)
+
+  ds.load()
+
+  # apply "small" perturbations => normal-dist x std-dev x 0.1%
+  for var in var_list:
+    ds[var] = ds[var] + rng.standard_normal( ds[var].shape ) * ds[var].std().values * 0.001
+
   return
 
 #-------------------------------------------------------------------------------
