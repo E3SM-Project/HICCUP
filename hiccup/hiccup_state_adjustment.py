@@ -422,9 +422,10 @@ def apply_random_perturbations( ds, var_list=None, seed=None, verbose=None):
 
   ds.load()
 
-  # apply "small" perturbations => normal-dist x std-dev x 0.1%
+  # apply perturbations
   for var in var_list:
-    ds[var] = ds[var] + rng.standard_normal( ds[var].shape ) * ds[var].std().values * 0.001
+    # use "small" perturbations => 1% of std-dev
+    ds[var] = ds[var] + rng.standard_normal( ds[var].shape ) * ds[var].std().values * 0.01
 
   return
 
