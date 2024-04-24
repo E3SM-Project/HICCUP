@@ -55,15 +55,19 @@ dst_grid_file = f'{grid_file_root}/scrip_{dst_grid_name}.nc'
 
 map_file = f'{map_file_root}/map_{src_grid_name}_to_{dst_grid_name}.nc'
 
-regrid_data = True
 create_map  = True
-unpack      = True
-clean       = True
+unpack_raw  = True
+clean_files = True
+regrid_data = True
 
 if opts.skip_map: create_map  = False
 
 # ------------------------------------------------------------------------------
 # print some informative stuff
+map_clr = clr.GREEN if create_map  else clr.RED
+upk_clr = clr.GREEN if unpack_raw  else clr.RED
+cln_clr = clr.GREEN if clean_files else clr.RED
+rgr_clr = clr.GREEN if regrid_data else clr.RED
 print(f'''
   start_date   : {opts.start_date}
   final_date   : {opts.final_date}
@@ -71,14 +75,14 @@ print(f'''
   final_hour   : {opts.final_hour}
   data_freq    : {opts.data_freq}
 
-  src_grid_file: {src_grid_file}
-  dst_grid_file: {dst_grid_file}
-  map_file     : {map_file}
+  src_grid_file: {clr.CYAN}{src_grid_file}{clr.END}
+  dst_grid_file: {clr.CYAN}{dst_grid_file}{clr.END}
+  map_file     : {clr.CYAN}{map_file}{clr.END}
 
-  regrid_data  : {regrid_data}
-  create_map   : {create_map}
-  unpack       : {unpack}
-  clean        : {clean}
+  create_map   : {map_clr}{create_map}{clr.END}
+  unpack_raw   : {upk_clr}{unpack_raw}{clr.END}
+  clean_files  : {cln_clr}{clean_files}{clr.END}
+  regrid_data  : {rgr_clr}{regrid_data}{clr.END}
 ''')
 # ------------------------------------------------------------------------------
 if create_map:
@@ -87,7 +91,7 @@ if create_map:
    if not os.path.exists(map_file_root): os.mkdir(map_file_root)
 
    # remove old grid and mapping files
-   if clean :
+   if clean_files :
       if os.path.exists(src_grid_file) : run_cmd(f'rm {src_grid_file}')
       if os.path.exists(dst_grid_file) : run_cmd(f'rm {dst_grid_file}')
       if os.path.exists(map_file)      : run_cmd(f'rm {map_file}')
@@ -119,21 +123,14 @@ if create_map:
 # remap the data
 for var in var_list:
    for t in datetime_list:
-      # parse date/time information
-      yr = t.strftime("%Y")
-      mn = t.strftime("%m")
-      dy = t.strftime("%d")
-      hr = t.strftime("%H")
-      hr_min = f'{hr}:00'
-      
-   src_file_name = f'{opts.input_root}/ERA5_validation.{var}.{date}.nc'
-   dst_file_name = src_file_name.replace('.nc',f'.remap_{dst_grid_name}.nc')
-   
-   # --------------------------------------------------------------------------
-   if unpack: run_cmd(f'ncpdq --ovr -U {src_file_name} {src_file_name}')
-   # --------------------------------------------------------------------------
-   # remap the data
-   if regrid_data:
-      run_cmd(f'ncremap {alg} -m {map_file} -i {src_file_name} -o {dst_file_name}  ')
-
+      # ------------------------------------------------------------------------
+      src_file_name = f'{opts.input_root}/ERA5_validation.{var}.{t.strftime("%Y-%m-%d")}.nc'
+      dst_file_name = src_file_name.replace('.nc',f'.remap_{dst_grid_name}.nc')
+      # ------------------------------------------------------------------------
+      if unpack_raw:
+         run_cmd(f'ncpdq --ovr -U {src_file_name} {src_file_name}')
+      # ------------------------------------------------------------------------
+      # remap the data
+      if regrid_data:
+         run_cmd(f'ncremap -m {map_file} -i {src_file_name} -o {dst_file_name}')
 # --------------------------------------------------------------------------------------------------
