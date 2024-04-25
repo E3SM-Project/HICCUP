@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 #---------------------------------------------------------------------------------------------------
-# This script is intended to streamline the aquisition of ERA5 pressure level 
-# and surface data for generating E3SM atmospheric initial conditions with HICCUP
-#---------------------------------------------------------------------------------------------------
 # links to CDS web interface:
 #   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
 #   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels

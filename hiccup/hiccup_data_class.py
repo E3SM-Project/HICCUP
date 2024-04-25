@@ -1029,6 +1029,37 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
+    def atmos_state_apply_perturbations_multifile(self,file_dict,seed=None,verbose=None):
+        """
+        apply post-remapping atmospheric perturbations
+        for the multifile workflow
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print(verbose_indent+'\nApplying random perturbations...')
+
+        # build list of file names for variables to be perturbed
+        file_list = []
+        var_list = ['T','PS','U','V']
+        for var,file_name in file_dict.items():
+            if var in var_list: file_list.append(file_name)
+
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+
+            # adjust cloud water to remove negative values
+            hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed, verbose=False )
+            ds_data.compute()
+
+        # Write perturbed data back to the individual data files
+        for var in var_list:
+            if var in self.atm_var_name_dict.keys():
+                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
+
+        ds_data.close()
+
+        if do_timers: print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
     def add_time_date_variables(self,ds,verbose=None,do_timers=do_timers):
         """
         Check final output file and add necessary time and date information
