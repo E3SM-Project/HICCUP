@@ -6,11 +6,16 @@ from shutil import copy2
 class clr:END,RED,GREEN,MAGENTA,CYAN = '\033[0m','\033[31m','\033[32m','\033[35m','\033[36m'
 def run_cmd(cmd): print('\n'+clr.GREEN+cmd+clr.END) ; os.system(cmd); return
 #---------------------------------------------------------------------------------------------------
-newcase,config,build,submit = False,False,False,False
-
-acct = 'e3sm'
+# THINGS THAT NEED TO BE EDITED
+acct        = 'ntrain6'
 reservation = 'e3sm_testrun'
-src_dir = # PATH TO E3SM SOURCE CODE
+src_dir     = # PATH TO E3SM SOURCE CODE
+init_scratch  = # PATH TO INITIAL CONDITON FILES
+init_date,sst_yr = '2023-09-08',2023
+init_file_atm = f'{init_scratch}/HICCUP.atm_era5.{init_date.strftime("%Y-%m-%d")}.ne30np4.L80.nc'
+init_file_sst = f'{init_scratch}/HICCUP.sst_noaa.{init_date.strftime("%Y-%m-%d")}.nc'
+#---------------------------------------------------------------------------------------------------
+newcase,config,build,submit = False,False,False,False
 
 newcase      = True
 config       = True
@@ -19,14 +24,8 @@ submit       = True
 
 stop_opt,stop_n,resub,walltime = 'ndays',5,0,'0:30:00'
 
-init_date = datetime.datetime.strptime('2023-09-08 00', '%Y-%m-%d %H')
-
 case = '.'.join(['E3SM','2024-E3SM-tutorial-hindcast',init_date.strftime('%Y-%m-%d')])
 
-# init_scratch  = '/global/cfs/projectdirs/e3sm/www/Tutorials/2024/practicum/day_4/atm_breakout'
-init_scratch  = # PATH TO INITIAL CONDITON FILES
-init_file_atm = f'{init_scratch}/HICCUP.atm_era5.{init_date.strftime("%Y-%m-%d")}.ne30np4.L80.nc'
-init_file_sst = f'{init_scratch}/HICCUP.sst_noaa.{init_date.strftime("%Y-%m-%d")}.nc'
 scratch_root = f'{os.getenv("SCRATCH")}/e3sm_scratch/pm-cpu'
 case_root = f'{scratch_root}/{case}'
 #---------------------------------------------------------------------------------------------------
@@ -69,7 +68,6 @@ if submit :
    file.close()
    #----------------------------------------------------------------------------
    # Specify start date and SST file for hindcast
-   sst_yr = int(init_date.strftime('%Y'))
    os.system(f'./xmlchange --file env_run.xml  RUN_STARTDATE={init_date.strftime("%Y-%m-%d")}')
    os.system(f'./xmlchange --file env_run.xml  SSTICE_DATA_FILENAME={init_file_sst}')
    os.system(f'./xmlchange --file env_run.xml  SSTICE_YEAR_ALIGN={sst_yr}')
