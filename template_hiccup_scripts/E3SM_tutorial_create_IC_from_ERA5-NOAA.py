@@ -34,9 +34,11 @@ dst_vert_grid,vert_file_name = 'L80',f'{hiccup_root}/files_vert/L80_for_E3SMv3.n
 init_date = '2023-09-08'
 init_year = int(init_date.split('-')[0])
 
-# Specify output file names
-output_atm_file_name = f'{data_root}/HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
-output_sst_file_name = f'{data_root}/HICCUP.sst_noaa.{init_date}.nc'
+# Specify output file names - create output path if it does not exist
+output_root = os.getenv('SCRATCH')+'/HICCUP'
+if not os.path.exists(output_root): os.mkdir(output_root)
+output_atm_file_name = f'{output_root}/HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
+output_sst_file_name = f'{output_root}/HICCUP.sst_noaa.{init_date}.nc'
 
 # Specify topo file
 topo_file_name = '/global/cfs/cdirs/e3sm/inputdata/atm/cam/topo/USGS-gtopo30_ne30np4pg2_x6t-SGH.c20210614.nc'
@@ -46,18 +48,18 @@ topo_file_name = '/global/cfs/cdirs/e3sm/inputdata/atm/cam/topo/USGS-gtopo30_ne3
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    ,dst_horz_grid=dst_horz_grid
-                                    ,dst_vert_grid=dst_vert_grid
                                     ,atm_file=f'{data_root}/ERA5.atm.{init_date}.00.nc'
                                     ,sfc_file=f'{data_root}/ERA5.sfc.{init_date}.00.nc'
                                     ,sstice_name='NOAA'
                                     ,sst_file=f'{data_root}/sst.day.mean.{init_year}.nc'
                                     ,ice_file=f'{data_root}/icec.day.mean.{init_year}.nc'
+                                    ,dst_horz_grid=dst_horz_grid
+                                    ,dst_vert_grid=dst_vert_grid
                                     ,topo_file=topo_file_name
-                                    ,output_dir=data_root
-                                    ,grid_dir=f'{data_root}/files_grid'
-                                    ,map_dir=f'{data_root}/files_map'
-                                    ,tmp_dir=f'{data_root}/files_tmp'
+                                    ,output_dir=output_root
+                                    ,grid_dir=f'{output_root}/files_grid'
+                                    ,map_dir=f'{output_root}/files_map'
+                                    ,tmp_dir=f'{output_root}/files_tmp'
                                     ,verbose=verbose
                                     ,check_input_files=True)
 # ------------------------------------------------------------------------------
