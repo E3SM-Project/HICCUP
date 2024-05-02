@@ -101,7 +101,7 @@ def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=Tru
     if etime>60       : time_str += f' ({(etime/60):4.1f} min)'
     # if etime>(2*3600) : time_str += f' ({(etime/3600):.1f} hr)'
     # create the timer result message
-    msg = f'{caller:35} elapsed time: {time_str}'
+    msg = f'{caller:40} elapsed time: {time_str}'
     # add message to list of messages for print_timer_summary
     timer_msg_all.append(msg)
     # Apply color
