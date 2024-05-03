@@ -10,7 +10,7 @@ from hiccup import hiccup_state_adjustment as hsa
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
 verbose = True              # Global verbosity flag
-unpack_nc_files   = True    # unpack data files (convert short to float)
+# unpack_nc_files   = True    # unpack data files (convert short to float)
 create_map_file   = True    # grid and map file creation
 remap_data_horz   = True    # horz remap, variable renaming
 do_sfc_adjust     = True    # perform surface T and P adjustments
@@ -81,99 +81,74 @@ file_dict = hiccup_data.get_multifile_dict(timestamp=999)
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
 if 'unpack_nc_files' not in locals(): unpack_nc_files = False
 if unpack_nc_files:
-
     hiccup_data.unpack_data_files()
-
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 if 'create_map_file' not in locals(): create_map_file = False
 if create_map_file :
-
     # Create grid description files needed for the mapping file
     hiccup_data.create_src_grid_file()
     hiccup_data.create_dst_grid_file()
-
     # Create mapping file
     hiccup_data.create_map_file()
-
 # ------------------------------------------------------------------------------
 # perform multi-file horizontal remap
 if 'remap_data_horz' not in locals(): remap_data_horz = False
 if remap_data_horz :
-
     # Horizontally regrid the data
     hiccup_data.remap_horizontal_multifile(file_dict)
-
     # Rename variables to match what the model expects
     hiccup_data.rename_vars_multifile(file_dict=file_dict)
-
     # Add time/date information
     hiccup_data.add_time_date_variables_multifile(file_dict=file_dict)
-
 # ------------------------------------------------------------------------------
 # Do surface adjustments
 if 'do_sfc_adjust' not in locals(): do_sfc_adjust = False
 if do_sfc_adjust:
-
     hiccup_data.surface_adjustment_multifile(file_dict=file_dict)
-
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 if 'remap_data_vert' not in locals(): remap_data_vert = False
 if remap_data_vert :
-
     hiccup_data.remap_vertical_multifile(file_dict=file_dict
                                         ,vert_file_name=vert_file_name)
-
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 if 'do_state_adjust' not in locals(): do_state_adjust = False
 if do_state_adjust :
-
     hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
-
 # ------------------------------------------------------------------------------
 # Apply random perturbation to the final data
 if 'do_random_perturb' not in locals(): do_random_perturb = False
 if do_random_perturb :
-    
     hiccup_data.atmos_state_apply_perturbations_multifile(file_dict=file_dict)
-
 # ------------------------------------------------------------------------------
 # Combine files
 if 'combine_files' not in locals(): combine_files = False
 if combine_files :
-
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict
                              ,delete_files=True
                              ,output_file_name=output_atm_file_name)
-
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
-
 # ------------------------------------------------------------------------------
 # Create SST/sea ice file
 if 'create_sst_data' not in locals(): create_sst_data = False
 if create_sst_data :
-
     # create grid and mapping files
     overwrite = False
     hiccup_data.sstice_create_src_grid_file(force_overwrite=overwrite)
     hiccup_data.sstice_create_dst_grid_file(force_overwrite=overwrite)
     hiccup_data.sstice_create_map_file(force_overwrite=overwrite)
-
     # Remap the sst/ice data after time slicing and combining (if necessary)
     hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,
                                        time_slice_method='match_atmos',
                                        atm_file=output_atm_file_name)
-
     # Rename the variables and remove unnecessary variables and attributes
     hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
-
     # Adjust final SST/ice data to fill in missing values and limit ice fraction
     hiccup_data.sstice_adjustments(output_file_name=output_sst_file_name)
-
 # ------------------------------------------------------------------------------
 # Print final output file names
 
