@@ -10,14 +10,14 @@ Move into HICCUP directory
 cd HICCUP/
 ```
 
-1. Install HICCUP as a package
-```shell
-pip install ./
-```
-
 1. Activate the E3SM unified conda environment
 ```shell
 source /global/common/software/e3sm/anaconda_envs/load_latest_e3sm_unified_pm-cpu.sh
+```
+
+1. Install HICCUP as a package
+```shell
+pip install ./
 ```
 
 1. Copy the template HICCUP script to the user_scripts directory
