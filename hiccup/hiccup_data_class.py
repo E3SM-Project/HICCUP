@@ -101,7 +101,7 @@ def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=Tru
     if etime>60       : time_str += f' ({(etime/60):4.1f} min)'
     # if etime>(2*3600) : time_str += f' ({(etime/3600):.1f} hr)'
     # create the timer result message
-    msg = f'{caller:35} elapsed time: {time_str}'
+    msg = f'{caller:40} elapsed time: {time_str}'
     # add message to list of messages for print_timer_summary
     timer_msg_all.append(msg)
     # Apply color
@@ -679,7 +679,7 @@ class hiccup_data(object):
                 verbose,prepend_line=False,shell=True)
 
         # add long_name and units attributes
-        run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' -a units,P0,a,c,'Pa' {file_name}",
+        run_cmd(f"ncatted --hst -a long_name,P0,a,c,'reference pressure' -a units,P0,a,c,'Pa' {file_name}",
                 verbose,prepend_line=False,shell=True)
         
         if do_timers: print_timer(timer_start)
@@ -1682,7 +1682,7 @@ class hiccup_data(object):
                     )
         ds.close()
 
-        run_cmd(f'ncatted --hst -A -a calendar,time,m,c,\'365_day\' {output_file_name}',
+        run_cmd(f'ncatted --hst -a calendar,time,m,c,\'365_day\' {output_file_name}',
                 verbose,prepend_line=False,shell=True)
 
         run_cmd(f'ncatted -O -a _FillValue,time,d,, {output_file_name}',
