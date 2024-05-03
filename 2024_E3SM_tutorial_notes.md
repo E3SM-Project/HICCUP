@@ -10,14 +10,14 @@ Move into HICCUP directory
 cd HICCUP/
 ```
 
+1. Install HICCUP as a package
+```shell
+pip install ./
+```
+
 1. Activate the E3SM unified conda environment
 ```shell
 source /global/common/software/e3sm/anaconda_envs/load_latest_e3sm_unified_pm-cpu.sh
-```
-
-1. Install HICCUP into the conda env
-```shell
-./setup.py install
 ```
 
 1. Copy the template HICCUP script to the user_scripts directory
@@ -35,13 +35,13 @@ vim user_scripts/E3SM_tutorial_create_IC_from_ERA5-NOAA.py
 python user_scripts/E3SM_tutorial_create_IC_from_ERA5-NOAA.py
 ```
 
+
 # Now Let’s Run E3SM!
 
 1. Deactivate the conda environment - or create a new session - Otherwise you will get errors!!!
 ```shell
 conda deactivate
 ```
-
 
 1. Make a copy the template run script
 ```shell
