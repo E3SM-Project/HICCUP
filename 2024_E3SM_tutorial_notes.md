@@ -52,8 +52,8 @@ cp  template_run_scripts/run_E3SM.2024_tutorial_hindcast.nersc.py  user_scripts/
 ```shell
 vim user_scripts/run_E3SM.2024_tutorial_hindcast.nersc.py
 ```
-  - `acct        = ????`
-  - `reservation = ????`
+  - `acct        = ntrain6`
+  - `reservation = e3sm_day4`
   - `src_dir     = ????`
 
 
