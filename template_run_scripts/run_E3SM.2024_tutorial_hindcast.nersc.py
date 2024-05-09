@@ -10,7 +10,7 @@ def run_cmd(cmd): print('\n'+clr.GREEN+cmd+clr.END) ; os.system(cmd); return
 #---------------------------------------------------------------------------------------------------
 # THINGS THAT MAY NEED TO BE EDITED
 acct             = 'ntrain6'
-reservation      = 'e3sm_testrun'
+reservation      = 'e3sm_day4'
 src_dir          = os.getenv('HOME')+'/E3SM/E3SM_SRC0' # PATH TO E3SM SOURCE CODE
 init_date,sst_yr = '2023-09-08',2023
 init_file_atm    = f'{os.getenv("SCRATCH")}/HICCUP/HICCUP.atm_era5.{init_date}.ne30np4.L80.nc'
@@ -19,9 +19,9 @@ init_file_sst    = f'{os.getenv("SCRATCH")}/HICCUP/HICCUP.sst_noaa.{init_date}.n
 #---------------------------------------------------------------------------------------------------
 newcase,config,build,submit = False,False,False,False
 
-newcase      = True
-config       = True
-build        = True
+# newcase      = True
+# config       = True
+# build        = True
 submit       = True
 
 stop_opt,stop_n,resub,walltime = 'ndays',5,0,'0:30:00'
@@ -67,6 +67,7 @@ if submit :
    file.write(          ",'T850','Q850','U850','V850','Z850'") # 850mb
    file.write(          ",'T500','Q500','U500','V500','Z500'") # 500mb
    file.write(          ",'T200','Q200','U200','V200','Z200'") # 200mb
+   file.write(          ",'PHIS'") # sfc geopotential for TC tracking
    file.close()
    #----------------------------------------------------------------------------
    # Specify start date and SST file for hindcast
