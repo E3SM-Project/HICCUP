@@ -2011,7 +2011,7 @@ class EAM(hiccup_data):
                 raise ValueError('input data file does not have expected dimension sizes')
 
         for key in ds.variables.keys(): 
-            if key in ['lat','lon','lat_d','lon_d']:
+            if key in ['lat','lon','lat_d','lon_d','lat_vertices','lon_vertices']:
                 continue
             if 'ncol_d' in ds[key].dims: 
                 self.atm_var_name_dict_np.update({key:key})
