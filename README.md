@@ -52,9 +52,19 @@ After creating the environment it can be activated via:
 
   `source activate hiccup_env`
 
-You can then install HICCUP into your python environment by running `setup.py`, for example:
+Alternatively, you can use the E3SM unified environment
+
+On Perlmutter:
+
+`source /global/common/software/e3sm/anaconda_envs/load_latest_e3sm_unified_pm-cpu.sh`
+
+On Chrysalis:
+
+`source /lcrc/soft/climate/e3sm-unified/load_latest_e3sm_unified_chrysalis.sh`
+
+You can then install HICCUP into your python environment by running:
 ```
-   ./setup.py install
+   pip install ./
 ```
 which will allow you to import `hiccup` from any directory.
 
