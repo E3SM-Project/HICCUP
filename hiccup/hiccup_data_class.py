@@ -879,7 +879,7 @@ class hiccup_data(object):
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
                 ds_data = ds_data.compute()
-            ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
+            ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
 
         # Adjust surface pressure to match new surface height
@@ -888,7 +888,7 @@ class hiccup_data(object):
                 hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
                                             ,lev_coord_name=self.lev_name, verbose=verbose )
                 ds_data = ds_data.compute()
-            ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
+            ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
 
         if do_timers: print_timer(timer_start)
@@ -1009,7 +1009,7 @@ class hiccup_data(object):
             ds_data.compute()
             print_timer(timer_start_adj,caller='remove_supersaturation')
 
-        ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='w')
+        ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='a')
 
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
@@ -1022,7 +1022,7 @@ class hiccup_data(object):
         # Write adjusted data back to the individual data files
         for var in ['CLDLIQ','CLDICE']:
             if var in self.atm_var_name_dict.keys():
-                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
+                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
         
         ds_data.close()
 
@@ -1053,7 +1053,7 @@ class hiccup_data(object):
         # Write perturbed data back to the individual data files
         for var in var_list:
             if var in self.atm_var_name_dict.keys():
-                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
+                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
 
         ds_data.close()
 
