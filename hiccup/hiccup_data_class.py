@@ -2001,6 +2001,15 @@ class EAM(hiccup_data):
         self.atm_var_name_dict_np = {}
         self.atm_var_name_dict_pg = {}
         ds = xr.open_dataset(self.atm_file)
+
+        # check that dimension sizes are consistent
+        if 'ncol' in ds.dims:
+            if len(ds['ncol'])!=ncol_size_np and len(ds['ncol'])!=ncol_size_pg:
+                raise ValueError('input data file does not have expected dimension sizes')
+        if 'ncol_d' in ds.dims:
+            if len(ds['ncol_d'])!=ncol_size_np and len(ds['ncol_d'])!=ncol_size_pg:
+                raise ValueError('input data file does not have expected dimension sizes')
+
         for key in ds.variables.keys(): 
             if key in ['lat','lon','lat_d','lon_d']:
                 continue
