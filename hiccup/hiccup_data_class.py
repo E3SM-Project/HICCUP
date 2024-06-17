@@ -101,7 +101,7 @@ def print_timer(timer_start,use_color=True,prefix='\n',caller=None,print_msg=Tru
     if etime>60       : time_str += f' ({(etime/60):4.1f} min)'
     # if etime>(2*3600) : time_str += f' ({(etime/3600):.1f} hr)'
     # create the timer result message
-    msg = f'{caller:35} elapsed time: {time_str}'
+    msg = f'{caller:40} elapsed time: {time_str}'
     # add message to list of messages for print_timer_summary
     timer_msg_all.append(msg)
     # Apply color
@@ -466,7 +466,7 @@ class hiccup_data(object):
         if do_timers: print_timer(timer_start)
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=None,src_type=None,dst_type=None):
+    def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=False):
         """ 
         Generate mapping file after grid files have been created.
         This routine assumes that the destination is always GLL/np4.
@@ -489,8 +489,6 @@ class hiccup_data(object):
             raise ValueError(f'The value of src_type={src_type} is not supported')
         if dst_type is not None and dst_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
-        
-        ne = self.get_dst_grid_ne()
 
         # Set the mapping algorithm
         if src_type=='FV' and dst_type=='GLL': alg_flag = '-a fv2se_flx'
@@ -503,10 +501,7 @@ class hiccup_data(object):
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
-        # Add special flag for "very fine" grids 
-        # (should this be an optional argument instead?)
-        # (this assumes that source data has ~0.5 degree spacing like ERA5)
-        if int(ne)>100 : cmd += ' --lrg2sml ' 
+        if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids 
         run_cmd(cmd,verbose,shell=True)
 
         if do_timers: print_timer(timer_start)
@@ -684,7 +679,7 @@ class hiccup_data(object):
                 verbose,prepend_line=False,shell=True)
 
         # add long_name and units attributes
-        run_cmd(f"ncatted --hst -A -a long_name,P0,a,c,'reference pressure' -a units,P0,a,c,'Pa' {file_name}",
+        run_cmd(f"ncatted --hst -a long_name,P0,a,c,'reference pressure' -a units,P0,a,c,'Pa' {file_name}",
                 verbose,prepend_line=False,shell=True)
         
         if do_timers: print_timer(timer_start)
@@ -884,7 +879,7 @@ class hiccup_data(object):
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
                 ds_data = ds_data.compute()
-            ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='w')
+            ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
 
         # Adjust surface pressure to match new surface height
@@ -893,7 +888,7 @@ class hiccup_data(object):
                 hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
                                             ,lev_coord_name=self.lev_name, verbose=verbose )
                 ds_data = ds_data.compute()
-            ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='w')
+            ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
 
         if do_timers: print_timer(timer_start)
@@ -1014,7 +1009,7 @@ class hiccup_data(object):
             ds_data.compute()
             print_timer(timer_start_adj,caller='remove_supersaturation')
 
-        ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='w')
+        ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='a')
 
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
@@ -1027,8 +1022,39 @@ class hiccup_data(object):
         # Write adjusted data back to the individual data files
         for var in ['CLDLIQ','CLDICE']:
             if var in self.atm_var_name_dict.keys():
-                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='w')
+                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
         
+        ds_data.close()
+
+        if do_timers: print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
+    def atmos_state_apply_perturbations_multifile(self,file_dict,seed=None,verbose=None):
+        """
+        apply post-remapping atmospheric perturbations
+        for the multifile workflow
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose: print(verbose_indent+'\nApplying random perturbations...')
+
+        # build list of file names for variables to be perturbed
+        file_list = []
+        var_list = ['T','PS','U','V']
+        for var,file_name in file_dict.items():
+            if var in var_list: file_list.append(file_name)
+
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+
+            # adjust cloud water to remove negative values
+            hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed, verbose=False )
+            ds_data.compute()
+
+        # Write perturbed data back to the individual data files
+        for var in var_list:
+            if var in self.atm_var_name_dict.keys():
+                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
+
         ds_data.close()
 
         if do_timers: print_timer(timer_start)
@@ -1656,7 +1682,7 @@ class hiccup_data(object):
                     )
         ds.close()
 
-        run_cmd(f'ncatted --hst -A -a calendar,time,m,c,\'365_day\' {output_file_name}',
+        run_cmd(f'ncatted --hst -a calendar,time,m,c,\'365_day\' {output_file_name}',
                 verbose,prepend_line=False,shell=True)
 
         run_cmd(f'ncatted -O -a _FillValue,time,d,, {output_file_name}',
@@ -1975,8 +2001,17 @@ class EAM(hiccup_data):
         self.atm_var_name_dict_np = {}
         self.atm_var_name_dict_pg = {}
         ds = xr.open_dataset(self.atm_file)
+
+        # check that dimension sizes are consistent
+        if 'ncol' in ds.dims:
+            if len(ds['ncol'])!=ncol_size_np and len(ds['ncol'])!=ncol_size_pg:
+                raise ValueError('input data file does not have expected dimension sizes')
+        if 'ncol_d' in ds.dims:
+            if len(ds['ncol_d'])!=ncol_size_np and len(ds['ncol_d'])!=ncol_size_pg:
+                raise ValueError('input data file does not have expected dimension sizes')
+
         for key in ds.variables.keys(): 
-            if key in ['lat','lon','lat_d','lon_d']:
+            if key in ['lat','lon','lat_d','lon_d','lat_vertices','lon_vertices']:
                 continue
             if 'ncol_d' in ds[key].dims: 
                 self.atm_var_name_dict_np.update({key:key})
