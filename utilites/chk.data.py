@@ -32,7 +32,7 @@ def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  ',compac
   if fmt=='f' : fmt = '%20.10f'
   if fmt=='e' : fmt = '%e'
   if unit!='' : unit = f'[{unit}]'
-  name_len = 12 if compact else len(name)
+  name_len = 25 if compact else len(name)
   msg = ''
   line = f'{indent}{name:{name_len}} {unit}'
   # if not compact: print(line)
@@ -78,14 +78,14 @@ for file_name in files :
     for var in var_list: 
 
         # Print stats, but skip time related and other variables
-        if var not in ['lat_vertices','lon_vertices','time_bnds','area'] and ds[var].dims!=('time',):
+        if var not in ['lat_vertices','lon_vertices','time_bnds','area','hyam','hybm','hyai','hybi'] and ds[var].dims!=('time',):
           print_stat(ds[var],name=var,indent=indent,stat='nxh')
 
           inf_cnt = ds[var].where( np.isinf(ds[var]) ).count().values
           nan_cnt = ds[var].where( np.isnan(ds[var]) ).count().values
 
           if inf_cnt>0: print(f'{indent}{var}: inf values found! ({inf_cnt})')
-          if nan_cnt>0: print(f'{indent}{var}: inf values found! ({nan_cnt})')
+          if nan_cnt>0: print(f'{indent}{var}: nan values found! ({nan_cnt})')
 
 print('\ndone.\n')
 

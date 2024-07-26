@@ -1808,12 +1808,13 @@ class ERA5(hiccup_data):
             self.atm_var_name_dict.update({'U':'u'})            # zonal wind
             self.atm_var_name_dict.update({'V':'v'})            # meridional wind
 
-            dst_ne = self.get_dst_grid_ne()
-            self.npg = 2
-            self.dst_horz_grid_np = self.dst_horz_grid.replace(f'pg{self.npg}','np4')
-            self.dst_horz_grid_pg = self.dst_horz_grid.replace('np4',f'pg{self.npg}')
-            self.dst_grid_file_np = f'{self.grid_dir}/exodus_ne{dst_ne}.g'
-            self.dst_grid_file_pg = f'{self.grid_dir}/scrip_{ self.dst_horz_grid_pg}.nc'
+            if not RRM_grid:
+                dst_ne = self.get_dst_grid_ne()
+                self.npg = 2
+                self.dst_horz_grid_np = self.dst_horz_grid.replace(f'pg{self.npg}','np4')
+                self.dst_horz_grid_pg = self.dst_horz_grid.replace('np4',f'pg{self.npg}')
+                self.dst_grid_file_np = f'{self.grid_dir}/exodus_ne{dst_ne}.g'
+                self.dst_grid_file_pg = f'{self.grid_dir}/scrip_{ self.dst_horz_grid_pg}.nc'
 
         self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
         self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
@@ -1883,6 +1884,115 @@ class ERA5(hiccup_data):
         # for v in ds.variables:
         #     if 'eulaVlliF_' in ds[v].attrs: del ds[v].attrs['eulaVlliF_']
         
+        if do_timers: print_timer(timer_start)
+        return
+# ------------------------------------------------------------------------------
+# CAMS data for atmospheric composition (dust, aerosols, trace gases, etc.)
+# ------------------------------------------------------------------------------
+class CAMS(hiccup_data):
+    @classmethod
+    def is_name_for(cls,name) : return name == 'CAMS'
+    def __init__(self,name,atm_file,sfc_file,dst_horz_grid,dst_vert_grid,
+                 output_dir=default_output_dir,grid_dir=default_grid_dir,
+                 map_dir=default_map_dir,tmp_dir=default_tmp_dir,
+                 sstice_name=None,sst_file=None,ice_file=None,topo_file=None,
+                 sstice_combined_file=None,lev_type='',check_input_files=True,
+                 RRM_grid=False):
+        super().__init__(atm_file=atm_file
+                        ,sfc_file=sfc_file
+                        ,dst_horz_grid=dst_horz_grid
+                        ,dst_vert_grid=dst_vert_grid
+                        ,sstice_name=sstice_name
+                        ,sst_file=sst_file
+                        ,ice_file=ice_file
+                        ,sstice_combined_file=sstice_combined_file
+                        ,topo_file = topo_file
+                        ,output_dir=output_dir
+                        ,grid_dir=grid_dir
+                        ,map_dir=map_dir
+                        ,tmp_dir=tmp_dir
+                        ,lev_type=lev_type
+                        ,check_input_files=check_input_files
+                        ,RRM_grid=RRM_grid)
+
+        self.name = 'CAMS'
+        self.lev_name = 'level'
+        self.new_lev_name = 'plev'
+
+        if target_model=='EAM':
+            self.atm_var_name_dict.update({'lat':'latitude'})
+            self.atm_var_name_dict.update({'lon':'longitude'})
+            self.atm_var_name_dict.update({'dst_a1_1':'aermr04'})   # Dust Aerosol (0.03 - 0.55 um) Mixing Ratio
+            self.atm_var_name_dict.update({'dst_a1_2':'aermr05'})   # Dust Aerosol (0.55 - 0.90 um) Mixing Ratio
+            self.atm_var_name_dict.update({'dst_a3':'aermr06'})     # Dust Aerosol (0.90 - 20.0 um) Mixing Ratio
+            self.sfc_var_name_dict.update({'PS':'sp'})              # sfc pressure
+
+        # if target_model=='EAMXX':
+        #     self.atm_var_name_dict.update({'lat':'latitude'})
+        #     self.atm_var_name_dict.update({'lon':'longitude'})
+        #     self.atm_var_name_dict.update({'dst_a1_1':'aermr04'})   # Dust Aerosol (0.03 - 0.55 um) Mixing Ratio
+        #     self.atm_var_name_dict.update({'dst_a1_2':'aermr05'})   # Dust Aerosol (0.55 - 0.90 um) Mixing Ratio
+        #     self.atm_var_name_dict.update({'dst_a3':'aermr06'})     # Dust Aerosol (0.90 - 20.0 um) Mixing Ratio
+        #     self.sfc_var_name_dict.update({'PS':'sp'})              # sfc pressure
+
+        self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
+        self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
+
+        self.src_horz_grid = f'{self.src_nlat}x{self.src_nlon}'
+        self.src_grid_file = f'{self.grid_dir}/scrip_{self.name}_{self.src_horz_grid}.nc'
+
+        self.map_file = f'{self.map_dir}/map_{self.src_horz_grid}_to_{self.dst_horz_grid}.nc'
+
+    # --------------------------------------------------------------------------
+    def create_src_grid_file(self,verbose=None):
+        """
+        Generate source grid file
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+        if verbose : print(verbose_indent+'\nGenerating src grid file...')
+
+        # Remove the file here to prevent the warning message when ncremap overwrites it
+        if os.path.isfile(self.src_grid_file): run_cmd(f'rm {self.src_grid_file} ',verbose)
+
+        hu.check_dependency('ncremap')
+
+        cmd  = f'ncremap'
+        cmd += f' --tmp_dir={self.tmp_dir}'
+        cmd += f' -G ttl=\'Equi-Angular grid {self.src_horz_grid}\''
+        cmd += f'#latlon={self.src_nlat},{self.src_nlon}'
+        cmd +=  '#lat_typ=uni#lat_drc=n2s#lon_typ=grn_ctr '
+        cmd += f' -g {self.src_grid_file} '
+        run_cmd(cmd,verbose,shell=True)
+
+        if do_timers: print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
+    def rename_vars_special(self,ds,verbose=None,do_timers=do_timers
+                           ,new_lev_name=None,change_pressure_name=True
+                           ,adjust_pressure_units=True):
+        """
+        Rename file vars specific to this subclass
+        """
+        if do_timers: timer_start = perf_counter()
+        if verbose is None : verbose = hiccup_verbose
+
+        if new_lev_name is None: new_lev_name = self.new_lev_name
+
+        # Rename pressure variable and reset the lev var name (needed for vertical remap)
+        if change_pressure_name:
+            ds = ds.rename({self.lev_name:new_lev_name})
+            self.lev_name = new_lev_name
+
+        # change pressure variable type to double and units to Pascals (needed for vertical remap)
+        if adjust_pressure_units:
+            ds[new_lev_name] = ds[new_lev_name]*100.
+            ds[new_lev_name].attrs['units'] = 'Pa'
+
+        # delete lat/lon coordinates attributes, which can be problematic later
+        if 'lat' in ds.coords: ds = ds.reset_coords(names='lat', drop=True)
+        if 'lon' in ds.coords: ds = ds.reset_coords(names='lon', drop=True)
+
         if do_timers: print_timer(timer_start)
         return
 # ------------------------------------------------------------------------------
