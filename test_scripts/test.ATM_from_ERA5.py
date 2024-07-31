@@ -5,8 +5,7 @@
 # atmospheric initial condition file from ERA5 reanalysis
 # ==============================================================================
 import os
-from hiccup import hiccup_data_class as hdc
-from hiccup import hiccup_state_adjustment as hsa
+from hiccup import hiccup
 # ------------------------------------------------------------------------------
 
 # local path for grid and mapping files (move to scratch space for large grids)
@@ -27,17 +26,18 @@ output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_era5.{dst_horz_grid}.
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
-hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                ,dst_horz_grid=dst_horz_grid
-                ,dst_vert_grid=dst_vert_grid
-                ,atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc'
-                ,sfc_file=f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res.nc'
-                ,topo_file=f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
-                ,grid_dir=data_tmp
-                ,map_dir=data_tmp
-                ,tmp_dir=data_tmp
-                ,verbose=True
-                ,check_input_files=True)
+hiccup_data = hiccup.create_hiccup_data( src_data_name='ERA5',
+                                         dst_horz_grid=dst_horz_grid,
+                                         dst_vert_grid=dst_vert_grid,
+                                         atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc',
+                                         sfc_file=f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res.nc',
+                                         topo_file=f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc',
+                                         grid_dir=data_tmp,
+                                         map_dir=data_tmp,
+                                         tmp_dir=data_tmp,
+                                         verbose=True,
+                                         check_input_files=True,)
+
 
 # Print some informative stuff
 print('\n  Input Files')
@@ -112,7 +112,7 @@ print(f'output_atm_file_name: {output_atm_file_name}')
 print()
 
 # Print summary of timer info
-hdc.print_timer_summary()
+hiccup_data.print_timer_summary()
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
