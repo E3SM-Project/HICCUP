@@ -53,7 +53,7 @@ file_dict = hiccup_data.get_multifile_dict(timestamp=999)
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
 
-hiccup_data.unpack_data_files()
+# hiccup_data.unpack_data_files()
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files

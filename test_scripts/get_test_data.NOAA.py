@@ -6,6 +6,7 @@
 
 import ftplib
 import os
+import shutil
 
 yr_list = [2008]
 
@@ -30,5 +31,9 @@ for year in yr_list:
       ftp.retrbinary(f'RETR {file_name}', file_pointer.write)
 
   ftp.quit()
+
+# This renaming will happen in test_scripts/remap.test_data.NOAA.py 
+# shutil.move(f'{output_path}/sst.day.mean.{year}.nc', f'{output_path}/HICCUP_TEST.NOAA.sst.nc')
+# shutil.move(f'{output_path}/icec.day.mean.{year}.nc', f'{output_path}/HICCUP_TEST.NOAA.ice.nc')
 
 print('\ndone.')
