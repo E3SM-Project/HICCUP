@@ -1107,25 +1107,38 @@ class hiccup_data(object):
         if self.do_timers: self.print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def combine_files(self,file_dict,output_file_name,delete_files=False,verbose=None):
+    def combine_files(self,file_dict,output_file_name,delete_files=False,
+                      method='xarray',dtype='float64',verbose=None):
         """
         Combine files in file_dict into single output file
         """
         if self.do_timers: timer_start = perf_counter()
         if verbose is None : verbose = hiccup_verbose
         if verbose: print(verbose_indent+'\nCombining temporary files into new file...')
-
-        check_dependency('ncks')
+        if method not in ['xarray','nco']:
+            raise ValueError(f'combine_files method argument "{method}" is invalid')
 
         if os.path.isfile(output_file_name): 
             run_cmd(f'rm {output_file_name} ',verbose)
 
-        # Append each file to the output file - use netcdf4 for performance, then convert afterwards
-        for var,file_name in file_dict.items() :
-            # if self.do_timers: timer_start_combine = perf_counter()
-            cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl --fl_fmt={ncremap_file_fmt} {file_name} {output_file_name} '
-            run_cmd(cmd,verbose,prepend_line=False)
-            # if self.do_timers: self.print_timer(timer_start_combine,caller=f'  append file - {var}')
+        # Combine temporary files into the final output file
+        if method=='xarray':
+            ds_out = xr.Dataset()
+            for var,file_name in file_dict.items() :
+                ds_tmp = xr.open_dataset(file_name)
+                ds_out[var] = ds_tmp[var].astype(dtype)
+                ds_tmp.close()
+            ds_out.to_netcdf(output_file_name)
+            ds_out.close()
+
+        # NCO "append" method - this method tends to be slower than xarray
+        if method=='nco':
+            check_dependency('ncks')
+            for var,file_name in file_dict.items() :
+                cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl'
+                cmd+= f' --fl_fmt={ncremap_file_fmt}'
+                cmd+= f' {file_name} {output_file_name} '
+                run_cmd(cmd,verbose,prepend_line=False)
 
         # make sure time dimension is "unlimited"
         cmd = f'ncks -O --fl_fmt={ncremap_file_fmt} --mk_rec_dmn time {output_file_name} {output_file_name} '
