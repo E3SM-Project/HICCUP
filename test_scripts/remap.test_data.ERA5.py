@@ -2,10 +2,11 @@
 import os, glob, subprocess as sp
 pwd = os.getenv('PWD')
 # ------------------------------------------------------------------------------
-# The user likely needs to "unpack" the data if downloaded directly from CDS
-# examples: 
-# ncpdq -U HICCUP_TEST.ERA5.atm.nc HICCUP_TEST.ERA5.atm.upack.nc
-# ncpdq -U HICCUP_TEST.ERA5.sfc.nc HICCUP_TEST.ERA5.sfc.upack.nc
+# The user needs to "unpack" the data if downloaded directly from CDS
+'''
+ncpdq -U test_data/HICCUP_TEST.ERA5.atm.nc test_data/HICCUP_TEST.ERA5.atm.upack.nc
+ncpdq -U test_data/HICCUP_TEST.ERA5.sfc.nc test_data/HICCUP_TEST.ERA5.sfc.upack.nc
+'''
 
 sfc_src_file_name = 'test_data/HICCUP_TEST.ERA5.sfc.upack.nc'
 sfc_dst_file_name = 'test_data/HICCUP_TEST.ERA5.sfc.low-res.nc'
@@ -25,8 +26,6 @@ src_grid_opts = f'-G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'#latlon={nla
 dst_grid_opts = f'-G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'#latlon={nlat_dst},{nlon_dst}#{all_grid_opts}'
 
 map_file = f'{pwd}/files_map/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
-
-alg = '' # use this to specify the '-a' argument
 
 clean       = True
 create_map  = True
@@ -70,22 +69,22 @@ if create_map:
         if map_file in glob.glob(map_file) : run_cmd(f'rm {map_file}')
     
     # Generate source and target grid files:
-    run_cmd(f'ncremap {alg} {src_grid_opts} -g {src_grid_file} ')
-    run_cmd(f'ncremap {alg} {dst_grid_opts} -g {dst_grid_file} ')
+    run_cmd(f'ncremap {src_grid_opts} -g {src_grid_file} ')
+    run_cmd(f'ncremap {dst_grid_opts} -g {dst_grid_file} ')
     
     # Need to make sure the 'grid_imask' variable is an integer for TempestRemap
     run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {src_grid_file} {src_grid_file} --ovr')
     run_cmd(f'ncap2 -s \'grid_imask=int(grid_imask)\' {dst_grid_file} {dst_grid_file} --ovr')
     
     # Generate mapping file:
-    run_cmd(f'ncremap {alg} --src_grd={src_grid_file} --dst_grd={dst_grid_file} -m {map_file} ')
+    run_cmd(f'ncremap -a traave --src_grd={src_grid_file} --dst_grd={dst_grid_file} -m {map_file} ')
 # ------------------------------------------------------------------------------
 if regrid_data:
     # remap the 2D "surface" data
-    run_cmd(f'ncremap {alg} -m {map_file} -i {sfc_src_file_name} -o {sfc_dst_file_name}  ')
+    run_cmd(f'ncremap -m {map_file} -i {sfc_src_file_name} -o {sfc_dst_file_name}  ')
     run_cmd(f'ncrename -v lat,latitude -v lon,longitude {sfc_dst_file_name} ')
     # remap the 3D atmosphere data
-    run_cmd(f'ncremap {alg} -m {map_file} -i {atm_src_file_name} -o {atm_dst_file_name}  ')
+    run_cmd(f'ncremap -m {map_file} -i {atm_src_file_name} -o {atm_dst_file_name}  ')
     run_cmd(f'ncrename -v lat,latitude -v lon,longitude {atm_dst_file_name} ')
 # ------------------------------------------------------------------------------
 print()

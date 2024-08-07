@@ -5,7 +5,7 @@
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
 import os, optparse, datetime
-from hiccup import hiccup_data_class as hdc
+from hiccup import hiccup
 # ------------------------------------------------------------------------------
 # Parse the command line options
 parser = optparse.OptionParser()
@@ -55,14 +55,14 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 # this includes xarray file dataset objects and variable 
 # name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
-hiccup_data = hdc.create_hiccup_data(name='EAM'
-                                    ,dst_horz_grid=dst_horz_grid
-                                    ,dst_vert_grid=dst_vert_grid
-                                    ,atm_file=cami_file
-                                    ,sfc_file=cami_file
-                                    ,topo_file=topo_file_name
-                                    ,output_dir=data_root
-                                    ,verbose=True)
+hiccup_data = hiccup.create_hiccup_data(src_data_name='EAM',
+                                        dst_horz_grid=dst_horz_grid,
+                                        dst_vert_grid=dst_vert_grid,
+                                        atm_file=cami_file,
+                                        sfc_file=cami_file,
+                                        topo_file=topo_file_name,
+                                        output_dir=data_root,
+                                        verbose=True,)
 
 # Print some informative stuff
 print('\n  Input Files')
@@ -154,7 +154,7 @@ print(f'output_atm_file_name: {output_atm_file_name}')
 print()
 
 # Print summary of timer info
-hdc.print_timer_summary()
+hiccup_data.print_timer_summary()
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

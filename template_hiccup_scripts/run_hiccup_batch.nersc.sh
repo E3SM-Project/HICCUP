@@ -2,7 +2,7 @@
 #SBATCH --constraint=cpu
 #SBATCH --account=m3312
 #SBATCH --qos=regular
-#SBATCH --time=6:00:00
+#SBATCH --time=8:00:00
 #SBATCH --nodes=1
 #SBATCH --mail-user=hannah6@llnl.gov
 #SBATCH --mail-type=END,FAIL
@@ -13,7 +13,7 @@
 # NE=120 ; sbatch --job-name=hiccup_ne$NE --output=logs_slurm/slurm-%x-%j.out --export=NE=$NE ./run_hiccup_batch.rhea.sh
 
 
-# sbatch template_scripts/run_hiccup_batch.nersc.sh
+# sbatch template_hiccup_scripts/run_hiccup_batch.nersc.sh
 
 
 # Load the python environment
@@ -24,7 +24,7 @@ source activate hiccup_env
 # time python -u ./create_initial_condition.py --init_date=2008-10-01 --vgrid=$VGRID
 
 # sbatch template_scripts/run_hiccup_batch.nersc.sh
-time python -u custom_scripts/2024.SCREAM_autocalibration.process_nudging_data.py
+time python -u test_scripts/ > hiccup.test.ATM_from_ERA5.out
 
 # Notes:
 # "time" is used here to print the execution time to the end of log file.

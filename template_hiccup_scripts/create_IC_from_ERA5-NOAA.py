@@ -5,8 +5,7 @@
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
 import os
-from hiccup import hiccup_data_class as hdc
-from hiccup import hiccup_state_adjustment as hsa
+from hiccup import hiccup
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
 verbose = True            # Global verbosity flag
@@ -27,39 +26,39 @@ hiccup_root = os.getenv('HOME')+'/HICCUP'
 dst_horz_grid = 'ne30np4'
 
 # Specify output atmosphere vertical grid
-dst_vert_grid,vert_file_name = 'L72',f'{hiccup_root}/files_vert/vert_coord_E3SM_L72.nc'
+dst_vert_grid,vert_file_name = 'L80',f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
 
 # specify date of data (and separately specify year for SST/ice files)
 init_date = '2008-10-01'
 init_year = int(init_date.split('-')[0])
 
 # Specify output file names
-data_root = os.getenv('SCRATCH')+'/HICCUP/data' # NERSC
+data_root = f'{hiccup_root}/data_scratch'
 output_atm_file_name = f'{data_root}/HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
 output_sst_file_name = f'{data_root}/HICCUP.sst_noaa.{init_date}.nc'
 
 # set topo file - replace this with file path if no defalt is set
-topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
-# topo_file_name = 'test_data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+# topo_file_name = hiccup.get_default_topo_file_name(dst_horz_grid)
+topo_file_name = 'test_data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
-hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    ,dst_horz_grid=dst_horz_grid
-                                    ,dst_vert_grid=dst_vert_grid
-                                    ,atm_file=f'{data_root}/ERA5.atm.{init_date}.nc'
-                                    ,sfc_file=f'{data_root}/ERA5.sfc.{init_date}.nc'
-                                    ,sstice_name='NOAA'
-                                    ,sst_file=f'{data_root}/sst.day.mean.{init_year}.nc'
-                                    ,ice_file=f'{data_root}/icec.day.mean.{init_year}.nc'
-                                    ,topo_file=topo_file_name
-                                    ,output_dir=data_root
-                                    ,grid_dir=data_root
-                                    ,map_dir=data_root
-                                    ,tmp_dir=data_root
-                                    ,verbose=verbose
-                                    ,check_input_files=True)
+hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
+                                        dst_horz_grid=dst_horz_grid,
+                                        dst_vert_grid=dst_vert_grid,
+                                        atm_file=f'{data_root}/ERA5.atm.{init_date}.nc',
+                                        sfc_file=f'{data_root}/ERA5.sfc.{init_date}.nc',
+                                        sstice_name='NOAA',
+                                        sst_file=f'{data_root}/sst.day.mean.{init_year}.nc',
+                                        ice_file=f'{data_root}/icec.day.mean.{init_year}.nc',
+                                        topo_file=topo_file_name,
+                                        output_dir=data_root,
+                                        grid_dir=data_root,
+                                        map_dir=data_root,
+                                        tmp_dir=data_root,
+                                        verbose=verbose,
+                                        check_input_files=True,)
 
 # Print some informative stuff
 print('\n  Input Files')
@@ -174,7 +173,7 @@ print(f'output_sst_file_name: {output_sst_file_name}')
 print()
 
 # Print summary of timer info
-hdc.print_timer_summary()
+hiccup_data.print_timer_summary()
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
