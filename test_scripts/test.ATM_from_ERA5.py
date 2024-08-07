@@ -11,17 +11,23 @@ from hiccup import hiccup
 # local path for grid and mapping files (move to scratch space for large grids)
 hiccup_root = os.getenv('HOME')+'/HICCUP'
 data_root = f'{hiccup_root}/test_data'
-data_tmp = f'{hiccup_root}/test_data_tmp'
+# data_tmp = f'{hiccup_root}/test_data_tmp'
+data_tmp = '/global/cfs/projectdirs/m3312/whannah/HICCUP/test_data_tmp'
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
 
 dst_horz_grid = 'ne30np4'
-dst_vert_grid ='L72'
 
-vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
+dst_vert_grid ='L80'; vert_file_name = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
 
 # Specify output file names
 output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
+
+dst_horz_grid=='ne30np4' : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+# use topo files from the inputdata repo for testing other grids
+din_loc_root = '/global/cfs/cdirs/e3sm/inputdata' # NERSC
+dst_horz_grid=='ne120np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
+dst_horz_grid=='ne512np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne512np4pg2_x6t_20230404.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
@@ -31,7 +37,7 @@ hiccup_data = hiccup.create_hiccup_data( src_data_name='ERA5',
                                          dst_vert_grid=dst_vert_grid,
                                          atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc',
                                          sfc_file=f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res.nc',
-                                         topo_file=f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc',
+                                         topo_file=topo_file,
                                          grid_dir=data_tmp,
                                          map_dir=data_tmp,
                                          tmp_dir=data_tmp,
@@ -85,8 +91,8 @@ hiccup_data.surface_adjustment_multifile(file_dict=file_dict)
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 
-hiccup_data.remap_vertical_multifile(file_dict=file_dict
-                                    ,vert_file_name=vert_file_name)
+hiccup_data.remap_vertical_multifile(file_dict=file_dict,
+                                     vert_file_name=vert_file_name)
 
 # ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
@@ -97,9 +103,11 @@ hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
 # Combine files
 
 # Combine and delete temporary files
-hiccup_data.combine_files(file_dict=file_dict
-                         ,delete_files=True
-                         ,output_file_name=output_atm_file_name)
+hiccup_data.combine_files(file_dict=file_dict,delete_files=True,
+                          output_file_name=output_atm_file_name)
+
+# hiccup_data.combine_files(file_dict=file_dict,delete_files=False,dtype='float64',output_file_name=output_atm_file_name)
+# hiccup_data.combine_files(file_dict=file_dict,delete_files=False,dtype='float32',output_file_name=output_atm_file_name)
 
 # Clean up the global attributes of the file
 hiccup_data.clean_global_attributes(file_name=output_atm_file_name)

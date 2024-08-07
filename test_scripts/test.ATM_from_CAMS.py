@@ -16,9 +16,8 @@ data_tmp = f'{hiccup_root}/test_data_tmp'
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
 
 dst_horz_grid = 'ne30np4'
-dst_vert_grid ='L72'
 
-vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_{dst_vert_grid}.nc'
+dst_vert_grid ='L80'; vert_file_name = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
 
 # Specify output file names
 output_cams_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_cams.{dst_horz_grid}.{dst_vert_grid}.nc'
@@ -78,16 +77,15 @@ hiccup_data.add_time_date_variables_multifile(file_dict=file_dict)
 # ------------------------------------------------------------------------------
 # Vertically remap the data
 
-hiccup_data.remap_vertical_multifile(file_dict=file_dict
-                                    ,vert_file_name=vert_file_name)
+hiccup_data.remap_vertical_multifile(file_dict=file_dict,
+                                     vert_file_name=vert_file_name)
 
 # ------------------------------------------------------------------------------
 # Combine files
 
 # Combine and delete temporary files
-hiccup_data.combine_files(file_dict=file_dict
-                         ,delete_files=True
-                         ,output_file_name=output_cams_file_name)
+hiccup_data.combine_files(file_dict=file_dict,delete_files=True,
+                          output_file_name=output_cams_file_name)
 
 # Clean up the global attributes of the file
 hiccup_data.clean_global_attributes(file_name=output_cams_file_name)
