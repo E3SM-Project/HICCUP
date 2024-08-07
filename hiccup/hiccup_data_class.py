@@ -18,6 +18,7 @@ from hiccup.hiccup_utilities import tcolor
 # ------------------------------------------------------------------------------
 # Global verbosity default
 hiccup_verbose = False
+enable_chunks = True
 verbose_indent = ''
 
 # use 100k header padding for improved performance when editing metadata
@@ -210,20 +211,34 @@ class hiccup_data(object):
             result = re.search('pg(.*)', self.dst_horz_grid)
             return result.group(1) if result else 0
     # --------------------------------------------------------------------------
+    def get_dst_grid_ncol(self):
+        """
+        Return ncol for destination grid
+        """
+        if self.RRM_grid:
+            # use map file to determine ncol
+            if self.map_file is None : raise ValueError('get_dst_grid_ncol: ncol cannot be determined')
+            ds_grid = xr.open_dataset(self.map_file)
+            ncol = int(ds_grid['n_b'].values)
+        else:
+            ne  = int(self.get_dst_grid_ne())
+            npg = int(self.get_dst_grid_npg())
+            if npg==0: ncol = int(ne*ne*6*9+2)
+            if npg>0 : ncol = int(ne*ne*6*npg)
+        return ncol
+    # --------------------------------------------------------------------------
     def get_chunks(self):
         """
         Return chunk number to use dask for certain special cases
+
+        use a default chunk size for all grids based on the rule of thumb
+        that there should be be roughly 1e6 elements per chunk, and there
+        are roughly O(100) vertical levels
         """
-        # By default we do not want to use chunk, but for very fine grids
-        # it is useful to load into a dask array by setting the chunk size
-        chunks = None
-        if self.RRM_grid:
-            chunks = None
+        if enable_chunks:
+            chunks = int(1e6/100)
         else:
-            ne,npg = int(self.get_dst_grid_ne()),int(self.get_dst_grid_npg())
-            # divide total physics column count by 2 for large grids
-            if ne>120 and npg==0: chunks = {'ncol':int((ne*ne*54+2)/2)}
-            if ne>120 and npg>0 : chunks = {'ncol':int((ne*ne*6*npg)/2)}
+            chunk = None
         return chunks
     # --------------------------------------------------------------------------
     def check_file_vars(self):
@@ -850,7 +865,8 @@ class hiccup_data(object):
         if self.do_timers: self.print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def atmos_state_adjustment_multifile(self,file_dict,verbose=None):
+    def atmos_state_adjustment_multifile(self,file_dict,verbose=None,
+                                        adjust_sat=True,adjust_wtr=True):
         """
         Perform post-remapping atmospheric state adjustments 
         for the multifile workflow
@@ -864,31 +880,30 @@ class hiccup_data(object):
         var_list = ['Q','T','PS','CLDLIQ','CLDICE']
         for var,file_name in file_dict.items():
             if var in var_list: file_list.append(file_name)
-        
-        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
-            # adjust water vapor to eliminate supersaturation
-            if self.do_timers: timer_start_adj = perf_counter()
-            hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
-            ds_data.compute()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation')
+        if adjust_sat:
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                # adjust water vapor to eliminate supersaturation
+                if self.do_timers: timer_start_adj = perf_counter()
+                hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
+                ds_data.compute()
+                if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation')
+                # Write adjusted data back to data files
+                ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='a')
+                ds_data.close()
 
-        ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='a')
-
-        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-
-            # adjust cloud water to remove negative values
-            if self.do_timers: timer_start_adj = perf_counter()
-            hsa.adjust_cld_wtr( ds_data, verbose=verbose )
-            ds_data.compute()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr')
-
-        # Write adjusted data back to the individual data files
-        for var in ['CLDLIQ','CLDICE']:
-            if var in self.atm_var_name_dict.keys():
-                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
-        
-        ds_data.close()
+        if adjust_wtr:
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                # adjust cloud water to remove negative values
+                if self.do_timers: timer_start_adj = perf_counter()
+                hsa.adjust_cld_wtr( ds_data, verbose=verbose )
+                ds_data.compute()
+                if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr')
+                # Write adjusted data back to data files
+                for var in ['CLDLIQ','CLDICE']:
+                    if var in self.atm_var_name_dict.keys():
+                        ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
+                ds_data.close()
 
         if self.do_timers: self.print_timer(timer_start)
         return
