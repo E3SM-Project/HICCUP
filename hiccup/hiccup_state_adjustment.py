@@ -331,7 +331,6 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
 
   # Calculate saturation specific humidity
   qv_sat = calculate_qv_sat_liq(ds['T'],pressure)
-  qv_sat.compute()
   
   if debug:
     print(); print_stat(qv_sat,name='qv_sat in remove_supersaturation')
@@ -340,12 +339,8 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   # that can occur in the upper stratosphere and mesosphere
   qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0)
 
-  ds['Q'].compute()
-  qv_sat.compute()
-
   # Calculate relative humidity for limiter
   rh = ds['Q'] / qv_sat
-  rh.compute()
 
   if debug:
     print(); print_stat(rh,name='rh in remove_supersaturation')
@@ -354,8 +349,8 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   tmp_attrs = ds['Q'].attrs
 
   # Apply limiter conditions
-  ds['Q'].values = xr.where(rh.values>1.,qv_sat,ds['Q']).compute()
-  ds['Q'].values = xr.where(rh.values<0.,qv_min,ds['Q']).compute()
+  ds['Q'] = xr.where(rh.values>1.,qv_sat,ds['Q'])
+  ds['Q'] = xr.where(rh.values<0.,qv_min,ds['Q'])
   
   # restore attributes
   ds['Q'].attrs = tmp_attrs
@@ -374,12 +369,9 @@ def adjust_cld_wtr( ds, verbose=None ):
   if verbose is None : verbose = default_verbose
   if verbose: print('\nAdjusting cloud water...')
 
-  if 'CLDLIQ' in ds.data_vars:
-    ds['CLDLIQ'].values = xr.where(ds['CLDLIQ'].values>=0
-                                  ,ds['CLDLIQ'], 0. ).compute()
-  if 'CLDICE' in ds.data_vars:
-    ds['CLDICE'].values = xr.where(ds['CLDICE'].values>=0
-                                  ,ds['CLDICE'], 0. ).compute()
+  for var in ['CLDLIQ','CLDICE']:
+    if var in ds.data_vars: ds[var].values = xr.where( ds[var].values>=0, ds[var], 0. )
+
   return
 
 #-------------------------------------------------------------------------------

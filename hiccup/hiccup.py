@@ -22,8 +22,10 @@ default_tmp_dir     = './files_tmp'
 # Global verbosity default
 hiccup_verbose = False
 verbose_indent = ''
+
 hdc.hiccup_verbose = hiccup_verbose
 hdc.verbose_indent = verbose_indent
+
 hu.hiccup_verbose = hiccup_verbose
 hu.verbose_indent = verbose_indent
 
