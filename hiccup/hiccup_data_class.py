@@ -1095,7 +1095,7 @@ class hiccup_data(object):
         if self.do_timers: self.print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def clean_global_attributes(self,file_name,verbose=None):
+    def clean_global_attributes(self,file_name,method='xarray',verbose=None):
         """ 
         Remove messy global attributes of the file 
         """
@@ -1107,19 +1107,28 @@ class hiccup_data(object):
                            'input_file', 'map_file', 'remap_version', 'remap_hostname', 
                            'remap_command', 'remap_script', 'NCO' ]
         
-        check_dependency('ncatted')
+        # Remove the attributes listed in global_att_list using xarray
+        if method=='xarray':
+            ds = xr.open_dataset(file_name)
+            for att in global_att_list:
+                if att in ds.attrs: del ds.attrs[att]
+            ds.attrs['history'] = ''
+            ds.to_netcdf(file_name)
+            ds.close()
 
-        # Remove the attributes listed in global_att_list
-        cmd = 'ncatted -O '
-        for att in global_att_list: cmd += f' -a {att},global,d,, '
-        cmd += f' {file_name} {file_name} '
-        run_cmd(cmd,verbose)
+        # Remove the attributes listed in global_att_list using ncatted
+        if method=='nco':
+            check_dependency('ncatted')
+            cmd = 'ncatted -O '
+            for att in global_att_list: cmd += f' -a {att},global,d,, '
+            cmd += f' {file_name} {file_name} '
+            run_cmd(cmd,verbose)
 
         # Also reset the history attribute
         run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
                 verbose,prepend_line=False)
 
-        if self.do_timers: self.print_timer(timer_start)
+        if self.do_timers: self.print_timer(timer_start,caller=f'clean_global_attributes_{method}')
         return
     # --------------------------------------------------------------------------
     def combine_files(self,file_dict,output_file_name,delete_files=False,
