@@ -94,8 +94,11 @@ def create_hiccup_data( src_data_name,
     Create HICCUP data class object, check for required input variables and 
     create specified output directories if they do not exist
     """
-    global hiccup_verbose
-    hiccup_verbose = verbose
+    if verbose is not None:
+        global hiccup_verbose
+        hiccup_verbose = verbose
+        hdc.hiccup_verbose = hiccup_verbose
+        hu.hiccup_verbose = hiccup_verbose
     hu.check_nco_version()
     for subclass in hdc.hiccup_data.__subclasses__():
         if subclass.is_name_for(src_data_name):
