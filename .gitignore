@@ -6,6 +6,7 @@ exodus_*
 scrip_*
 map_*
 *.png
+*.out
 custom_scripts/*
 files_grid/*
 files_mapping/*
