@@ -14,20 +14,23 @@ data_root    = f'{hiccup_root}/test_data'
 # data_tmp     = f'{hiccup_root}/test_data_tmp'       # local machine
 # din_loc_root = os.getenv('HOME')+'/E3SM/inputdata'  # local machine
 din_loc_root = '/global/cfs/cdirs/e3sm/inputdata'                           # NERSC
-data_tmp     = '/global/cfs/projectdirs/m3312/whannah/HICCUP/test_data_tmp' # NERSC
+# data_tmp     = '/global/cfs/projectdirs/m3312/whannah/HICCUP/test_data_tmp' # NERSC
+data_tmp     = os.getenv('SCRATCH')+'/HICCUP/test_data_tmp' # NERSC
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
 
-dst_horz_grid = 'ne30np4' # ne30np4 / ne120np4 / ne512np4
+dst_horz_grid = 'ne30np4' # ne30np4 / ne120np4 / ne512np4 / ne1024np4
 
-dst_vert_grid ='L80'; vert_file_name = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
+dst_vert_grid ='L80'; vert_file_name = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc' # E3SMv3
+# dst_vert_grid ='L128'; vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc' # SCREAM
 
 # Specify output file names
 output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
 
-if dst_horz_grid=='ne30np4' : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
-if dst_horz_grid=='ne120np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
-if dst_horz_grid=='ne512np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne512np4pg2_x6t_20230404.nc'
+if dst_horz_grid=='ne30np4'  : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
+if dst_horz_grid=='ne120np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
+if dst_horz_grid=='ne512np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne512np4pg2_x6t_20230404.nc'
+if dst_horz_grid=='ne1024np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne1024np4pg2_x6t-SGH.c20210614.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.

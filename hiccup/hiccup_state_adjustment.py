@@ -139,36 +139,21 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   dp = dp.isel({lev_coord_name:slice(None,None,-1)})
   dp = dp*-1
 
-  # Load dp and temperature here to prevent invalid value warnings
-  dp.load()
-  ds_data['T'].load()
-
   # calculate dz from hydrostatic formula
   dz = dp / ( gravit * pressure / (Rdair * ds_data['T']) )
 
-  # Load dz here to prevent invalid value warnings
-  dz.load()
-  
   # calculate z by integrating hydrostatic equation
   # And populate k index array for finding the bottom level
-  z = dz.copy(deep=True).load()
-  k_ind = xr.full_like(z,-1,dtype=int).load()
+  z = dz.copy(deep=True)
+  k_ind = xr.full_like(z,-1,dtype=int)
+  # if we don't load these we get a performance bottleneck - not sure why...
+  z.load(); k_ind.load()
   for k in range(nlev-1,0-1,-1) :
     k_ind[:,k,:] = np.full_like(k_ind[:,k,:],k)
     if k <= nlev-2 : z[:,k,:] = z[:,k,:] + dz[:,k,:]
 
   # Find the lowest height that exceeds the minimum
   kbot_ind = xr.where(z>=z_min,k_ind,-1).max(dim=lev_coord_name)
-  kbot_ind.load()
-
-  # # Print table of values for debugging
-  # print()
-  # for k in range(nlev):
-  #   msg = f'k: {k:4}  '
-  #   msg += f'    p: {pressure[0,k,0].values:10}'
-  #   msg += f'    z: {z[0,k,0].values:10.2f}'
-  #   msg += f'    dp: {dp[0,k,0].values:10.2f}'
-  #   print(msg)
 
   # Check that there weren't problems finding the bottom level
   if np.any(kbot_ind.values==-1) : 
@@ -187,7 +172,6 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # calculate alternate surface geopotential to avoid errors when dividing
   topo_phis_temp = ds_topo['PHIS']
   topo_phis_temp = topo_phis_temp.where( topo_phis_temp>topo_min_value, topo_min_value )
-  topo_phis_temp.compute()
 
   # The next few lines provide parameter adjustments to deal with  
   # very high (T_ref1) or low (T_ref2) temperatures 
@@ -196,7 +180,6 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   condition = np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
   condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
   alpha = xr.where(condition, Rdair/topo_phis_temp*(T_ref1-Tstar) , alpha)
-  alpha.compute()
 
   # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.2
   condition = np.logical_and( Tstar > T_ref1,  T0 > T_ref1 )
@@ -209,7 +192,6 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
   Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
   del_phis = ds_data['PHIS'] - ds_topo['PHIS']
-  del_phis.load()
 
   # Calculate new surface pressure                                               pg 9 eq 12
   *__, del_phis = xr.broadcast(ds_data['PS'], del_phis)
@@ -412,8 +394,6 @@ def apply_random_perturbations( ds, var_list=None, seed=None, verbose=None):
   # initialize RNG
   rng = np.random.default_rng(seed)
 
-  ds.load()
-
   # apply perturbations
   for var in var_list:
     # use "small" perturbations => 1% of std-dev
@@ -477,8 +457,6 @@ def get_pressure_from_hybrid( ds, a_coeff_name='hyam', b_coeff_name='hybm' ):
   # Make sure dimensions are in correct order for interface levels
   if a_coeff_name=='hyai' and all(d in ds.dims for d in ['time','ilev','ncol']):
     pressure = pressure.transpose('time','ilev','ncol')
-
-  pressure.compute()
   
   return pressure
 
