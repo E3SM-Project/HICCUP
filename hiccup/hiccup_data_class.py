@@ -15,11 +15,16 @@ import hiccup.hiccup_state_adjustment as hsa
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
+from hiccup.hiccup_utilities import print_mem_usage
 # ------------------------------------------------------------------------------
 # Global verbosity default
 hiccup_verbose = False
-enable_chunks = True
 verbose_indent = ''
+
+enable_chunks = True
+ncol_chunk_size = 1000
+
+print_memory_usage = False
 
 # use 100k header padding for improved performance when editing metadata
 # see http://nco.sourceforge.net/nco.html#hdr_pad
@@ -37,6 +42,7 @@ ncremap_file_fmt = '64bit_data'
 
 # log file for Tempest output
 tempest_log_file = 'TempestRemap.log'
+
 # ------------------------------------------------------------------------------
 # Base Class
 # ------------------------------------------------------------------------------
@@ -227,16 +233,18 @@ class hiccup_data(object):
             if npg>0 : ncol = int(ne*ne*6*npg)
         return ncol
     # --------------------------------------------------------------------------
-    def get_chunks(self):
+    def get_chunks(self,ncol_only=True):
         """
         Return chunk number to use dask for certain special cases
-
-        use a default chunk size for all grids based on the rule of thumb
-        that there should be be roughly 1e6 elements per chunk, and there
-        are roughly O(100) vertical levels
+        Note: a chunk size of 1000 helps avoid memory problems for ne1024 cases.
+        A smaller chunk size will reduce the memory footprint, but will also
+        notably decrease the speed of calculations
         """
         if enable_chunks:
-            chunks = int(1e6/100)
+            if ncol_only:
+                return {'ncol':ncol_chunk_size}
+            else:
+                return {'ncol':ncol_chunk_size,'lev':10}
         else:
             chunk = None
         return chunks
@@ -733,6 +741,8 @@ class hiccup_data(object):
         # update lev name in case it has not been updated previously
         self.lev_name = self.new_lev_name
 
+        if print_memory_usage: print_mem_usage(msg='start surface_adjustment_multifile()')
+
         # build list of file names for variables needed for adjustment
         var_list = []
         if self.target_model=='EAM':
@@ -755,20 +765,26 @@ class hiccup_data(object):
 
         # Adjust surface temperature to match new surface height
         if adj_TS:
+            if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
-                ds_data = ds_data.compute()
             ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature',prefix='')
+
+        if print_memory_usage: print_mem_usage(msg='after adj_TS')
 
         # Adjust surface pressure to match new surface height
         if adj_PS:
+            if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
                                             ,lev_coord_name=self.lev_name, verbose=verbose )
-                ds_data = ds_data.compute()
             ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure',prefix='')
+
+        if print_memory_usage: print_mem_usage(msg='after adj_PS')
 
         if self.do_timers: self.print_timer(timer_start)
 
@@ -875,35 +891,43 @@ class hiccup_data(object):
         if verbose is None : verbose = hiccup_verbose
         if verbose: print(verbose_indent+'\nPerforming state adjustments...')
 
-        # build list of file names for variables needed for adjustment
-        file_list = []
-        var_list = ['Q','T','PS','CLDLIQ','CLDICE']
-        for var,file_name in file_dict.items():
-            if var in var_list: file_list.append(file_name)
+        # get list of file names for variables needed for adjustment
+        def get_adj_file_list(var_list):
+            file_list = []
+            for var,file_name in file_dict.items():
+                if var in var_list: file_list.append(file_name)
+            return file_list
+
+        if print_memory_usage: print_mem_usage(msg='start atmos_state_adjustment_multifile()')
 
         if adjust_sat:
+            file_list = get_adj_file_list(['Q','T','PS'])
+            if self.do_timers: timer_start_adj = perf_counter()
+
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 # adjust water vapor to eliminate supersaturation
-                if self.do_timers: timer_start_adj = perf_counter()
+                if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
                 hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
-                ds_data.compute()
-                if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation')
+                if print_memory_usage: print_mem_usage(msg='after remove_supersaturation')
                 # Write adjusted data back to data files
                 ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='a')
                 ds_data.close()
+            if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation',prefix='')
 
         if adjust_wtr:
+            file_list = get_adj_file_list(['CLDLIQ','CLDICE'])
+            if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 # adjust cloud water to remove negative values
-                if self.do_timers: timer_start_adj = perf_counter()
+                if print_memory_usage: print_mem_usage(msg='before adjust_cld_wtr')
                 hsa.adjust_cld_wtr( ds_data, verbose=verbose )
-                ds_data.compute()
-                if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr')
+                if print_memory_usage: print_mem_usage(msg='after adjust_cld_wtr')
                 # Write adjusted data back to data files
                 for var in ['CLDLIQ','CLDICE']:
                     if var in self.atm_var_name_dict.keys():
                         ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
                 ds_data.close()
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr',prefix='')
 
         if self.do_timers: self.print_timer(timer_start)
         return
