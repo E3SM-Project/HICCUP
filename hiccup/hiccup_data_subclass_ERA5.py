@@ -96,30 +96,17 @@ class ERA5(hiccup_data):
             # self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4
 
         if self.target_model=='EAMXX':
-            # self.atm_var_name_dict.update({'lat':'latitude'})
-            # self.atm_var_name_dict.update({'lon':'longitude'})
-            # self.atm_var_name_dict.update({'T_mid':'t'})                # temperature
-            # self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
-            # self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
-            # self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
-            # self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
-            # self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
-            # # self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio
-            # self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
-            # self.sfc_var_name_dict.update({'phis':'z'})                 # surface geopotential
-
             self.atm_var_name_dict.update({'lat':'latitude'})
             self.atm_var_name_dict.update({'lon':'longitude'})
-            self.atm_var_name_dict.update({'T':'t'})            # temperature
-            self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
-            self.atm_var_name_dict.update({'U':'u'})            # zonal wind
-            self.atm_var_name_dict.update({'V':'v'})            # meridional wind
-            self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water
-            self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water
-            # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio
-            self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure
-            # self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature
-            self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
+            self.atm_var_name_dict.update({'T_mid':'t'})                # temperature
+            self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
+            self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
+            self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
+            self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
+            self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
+            self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio
+            self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
+            self.sfc_var_name_dict.update({'phis':'z'})                 # surface geopotential
 
         if self.target_model=='EAMXX-nudging':
             self.atm_var_name_dict.update({'lat':'latitude'})
