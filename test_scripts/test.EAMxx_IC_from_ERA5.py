@@ -21,11 +21,10 @@ os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it 
 
 dst_horz_grid = 'ne30np4' # ne30np4 / ne120np4 / ne512np4 / ne1024np4
 
-dst_vert_grid ='L80'; vert_file_name = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc' # E3SMv3
-# dst_vert_grid ='L128'; vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc' # SCREAM
+dst_vert_grid ='L128'; vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc' # SCREAM
 
 # Specify output file names
-output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
+output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.eamxx_from_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
 
 if dst_horz_grid=='ne30np4'  : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 if dst_horz_grid=='ne120np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
@@ -36,6 +35,7 @@ if dst_horz_grid=='ne1024np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gt
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hiccup.create_hiccup_data( src_data_name='ERA5',
+                                         target_model='EAMXX',
                                          dst_horz_grid=dst_horz_grid,
                                          dst_vert_grid=dst_vert_grid,
                                          atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc',
@@ -107,7 +107,11 @@ hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
 # Combine files
 
 # Combine and delete temporary files
-hiccup_data.combine_files(file_dict=file_dict,delete_files=True,
+hiccup_data.combine_files(file_dict=file_dict,
+                          use_single_precision=True,
+                          permute_dimensions=True,
+                          combine_uv=True,
+                          delete_files=True,
                           output_file_name=output_atm_file_name)
 
 # Clean up the global attributes of the file
