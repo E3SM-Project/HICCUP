@@ -26,7 +26,7 @@ hiccup_root = os.getenv('HOME')+'/HICCUP'
 dst_horz_grid = 'ne30np4'
 
 # Specify output atmosphere vertical grid
-dst_vert_grid,vert_file_name = 'L80',f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
+dst_vert_grid,vert_file_name = 'L128',f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc'
 
 # specify date of data (and separately specify year for SST/ice files)
 init_date = '2008-10-01'
@@ -45,7 +45,7 @@ topo_file_name = 'test_data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
-                                        target_model='EAM',
+                                        target_model='EAMXX',
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
                                         atm_file=f'{data_root}/ERA5.atm.{init_date}.nc',
@@ -136,9 +136,12 @@ if 'combine_files' not in locals(): combine_files = False
 if combine_files :
 
     # Combine and delete temporary files
-    hiccup_data.combine_files(file_dict=file_dict
-                             ,delete_files=True
-                             ,output_file_name=output_atm_file_name)
+    hiccup_data.combine_files(file_dict=file_dict,
+                              use_single_precision=True,
+                              permute_dimensions=True,
+                              combine_uv=True,
+                              delete_files=False,
+                              output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
