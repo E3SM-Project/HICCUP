@@ -3,7 +3,6 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from time import perf_counter
-from hiccup.hiccup_data_class import hiccup_verbose
 from hiccup.hiccup_data_class import hiccup_sst_nc_format
 from hiccup.hiccup_data_class import hdr_pad
 from hiccup.hiccup_data_class import ncremap_file_fmt
@@ -28,7 +27,7 @@ def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None,
     The SST and ice data are assumed to exist on the same grid.
     """
     if self.do_timers: timer_start = perf_counter()
-    if verbose is None : verbose = hiccup_verbose
+    if verbose is None : verbose = self.verbose
 
     if diagnose_grid:
         # Load the SST file as xarray datasets to read the grid dimensions
@@ -60,7 +59,7 @@ def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None,
 
     # Create the source grid file
     if force_overwrite or not os.path.isfile(self.sstice_src_grid_file) :
-        if verbose : print(verbose_indent+f'\nCreating source grid file for SST and sea ice data...')
+        if verbose : print(self.verbose_indent+f'\nCreating source grid file for SST and sea ice data...')
         cmd  = f'ncremap'
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
@@ -104,7 +103,7 @@ def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False
     The SST and ice data are assumed to exist on the same grid.
     """
     if self.do_timers: timer_start = perf_counter()
-    if verbose is None : verbose = hiccup_verbose
+    if verbose is None : verbose = self.verbose
 
     # Define output grid dimensions
     self.sstice_nlat_dst = int( 180/output_grid_spacing )
@@ -118,7 +117,7 @@ def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False
 
     # Create the destination grid file
     if force_overwrite or not os.path.isfile(self.sstice_dst_grid_file) :
-        if verbose : print(verbose_indent+f'\nCreating target grid file for SST and sea ice data...')
+        if verbose : print(self.verbose_indent+f'\nCreating target grid file for SST and sea ice data...')
         cmd  = f'ncremap'
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {dst_grid}\'' 
@@ -137,7 +136,7 @@ def sstice_create_map_file(self,force_overwrite=False,verbose=None):
     Create a mapping file to be used for SST and sea ice data
     """
     if self.do_timers: timer_start = perf_counter()
-    if verbose is None : verbose = hiccup_verbose
+    if verbose is None : verbose = self.verbose
 
     src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
     dst_grid = f'{self.sstice_nlat_dst}x{self.sstice_nlon_dst}'
@@ -146,7 +145,7 @@ def sstice_create_map_file(self,force_overwrite=False,verbose=None):
 
     # Generate mapping file
     if force_overwrite or not os.path.isfile(self.sstice_map_file) :
-        if verbose : print(verbose_indent+f'\nCreating mapping file for SST and sea ice data...')
+        if verbose : print(self.verbose_indent+f'\nCreating mapping file for SST and sea ice data...')
         cmd  = f'ncremap -a fv2fv'
         cmd += f' --src_grd={self.sstice_src_grid_file}'
         cmd += f' --dst_grd={self.sstice_dst_grid_file}'
@@ -170,8 +169,8 @@ def sstice_slice_and_remap(self,output_file_name,
     - use_all           use all times available - simplest way to have transient SST
     """
     if self.do_timers: timer_start = perf_counter()
-    if verbose is None : verbose = hiccup_verbose
-    if verbose : print(verbose_indent+f'\nTime slicing {self.sstice_name} SST and sea ice data...')
+    if verbose is None : verbose = self.verbose
+    if verbose : print(self.verbose_indent+f'\nTime slicing {self.sstice_name} SST and sea ice data...')
 
     check_dependency('ncatted')
     check_dependency('ncremap')
@@ -241,7 +240,7 @@ def sstice_slice_and_remap(self,output_file_name,
     #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.sst_name}'),verbose,shell=True,prepend_line=False)
     #     run_cmd(cmd.replace('xxxx',f'missing_value,{self.ice_name}'),verbose,shell=True,prepend_line=False)
 
-    if verbose : print(verbose_indent+f'\nRemapping {self.sstice_name} SST and sea ice data...')
+    if verbose : print(self.verbose_indent+f'\nRemapping {self.sstice_name} SST and sea ice data...')
 
     # make sure output file is deleted (overwrite flag not working?)
     if os.path.isfile(output_file_name): 
@@ -269,8 +268,8 @@ def sstice_rename_vars(self, output_file_name, new_sst_name='SST_cpl',
     Rename sst and sea icea variables and remove unnecessary variables
     """
     if self.do_timers: timer_start = perf_counter()
-    if verbose is None : verbose = hiccup_verbose
-    if verbose : print(verbose_indent+'\nRenaming SST and sea ice variables...')
+    if verbose is None : verbose = self.verbose
+    if verbose : print(self.verbose_indent+'\nRenaming SST and sea ice variables...')
 
     check_dependency('ncrename')
     check_dependency('ncks')
@@ -317,8 +316,8 @@ def sstice_adjustments(self, output_file_name, verbose=None):
     - add date and datesec variables
     """
     if self.do_timers: timer_start = perf_counter()
-    if verbose is None : verbose = hiccup_verbose
-    if verbose : print(verbose_indent+'\nAdjusting SST and sea ice data values...')
+    if verbose is None : verbose = self.verbose
+    if verbose : print(self.verbose_indent+'\nAdjusting SST and sea ice data values...')
 
     # Open remapped and combined data file
     ds = xr.open_dataset(output_file_name).load()

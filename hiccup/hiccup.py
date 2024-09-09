@@ -2,13 +2,11 @@ import os
 from time import perf_counter
 import numpy as np
 # ------------------------------------------------------------------------------
-import hiccup.hiccup_data_class as hdc
 import hiccup.hiccup_utilities as hu
+import hiccup.hiccup_data_class as hdc
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
-# from hiccup.hiccup_utilities import print_timer_summary
-from hiccup.hiccup_data_class_timer_methods import timer_start_total
 # ------------------------------------------------------------------------------
 
 default_target_model = 'EAM'
@@ -21,13 +19,7 @@ default_tmp_dir     = './files_tmp'
 
 # Global verbosity default
 hiccup_verbose = False
-verbose_indent = ''
-
-hdc.hiccup_verbose = hiccup_verbose
-hdc.verbose_indent = verbose_indent
-
-hu.hiccup_verbose = hiccup_verbose
-hu.verbose_indent = verbose_indent
+hiccup_verbose_indent = '      '
 
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
@@ -86,7 +78,8 @@ def create_hiccup_data( src_data_name,
                         ice_file=None,
                         topo_file=None,
                         lev_type=None,
-                        verbose=False,
+                        verbose=None,
+                        verbose_indent=None,
                         check_input_files=True,
                         RRM_grid=False,
                       ):
@@ -94,11 +87,9 @@ def create_hiccup_data( src_data_name,
     Create HICCUP data class object, check for required input variables and 
     create specified output directories if they do not exist
     """
-    if verbose is not None:
-        global hiccup_verbose
-        hiccup_verbose = verbose
-        hdc.hiccup_verbose = hiccup_verbose
-        hu.hiccup_verbose = hiccup_verbose
+    global hiccup_verbose,hiccup_verbose_indent
+    if verbose is None: verbose = hiccup_verbose
+    if verbose_indent is None: verbose_indent = hiccup_verbose_indent
     hu.check_nco_version()
     for subclass in hdc.hiccup_data.__subclasses__():
         if subclass.is_name_for(src_data_name):
@@ -121,6 +112,8 @@ def create_hiccup_data( src_data_name,
                             lev_type=lev_type,
                             check_input_files=check_input_files,
                             RRM_grid=RRM_grid,
+                            verbose=verbose,
+                            verbose_indent=verbose_indent,
                           )
 
             # Check input files for for required variables

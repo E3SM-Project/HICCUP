@@ -1,15 +1,16 @@
 import xarray as xr, numpy as np, os, datetime
 #-------------------------------------------------------------------------------
-lapse   = 0.0065        # std. atmosphere lapse rate              ~ -6.5 K/km
-gravit  = 9.80616       # acceleration of gravity                 ~ m/s^2
-boltz   = 1.38065e-23   # boltzmann's constant                    ~ J/k/molecule
-avogad  = 6.02214e26    # avogadro's number                       ~ molecules/kmole
-mwdair  = 28.966        # molecular weight of dry air             ~ kg/kmole
-mwvapor = 18.0          # molecular weight of dry air             ~ kg/kmole
-Rgas    = avogad*boltz  # universal gas constant                  ~ J/k/kmole
-Rdair   = Rgas/mwdair   # gas constant for dry air                ~ J/k/kg
-Rvapor  = Rgas/mwvapor
-P0      = 1e5           # reference pressure
+from hiccup.hiccup_constants import std_lapse
+from hiccup.hiccup_constants import gravit
+from hiccup.hiccup_constants import boltz
+from hiccup.hiccup_constants import avogad
+from hiccup.hiccup_constants import MW_dryair
+from hiccup.hiccup_constants import MW_ozone
+from hiccup.hiccup_constants import MW_vapor
+from hiccup.hiccup_constants import Rgas
+from hiccup.hiccup_constants import Rdair
+from hiccup.hiccup_constants import Rvapor
+from hiccup.hiccup_constants import P0
 
 T_ref1    = 290.5       # reference temperature for sfc adjustments
 T_ref2    = 255.0       # reference temperature for sfc adjustments
@@ -17,7 +18,7 @@ T_ref2    = 255.0       # reference temperature for sfc adjustments
 phis_threshold = 1e-3   # threshold for determining if 2 phis values are different
 z_min = 150.            # min distance [m] from sfc to minimize effects radiation
 
-default_verbose = False
+verbose_default = False # local verbosity default
 
 #-------------------------------------------------------------------------------
 # Simple routine for chcecking variable values - useful for debugging
@@ -71,7 +72,8 @@ def chk_finite(x,name=None):
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
 def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
-                             lev_coord_name='lev', debug=False, verbose=None ):
+                             lev_coord_name='lev', debug=False,
+                             verbose=None, verbose_indent='' ):
   """ 
   Adjust the surface pressure based on surace height difference 
   and assumed standard atmosphere lapse rate. Input datasets must
@@ -85,9 +87,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     <pressure_var_name>   pressure on level centers       [Pa]
   the target surface geopotential (PHIS) must also be included in ds_topo
   """
-  if verbose is None : verbose = default_verbose
-  if verbose: print('\nAdjusting surface pressure...')
-  if debug: print('adjust_surface_pressure: DEBUG MODE ENABLED')
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Adjusting surface pressure...')
+  if debug: print(f'{verbose_indent}adjust_surface_pressure: DEBUG MODE ENABLED')
 
   # define minimum threshold to use when dividing by topo height
   topo_min_value = 10.
@@ -117,7 +119,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 
   if debug :
     # Debugging print statements
-    print('Before Adjustment:')
+    print(f'{verbose_indent}Before Adjustment:')
     print_stat(ds_data['PS'],name='PS (old)')
 
   nlev = len(ds_data[lev_coord_name])
@@ -163,11 +165,11 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   tbot = ds_data['T'].isel({lev_coord_name:kbot_ind})
   pbot = pressure.isel({lev_coord_name:kbot_ind})
   
-  alpha = lapse*Rdair/gravit                                                    # pg 8 eq 6
+  alpha = std_lapse*Rdair/gravit                                                    # pg 8 eq 6
   
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
-  T0    = Tstar + lapse*ds_data['PHIS']/gravit                                  # pg 9 eq 13
+  T0    = Tstar + std_lapse*ds_data['PHIS']/gravit                                  # pg 9 eq 13
   
   # calculate alternate surface geopotential to avoid errors when dividing
   topo_phis_temp = ds_topo['PHIS']
@@ -215,7 +217,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     chk_finite(xr.DataArray( np.exp( temp.values ) ),name='etmp_da')
     chk_finite(ds_data['PS'],name='ps_new')
     # Debugging print statements
-    print('After Adjustment:')
+    print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['PS'],name='PS (new)')
 
   return
@@ -231,7 +233,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 # Part VI: Technical and Computational Procedures, 
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
-def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
+def adjust_surface_temperature( ds_data, ds_topo, debug=False,
+                                verbose=None, verbose_indent='' ):
   """ 
   Adjust the surface temperature based on surace height difference 
   and assumed standard atmosphere lapse rate 
@@ -240,9 +243,9 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
     ds_topo   xarray dataset containing smoothed model topography 
               (i.e. target topo)
   """
-  if verbose is None : verbose = default_verbose
-  if verbose: print('\nAdjusting surface temperature...')
-  if debug: print('adjust_surface_temperature: DEBUG MODE ENABLED')
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Adjusting surface temperature...')
+  if debug: print(f'{verbose_indent}adjust_surface_temperature: DEBUG MODE ENABLED')
 
   # Make sure to use PHIS_d if file contains both
   if 'PHIS_d' in ds_topo.variables : 
@@ -264,7 +267,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
 
   if debug :
     # Debugging print statements
-    print('Before Adjustment:')
+    print(f'{verbose_indent}Before Adjustment:')
     print_stat(ds_data['PHIS'],name='PHIS (old)')
     print_stat(ds_topo['PHIS'],name='PHIS (new)')
     print_stat(ds_data['TS'],name='TS (old)')
@@ -272,22 +275,22 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False, verbose=None ):
   # save attributes to restore later
   ts_attrs = ds_data['TS'].attrs
 
-  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse/gravit
+  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*std_lapse/gravit
 
   # restore attributes
   ds_data['TS'].attrs = ts_attrs
 
   if debug :
     # Debugging print statements
-    print('After Adjustment:')
+    print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['TS'],name='TS (new)')
 
   return 
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev', 
-                            debug=False, verbose=None ):
+def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
+                            debug=False, verbose=None, verbose_indent='' ):
   """
   Adjust the surface temperature based on new surace height assumed lapse rate 
     ncol            # columns
@@ -295,9 +298,9 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
     temperature     temperature at layer mid-points [k]
     pressure        pressure at layer mid-points    (convert to hPa for qv_sat calculation)
   """
-  if verbose is None : verbose = default_verbose
-  if verbose: print('\nRemoving super saturated data points...')
-  if debug: print('remove_supersaturation: DEBUG MODE ENABLED')
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Removing super saturated data points...')
+  if debug: print(f'{verbose_indent}remove_supersaturation: DEBUG MODE ENABLED')
 
   qv_min = 1.0e-9   # minimum specific humidity value allowed
 
@@ -344,12 +347,12 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def adjust_cld_wtr( ds, verbose=None ):
+def adjust_cld_wtr( ds, verbose=None, verbose_indent='' ):
   """
   Adjust cloud water to remove negative values
   """
-  if verbose is None : verbose = default_verbose
-  if verbose: print('\nAdjusting cloud water...')
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Adjusting cloud water...')
 
   for var in ['CLDLIQ','CLDICE']:
     if var in ds.data_vars: ds[var].values = xr.where( ds[var].values>=0, ds[var], 0. )
@@ -358,12 +361,12 @@ def adjust_cld_wtr( ds, verbose=None ):
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None):
+def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None, verbose_indent=''):
   """
   Adjust cloud fraction to remove values outside of [0,1]
   """
-  if verbose is None : verbose = default_verbose
-  if verbose: print('\nAdjusting cloud fraction...')
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Adjusting cloud fraction...')
 
   ds[frac_var_name].values = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
   ds[frac_var_name].values = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
@@ -371,12 +374,13 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None):
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def apply_random_perturbations( ds, var_list=None, seed=None, verbose=None):
+def apply_random_perturbations( ds, var_list=None, seed=None,
+                                verbose=None, verbose_indent='' ):
   """
   Apply random perturbations to the final remapped state variables
   """
-  if verbose is None : verbose = default_verbose
-  if verbose: print('\nApplying random perturbation...')
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Applying random perturbation...')
 
   if var_list is None:
     raise ValueError(f'var_list cannot be None')
