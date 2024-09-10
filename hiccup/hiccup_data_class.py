@@ -1253,12 +1253,15 @@ class hiccup_data(object):
                 ds_out['pref_mid'].attrs['units'] = 'hPa'
                 ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
                 ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
-                ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
-                ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
-                ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
-                ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
-                ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
-                ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
+                if 'nc' not in file_dict.keys()
+                    ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
+                    ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
+                if 'nr' not in file_dict.keys()
+                    ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
+                    ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
+                if 'ni' not in file_dict.keys()
+                    ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
+                    ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
             ds_out.to_netcdf(output_file_name)
             ds_out.close()
 
