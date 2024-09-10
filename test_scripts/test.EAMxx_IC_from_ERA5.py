@@ -108,9 +108,9 @@ hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
 
 # Combine and delete temporary files
 hiccup_data.combine_files(file_dict=file_dict,
-                          use_single_precision=True,
-                          permute_dimensions=True,
-                          combine_uv=True,
+                          # use_single_precision=True,
+                          # permute_dimensions=True,
+                          # combine_uv=True,
                           delete_files=True,
                           output_file_name=output_atm_file_name)
 
