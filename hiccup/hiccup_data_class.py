@@ -489,7 +489,7 @@ class hiccup_data(object):
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
         cmd = f'ncrename --hst'
-        for key in var_dict_all : 
+        for key in var_dict_all:
             if key != var_dict_all[key]:
                 tmp_cmd = f' -v {var_dict_all[key]},{key} '
                 if tmp_cmd not in cmd :
@@ -1198,9 +1198,9 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def combine_files(self,file_dict,output_file_name,delete_files=False,
-                      method='xarray',use_single_precision=False,
-                      permute_dimensions=True,permute_dim_list=['time','ncol','lev'],
-                      combine_uv=False,verbose=None):
+                      method='xarray',use_single_precision=None,
+                      permute_dimensions=None,permute_dim_list=None,
+                      combine_uv=None,verbose=None):
         """
         Combine files in file_dict into single output file
         """
@@ -1215,8 +1215,18 @@ class hiccup_data(object):
 
         if self.target_model=='EAM'  : 
             u_name,v_name,uv_name = 'U','V','UV'
-        if self.target_model=='EAMXX': 
+            if use_single_precision is None: use_single_precision = False
+            if permute_dimensions is None: permute_dimensions = False
+            if combine_uv is None: combine_uv = False
+        if self.target_model=='EAMXX':
             u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            if use_single_precision is None: use_single_precision = True
+            if permute_dimensions is None: permute_dimensions = True
+            if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
+            if combine_uv is None: combine_uv = True
+
+        if permute_dimensions and permute_dim_list is None:
+            raise ValueError('permute_dim_list cannot be None if permute_dimensions=True')
 
         # Combine temporary files into the final output file
         if method=='xarray':
@@ -1230,13 +1240,19 @@ class hiccup_data(object):
                     ds_out[var] = ds_tmp[var].astype('float64')
                 ds_tmp.close()
             if permute_dimensions: 
-                ds_out.transpose(permute_dim_list[0],
-                                 permute_dim_list[1],
-                                 permute_dim_list[2])
+                ds_out = ds_out.transpose(permute_dim_list[0],
+                                          permute_dim_list[1],
+                                          permute_dim_list[2])
             if combine_uv:
                 ds_out[uv_name] = xr.concat([ds_out[u_name], ds_out[v_name]], dim='dim2')
                 ds_out[uv_name] = ds_out[uv_name].transpose('time','ncol','dim2','lev')
                 ds_out = ds_out.drop_vars([u_name,v_name])
+            # for EAMxx add "pref_mid", which is just a copy of the lev coordinate
+            if self.target_model=='EAMXX':
+                ds_out['pref_mid'] = ds_out['lev'].copy(deep=True)
+                ds_out['pref_mid'].attrs['units'] = 'hPa'
+                ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
+                ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
             ds_out.to_netcdf(output_file_name)
             ds_out.close()
 
