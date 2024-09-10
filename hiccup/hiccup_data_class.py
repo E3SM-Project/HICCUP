@@ -1247,12 +1247,18 @@ class hiccup_data(object):
                 ds_out[uv_name] = xr.concat([ds_out[u_name], ds_out[v_name]], dim='dim2')
                 ds_out[uv_name] = ds_out[uv_name].transpose('time','ncol','dim2','lev')
                 ds_out = ds_out.drop_vars([u_name,v_name])
-            # for EAMxx add "pref_mid", which is just a copy of the lev coordinate
+            # for EAMxx add nc, nr, ni, and pref_mid
             if self.target_model=='EAMXX':
                 ds_out['pref_mid'] = ds_out['lev'].copy(deep=True)
                 ds_out['pref_mid'].attrs['units'] = 'hPa'
                 ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
                 ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
+                ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
+                ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
+                ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
+                ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
+                ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
+                ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
             ds_out.to_netcdf(output_file_name)
             ds_out.close()
 
