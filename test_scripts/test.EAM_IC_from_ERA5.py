@@ -24,7 +24,7 @@ dst_horz_grid = 'ne30np4' # ne30np4 / ne120np4 / ne512np4 / ne1024np4
 dst_vert_grid ='L80'; vert_file_name = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc' # E3SMv3
 
 # Specify output file names
-output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.eamxx_from_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
+output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.eam_from_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
 
 if dst_horz_grid=='ne30np4'  : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 if dst_horz_grid=='ne120np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
