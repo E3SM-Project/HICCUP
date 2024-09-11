@@ -137,7 +137,7 @@ if combine_files :
 
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict,
-                              delete_files=False,
+                              delete_files=True,
                               output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file

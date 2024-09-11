@@ -45,7 +45,7 @@ topo_file_name = 'test_data/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
-                                        target_model='EAM',
+                                        target_model='EAM', # options: EAM / EAMXX
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
                                         atm_file=f'{data_root}/ERA5.atm.{init_date}.nc',
@@ -136,9 +136,9 @@ if 'combine_files' not in locals(): combine_files = False
 if combine_files :
 
     # Combine and delete temporary files
-    hiccup_data.combine_files(file_dict=file_dict
-                             ,delete_files=True
-                             ,output_file_name=output_atm_file_name)
+    hiccup_data.combine_files(file_dict=file_dict,
+                              delete_files=True,
+                              output_file_name=output_atm_file_name)
 
     # Clean up the global attributes of the file
     hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
