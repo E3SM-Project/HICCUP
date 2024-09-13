@@ -14,12 +14,12 @@ data_root    = f'{hiccup_root}/test_data'
 # din_loc_root = os.getenv('HOME')+'/E3SM/inputdata'  # local machine
 # ------------------------------------------------------------------------------
 # NERSC paths
-# din_loc_root = '/global/cfs/cdirs/e3sm/inputdata'
-# data_tmp     = os.getenv('SCRATCH')+'/HICCUP/test_data_tmp'
+din_loc_root = '/global/cfs/cdirs/e3sm/inputdata'
+data_tmp     = os.getenv('SCRATCH')+'/HICCUP/test_data_tmp'
 # ------------------------------------------------------------------------------
 # LLNL paths
-din_loc_root = '/p/lustre2/hannah6/inputdata'
-data_tmp     = '/p/lustre1/hannah6/hiccup_scratch/test_data_tmp'
+# din_loc_root = '/p/lustre2/hannah6/inputdata'
+# data_tmp     = '/p/lustre1/hannah6/hiccup_scratch/test_data_tmp'
 # ------------------------------------------------------------------------------
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
