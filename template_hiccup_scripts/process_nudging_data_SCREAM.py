@@ -27,16 +27,11 @@ ncremap -5 -a trbilin --a2o --src_grd=${SRC_GRID_FILE} --dst_grd=${DST_GRID_FILE
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
 verbose = True            # Global verbosity flag
-# unpack_nc_files = True    # unpack data files (convert short to float)
-# create_map_file = True    # grid and map file creation
-# remap_data_horz = True    # horz remap, variable renaming
-# remap_data_vert = True    # vertical remap
+unpack_nc_files = True    # unpack data files (convert short to float)
+create_map_file = True    # grid and map file creation
+remap_data_horz = True    # horz remap, variable renaming
+remap_data_vert = True    # vertical remap
 combine_files   = True    # combine temporary data files and delete
-### add_pressure    = True
-### adjust_fillval  = True
-### add_case_t0     = True
-### transpose_dims  = True
-### remove_ilev     = True
 # combine_daily   = True
 # ------------------------------------------------------------------------------
 
@@ -160,66 +155,6 @@ for t in datetime_list:
                                  ,output_file_name=output_atm_file_name)
         # Clean up the global attributes of the file
         hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
-    # --------------------------------------------------------------------------
-    # Use NCO to add p_mid field and case_t0 attribute
-    if 'add_pressure' not in locals(): add_pressure = False
-    if add_pressure:
-        print('\nAdding pressure field to nudging data...')
-        # cmd = f'ncap2 -O -s \'p_mid[time,lev,ncol]=100000.0*hyam+PS*hybm\' {output_atm_file_name} {output_atm_file_name}'
-        cmd = f'ncap2 -O -s \'p_mid[time,ncol,lev]=100000.0*hyam+PS*hybm\' {output_atm_file_name} {output_atm_file_name}'
-        run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-        # add _FillValue attribute
-        cmd = f'ncatted -O -a _FillValue,p_mid,o,d,1e30 {output_atm_file_name}  {output_atm_file_name}'
-        run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-    # # --------------------------------------------------------------------------
-    # # Use NCO to add p_mid field and case_t0 attribute
-    # if 'adjust_fillval' not in locals(): adjust_fillval = False
-    # if adjust_fillval:
-    #     ds = xr.open_dataset(output_atm_file_name)
-    #     print()
-    #     fval_var_list = []
-    #     mval_var_list = []
-    #     xval_var_list = []
-    #     for v in (list(ds.coords)+list(ds.data_vars)):
-    #         if '_FillValue'    in ds[v].encoding.keys(): fval_var_list.append(v)
-    #         if 'missing_value' in ds[v].encoding.keys(): mval_var_list.append(v)
-    #         if 'eulaVlliF_'    in ds[v].attrs.keys():    xval_var_list.append(v) # not sure why this attribute gets added
-    #         if 'eulaVlliF_'    in ds[v].encoding.keys(): xval_var_list.append(v) # not sure why this attribute gets added
-    #     # update _FillValue to ensure consistency and a large positive value required by SCREAM
-    #     if fval_var_list != []:
-    #         for v in fval_var_list:
-    #             cmd = f'ncatted -h -O -a _FillValue,{v},o,d,1e30 {output_atm_file_name}  {output_atm_file_name}'
-    #             run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-    #     # delete the redundant missing_value attribute from all variables
-    #     if mval_var_list != []:
-    #         for v in mval_var_list:
-    #             cmd = f'ncatted -h -O -a missing_value,{v},d,, {output_atm_file_name}  {output_atm_file_name}'
-    #             run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-    #     # fix mangled fill value attribute
-    #     if xval_var_list != []:
-    #         for v in xval_var_list:
-    #             cmd = f'ncatted -h -O -a eulaVlliF_,{v},d,, {output_atm_file_name}  {output_atm_file_name}'
-    #             run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-    # # --------------------------------------------------------------------------
-    # # Use NCO to add global attribute case_t0
-    # if 'add_case_t0' not in locals(): add_case_t0 = False
-    # if add_case_t0:
-    #     # This is temporary - won't be needed after PR to overhaul time interpolation in SCREAM
-    #     case_t0 = f'{ref_date}-00000'
-    #     cmd = f'ncatted -O -a case_t0,global,c,c,\'{case_t0}\' {output_atm_file_name}'
-    #     run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-    # # --------------------------------------------------------------------------
-    # if 'transpose_dims' not in locals(): transpose_dims = False
-    # if transpose_dims:
-    #     print('\nTransposing data dimensions...')
-    #     cmd = f'ncpdq -O --rdr=time,ncol,lev {output_atm_file_name} {output_atm_file_name}'
-    #     run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
-    # --------------------------------------------------------------------------
-    if 'remove_ilev' not in locals(): remove_ilev = False
-    if remove_ilev:
-        print('\nRemoving variables with ilev dimension...')
-        cmd = f'ncks -C -O -x -v ilev,hyai,hybi {output_atm_file_name} {output_atm_file_name}'
-        run_cmd(cmd,verbose=True,prepend_line=False,shell=True)
 # ------------------------------------------------------------------------------
 # Print final output file names
 print('\nhourly output files:')
