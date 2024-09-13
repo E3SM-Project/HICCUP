@@ -19,7 +19,7 @@ default_tmp_dir     = './files_tmp'
 
 # Global verbosity default
 hiccup_verbose = False
-hiccup_verbose_indent = '      '
+hiccup_verbose_indent = ''
 
 # Set numpy to ignore overflow errors
 np.seterr(over='ignore')
