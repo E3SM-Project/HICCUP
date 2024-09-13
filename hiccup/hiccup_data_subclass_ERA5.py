@@ -3,7 +3,6 @@ import numpy as np
 import xarray as xr
 from time import perf_counter
 from hiccup.hiccup_data_class import hiccup_data
-from hiccup.hiccup_data_class import hiccup_verbose
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
@@ -32,6 +31,8 @@ class ERA5(hiccup_data):
                   check_input_files=None,
                   RRM_grid=None,
                   do_timers=None,
+                  verbose=False,
+                  verbose_indent='',
                 ):
         super().__init__(   
                           target_model=target_model,
@@ -52,6 +53,8 @@ class ERA5(hiccup_data):
                           check_input_files=check_input_files,
                           RRM_grid=RRM_grid,
                           do_timers=do_timers,
+                          verbose=verbose,
+                          verbose_indent=verbose_indent,
                         )
 
         self.src_data_name = 'ERA5'
@@ -96,30 +99,17 @@ class ERA5(hiccup_data):
             # self.sfc_var_name_dict.update({'':'swvl4'})        # Volumetric soil water level 4
 
         if self.target_model=='EAMXX':
-            # self.atm_var_name_dict.update({'lat':'latitude'})
-            # self.atm_var_name_dict.update({'lon':'longitude'})
-            # self.atm_var_name_dict.update({'T_mid':'t'})                # temperature
-            # self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
-            # self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
-            # self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
-            # self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
-            # self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
-            # # self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio
-            # self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
-            # self.sfc_var_name_dict.update({'phis':'z'})                 # surface geopotential
-
             self.atm_var_name_dict.update({'lat':'latitude'})
             self.atm_var_name_dict.update({'lon':'longitude'})
-            self.atm_var_name_dict.update({'T':'t'})            # temperature
-            self.atm_var_name_dict.update({'Q':'q'})            # specific humidity
-            self.atm_var_name_dict.update({'U':'u'})            # zonal wind
-            self.atm_var_name_dict.update({'V':'v'})            # meridional wind
-            self.atm_var_name_dict.update({'CLDLIQ':'clwc'})    # specific cloud liq water
-            self.atm_var_name_dict.update({'CLDICE':'ciwc'})    # specific cloud ice water
-            # self.atm_var_name_dict.update({'O3':'o3'})          # ozone mass mixing ratio
-            self.sfc_var_name_dict.update({'PS':'sp'})         # sfc pressure
-            # self.sfc_var_name_dict.update({'TS':'skt'})        # skin temperature
-            self.sfc_var_name_dict.update({'PHIS':'z'})        # surface geopotential
+            self.atm_var_name_dict.update({'T_mid':'t'})                # temperature
+            self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
+            self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
+            self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
+            self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
+            self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
+            self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio
+            self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
+            self.sfc_var_name_dict.update({'phis':'z'})                 # surface geopotential
 
         if self.target_model=='EAMXX-nudging':
             self.atm_var_name_dict.update({'lat':'latitude'})
@@ -150,8 +140,8 @@ class ERA5(hiccup_data):
         Generate source grid file 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nGenerating src grid file...')
+        if verbose is None : verbose = self.verbose
+        if verbose : print(self.verbose_indent+'\nGenerating src grid file...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if os.path.isfile(self.src_grid_file): run_cmd(f'rm {self.src_grid_file} ',verbose)
@@ -179,7 +169,7 @@ class ERA5(hiccup_data):
         """
         if do_timers is None: do_timers = self.do_timers
         if do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
+        if verbose is None : verbose = self.verbose
 
         if new_lev_name is None: new_lev_name = self.new_lev_name
 

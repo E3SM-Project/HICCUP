@@ -56,6 +56,7 @@ topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
 # name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hiccup.create_hiccup_data(src_data_name='EAM',
+                                        target_model='EAM', # options: EAM / EAMXX
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
                                         atm_file=cami_file,

@@ -1,10 +1,7 @@
 # This module contains some useful utility routines used in hiccup_data_class.py
 import os, sys, re, shutil, subprocess as sp
 import resource, psutil
-# ------------------------------------------------------------------------------
-# Global verbosity default
-hiccup_verbose = False
-verbose_indent = ''
+verbose_default = False # local verbosity default
 # ------------------------------------------------------------------------------
 # class for terminal colors
 class tcolor:
@@ -19,7 +16,7 @@ def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False,prefix
     Method to encapsulate running system commands and checking for failures
     """
     if prepend_line : prefix = '\n'+prefix
-    if verbose is None : verbose = hiccup_verbose
+    if verbose is None : verbose = verbose_default
     msg = f'{prefix}{cmd}{suffix}'
     if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
     if verbose : print(msg)
@@ -92,6 +89,6 @@ def print_mem_usage(indent='  ',msg=''):
     # mem_rss_GB = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1e-6
     mem_rss_GB = psutil.Process().memory_info().rss * 1e-9
     mem_vms_GB = psutil.Process().memory_info().vms * 1e-9
-    print(verbose_indent+indent+f'Memory: {mem_rss_GB:8.2f} / {mem_vms_GB:8.2f}  GB  (RSS/VMS)  {msg}')
+    print(indent+f'Memory: {mem_rss_GB:8.2f} / {mem_vms_GB:8.2f}  GB  (RSS/VMS)  {msg}')
     return
 # ------------------------------------------------------------------------------

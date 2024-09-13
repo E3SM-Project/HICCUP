@@ -17,10 +17,13 @@ from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_mem_usage
 # ------------------------------------------------------------------------------
-# Global verbosity default
-hiccup_verbose = False
-verbose_indent = ''
-
+# Import timer methods
+from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ext
+from hiccup.hiccup_data_class_timer_methods import print_timer_summary as print_timer_summary_ext
+# ------------------------------------------------------------------------------
+from hiccup.hiccup_constants import MW_dryair
+from hiccup.hiccup_constants import MW_ozone
+# ------------------------------------------------------------------------------
 enable_chunks = True
 ncol_chunk_size = 1000
 
@@ -71,6 +74,8 @@ class hiccup_data(object):
                   check_input_files=None,
                   RRM_grid=None,
                   do_timers=None,
+                  verbose=False,
+                  verbose_indent='',
                 ):
         
         if target_model is None: raise ValueError('target_model can not be None')
@@ -102,6 +107,9 @@ class hiccup_data(object):
 
         self.RRM_grid  = RRM_grid  if RRM_grid  is not None else False
         self.do_timers = do_timers if do_timers is not None else True
+
+        self.verbose = verbose
+        self.verbose_indent = verbose_indent
 
         if check_input_files is None: check_input_files = True
 
@@ -152,8 +160,17 @@ class hiccup_data(object):
     # Import timer methods
     from hiccup.hiccup_data_class_timer_methods import timer_msg_all
     from hiccup.hiccup_data_class_timer_methods import timer_start_total
-    from hiccup.hiccup_data_class_timer_methods import print_timer
-    from hiccup.hiccup_data_class_timer_methods import print_timer_summary
+    # ------------------------------------------------------------------------------
+    def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
+        msg = print_timer_ext(timer_start,use_color=True,caller=None,print_msg=True)
+        # add message to list of messages for print_timer_summary
+        self.timer_msg_all.append(msg)
+        return
+    def print_timer_summary(self,):
+        """
+        Print timer summary based on information compiled by print_timer()
+        """
+        print_timer_summary_ext( self.timer_start_total, self.timer_msg_all )
     # --------------------------------------------------------------------------
     def __str__(self):
         indent = '    '
@@ -277,8 +294,8 @@ class hiccup_data(object):
         Make sure data files are unpacked
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nUnpacking data files...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Unpacking data files...')
 
         check_dependency('ncpdq')
 
@@ -296,8 +313,8 @@ class hiccup_data(object):
         mapping to the GLL/np4 grid, unless the source data is an EAM file
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nGenerating dst grid file...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Generating dst grid file...')
 
         if 'ne' in self.dst_horz_grid and 'np' in self.dst_horz_grid : 
             
@@ -360,8 +377,8 @@ class hiccup_data(object):
         For mapping EAM to EAM data this method is overloaded below. 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nGenerating mapping file...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Generating mapping file...')
 
         check_dependency('ncremap')
 
@@ -399,8 +416,8 @@ class hiccup_data(object):
         Create dict of temporary file names associated with each variable
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nCreating list of temporary files...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Creating list of temporary files...')
 
         # define file list to be returned
         tmp_file_dict = {}
@@ -415,20 +432,23 @@ class hiccup_data(object):
         # other instances of HICCUP that might be running concurrently
         if timestamp is None: timestamp = datetime.datetime.utcnow().strftime('%Y%m%d.%H%M%S')
 
+        max_key_len = 0
+        for key in var_dict_all.keys(): max_key_len = max( max_key_len, len(key) )
+
         # Horzontally remap atmosphere and surface data to individual files
-        for key,var in var_dict_all.items() :
+        for key,var in var_dict_all.items():
             if var not in [lat_var,lon_var]:
-                tmp_file_name = None
-                if key in self.sfc_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}/tmp_sfc_data'
-                if key in self.atm_var_name_dict.keys(): tmp_file_name = f'{self.tmp_dir}/tmp_atm_data'
-                if tmp_file_name is not None: 
+                if key in self.sfc_var_name_dict.keys(): file_prefix = 'tmp_sfc_data'
+                if key in self.atm_var_name_dict.keys(): file_prefix = 'tmp_atm_data'
+                if file_prefix is not None:
+                    tmp_file_name = f'{self.tmp_dir}/{file_prefix}'
                     tmp_file_name += f'.{self.dst_horz_grid}'
                     tmp_file_name += f'.{self.dst_vert_grid}'
                     tmp_file_name += f'.{key}'
                     tmp_file_name += f'.{timestamp}'
                     tmp_file_name += f'.nc'
                     tmp_file_dict.update({key:tmp_file_name})
-                    if verbose: print(verbose_indent+f'  {key:10}   {tmp_file_name}')
+                    if verbose: print(self.verbose_indent+f'  {key:{max_key_len}}   {tmp_file_name}')
 
         return tmp_file_dict
     # --------------------------------------------------------------------------
@@ -437,8 +457,8 @@ class hiccup_data(object):
         Create dict of temporary file names associated with each variable
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nCreating list of temporary files...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Creating list of temporary files...')
 
         # define file list to be returned
         tmp_file_dict = {}
@@ -464,7 +484,7 @@ class hiccup_data(object):
             tmp_file_name += f'.{timestamp}'
             tmp_file_name += f'.nc'
             tmp_file_dict.update({key:tmp_file_name})
-            if verbose: print(verbose_indent+f'  {key:10}   {tmp_file_name}')
+            if verbose: print(self.verbose_indent+f'  {key:10}   {tmp_file_name}')
 
         return tmp_file_dict
     # --------------------------------------------------------------------------
@@ -473,8 +493,8 @@ class hiccup_data(object):
         Rename variables in file according to variable name dictionaries 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nRenaming variables to match model variable names...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Renaming variables to match model variable names...')
 
         check_dependency('ncrename')
 
@@ -482,7 +502,7 @@ class hiccup_data(object):
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
         cmd = f'ncrename --hst'
-        for key in var_dict_all : 
+        for key in var_dict_all:
             if key != var_dict_all[key]:
                 tmp_cmd = f' -v {var_dict_all[key]},{key} '
                 if tmp_cmd not in cmd :
@@ -507,8 +527,8 @@ class hiccup_data(object):
         This approach was developed specifically for very fine grids like ne1024
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nRenaming variables to match model variable names...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Renaming variables to match model variable names...')
 
         check_dependency('ncrename')
 
@@ -555,8 +575,8 @@ class hiccup_data(object):
         Add P0 variable 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nAdding reference pressure (P0)...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Adding reference pressure (P0)...')
 
         check_dependency('ncap2')
         check_dependency('ncatted')
@@ -577,8 +597,8 @@ class hiccup_data(object):
         Horizontally remap data and combine into single file 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nHorizontally remapping the data to temporary files...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -618,7 +638,7 @@ class hiccup_data(object):
         # Remove output file if it already exists
         if os.path.isfile(output_file_name): run_cmd(f'rm {output_file_name} ',verbose)
 
-        if verbose : print(verbose_indent+'\nCombining temporary remapped files...')
+        if verbose: print(f'\n{self.verbose_indent}Combining temporary remapped files...')
 
         # Add atmosphere temporary file data into the final output file
         run_cmd(f'ncks -A --hdr_pad={hdr_pad} {atm_tmp_file_name} {output_file_name} ',
@@ -640,8 +660,8 @@ class hiccup_data(object):
         This approach was developed specifically for very fine grids like ne1024
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nHorizontally remapping the multi-file data to temporary files...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -686,8 +706,8 @@ class hiccup_data(object):
         This approach was developed specifically for very fine grids like ne1024
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nHorizontally remapping the multi-file data to temporary files...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
         if self.atm_file is None: raise ValueError('atm_file cannot be None!')
@@ -735,30 +755,38 @@ class hiccup_data(object):
         using a multifile xarray dataset
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose: print(verbose_indent+'\nPerforming surface adjustments...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Performing surface adjustments...')
 
         # update lev name in case it has not been updated previously
         self.lev_name = self.new_lev_name
 
         if print_memory_usage: print_mem_usage(msg='start surface_adjustment_multifile()')
 
-        # build list of file names for variables needed for adjustment
-        var_list = []
+        adj_TS_warning_msg = 'WARNING - surface_adjustment_multifile: '+\
+        f'\n  adj_TS in  is not supported for {self.target_model}, disabling.'+\
+        f'\n  Set adj_TS=False  to suppress this warning.'
+
+        # build dict of variables needed for adjustment
+        var_dict = {}
         if self.target_model=='EAM':
-            if adj_TS: var_list.append('TS')
-            if adj_PS: var_list = var_list+['PS','PHIS','T']
-        if self.target_model=='EAMXX':
             if adj_TS:
-                adj_TS = False
-                print('WARNING - surface_adjustment_multifile: '+
-                      f'adj_TS in  is not supported for {target_model}, disabling.')
-            # if adj_PS: var_list = var_list+['ps','phis','T_mid']
-            if adj_PS: var_list = var_list+['PS','PHIS','T']
+                var_dict['TS'] = 'TS'
+            if adj_PS:
+                var_dict['PS']   = 'PS'
+                var_dict['PHIS'] = 'PHIS'
+                var_dict['T']    = 'T'
+        if self.target_model=='EAMXX':
+            if adj_TS: adj_TS = False ; print(adj_TS_warning_msg)
+            if adj_PS:
+                var_dict['PS']   = 'ps'
+                var_dict['PHIS'] = 'phis'
+                var_dict['T']    = 'T_mid'
 
         file_list = []
         for var,file_name in file_dict.items():
-            if var in var_list: file_list.append(file_name)
+            if var in var_dict.values():
+                file_list.append(file_name)
 
         # Load topo data for surface adjustment - use same chunking
         ds_topo = xr.open_dataset(self.topo_file,chunks=self.get_chunks())
@@ -767,10 +795,13 @@ class hiccup_data(object):
         if adj_TS:
             if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-                hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose )
-            ds_data['TS'].to_netcdf(file_dict['TS'],format=hiccup_atm_nc_format,mode='a')
+                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+                hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose, 
+                                                verbose_indent=self.verbose_indent )
+            ds_data = ds_data.rename(var_dict)
+            ds_data[var_dict['TS']].to_netcdf(file_dict[var_dict['TS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature',prefix='')
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature')
 
         if print_memory_usage: print_mem_usage(msg='after adj_TS')
 
@@ -778,11 +809,14 @@ class hiccup_data(object):
         if adj_PS:
             if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-                hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name
-                                            ,lev_coord_name=self.lev_name, verbose=verbose )
-            ds_data['PS'].to_netcdf(file_dict['PS'],format=hiccup_atm_nc_format,mode='a')
+                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+                hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
+                                             lev_coord_name=self.lev_name, verbose=verbose, 
+                                             verbose_indent=self.verbose_indent )
+            ds_data = ds_data.rename(var_dict)
+            ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure',prefix='')
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure')
 
         if print_memory_usage: print_mem_usage(msg='after adj_PS')
 
@@ -792,14 +826,14 @@ class hiccup_data(object):
 
     # --------------------------------------------------------------------------
     def remap_vertical(self,input_file_name,output_file_name,
-                       vert_file_name,vert_remap_var_list=None,
+                       vert_file_name,ps_name='PS',vert_remap_var_list=None,
                        verbose=None):
         """  
         Vertically remap data and combine into single file 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nVertically remapping the data...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Vertically remapping the data...')
 
         check_dependency('ncremap')
 
@@ -829,6 +863,7 @@ class hiccup_data(object):
         cmd  = 'ncremap'
         cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' " # doesn't work with vertical regridding?
         cmd += f' --vrt_fl={vert_file_name}'
+        cmd += f' --ps_nm={ps_name}'
         cmd += f' --var_lst={vert_remap_var_list}'
         cmd += f' --in_fl={input_file_name}'
         cmd += f' --out_fl={vert_tmp_file_name}'
@@ -853,8 +888,8 @@ class hiccup_data(object):
         wrapper around remap_vertical to support multi-file workflow
         specifically needed for very fine grids like ne1024
         """
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nVertically remapping the multi-file data...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Vertically remapping the multi-file data...')
 
         # temporarily disable timers and put a timer around the vertical remap loop
         global do_timers
@@ -862,18 +897,33 @@ class hiccup_data(object):
         prev_do_timers = self.do_timers
         self.do_timers = False
 
-        ps_file_name = file_dict['PS']
+        ps_var_name = None
+        if self.target_model=='EAM'          : ps_var_name = 'PS'
+        if self.target_model=='EAMXX'        : ps_var_name = 'ps'
+        if self.target_model=='EAMXX-nudging': ps_var_name = 'PS'
+
+        if ps_var_name is None:
+            raise ValueError(f'Error: ps_var_name is not specified for target_model: {self.target_model}')
+
+        ps_file_name = file_dict[ps_var_name]
 
         for var,file_name in file_dict.items() :
             if '_sfc_' not in file_name :
                 # Append surface pressure for vertical interpolation
-                run_cmd(f'ncks -A --hdr_pad={hdr_pad} {ps_file_name} {file_name}'
-                        ,verbose,prepend_line=False)
+                ds = xr.open_dataset(file_name)
+                ds_ps = xr.open_dataset(ps_file_name)
+                ds[ps_var_name] = ds_ps[ps_var_name]
+                tmp_file_name = file_name.replace('.nc',f'.tmp.nc')
+                ds.to_netcdf(tmp_file_name,mode='w')
+                ds.close(); ds_ps.close()
+                run_cmd(f'mv {tmp_file_name} {file_name}',verbose=False)
+
                 # Do the vertical interpolation for this file
-                self.remap_vertical(input_file_name=file_name
-                                   ,output_file_name=file_name
-                                   ,vert_file_name=vert_file_name
-                                   ,vert_remap_var_list=[var])
+                self.remap_vertical(input_file_name=file_name,
+                                   output_file_name=file_name,
+                                   vert_file_name=vert_file_name,
+                                   vert_remap_var_list=[var],
+                                   ps_name=ps_var_name)
         
         # Re-set do_timers to previous value
         self.do_timers = prev_do_timers
@@ -882,14 +932,15 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def atmos_state_adjustment_multifile(self,file_dict,verbose=None,
-                                        adjust_sat=True,adjust_wtr=True):
+                                        adjust_sat=True,adjust_wtr=True,
+                                        convert_ozone=True):
         """
         Perform post-remapping atmospheric state adjustments 
         for the multifile workflow
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose: print(verbose_indent+'\nPerforming state adjustments...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Performing state adjustments...')
 
         # get list of file names for variables needed for adjustment
         def get_adj_file_list(var_list):
@@ -901,33 +952,54 @@ class hiccup_data(object):
         if print_memory_usage: print_mem_usage(msg='start atmos_state_adjustment_multifile()')
 
         if adjust_sat:
-            file_list = get_adj_file_list(['Q','T','PS'])
+            if self.target_model=='EAM'  : var_dict = {'Q':'Q', 'T':'T',    'PS':'PS'}
+            if self.target_model=='EAMXX': var_dict = {'Q':'qv','T':'T_mid','PS':'ps'}
+            file_list = get_adj_file_list(var_dict.values())
             if self.do_timers: timer_start_adj = perf_counter()
 
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 # adjust water vapor to eliminate supersaturation
                 if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
-                hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose )
+                hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose, verbose_indent=self.verbose_indent )
                 if print_memory_usage: print_mem_usage(msg='after remove_supersaturation')
                 # Write adjusted data back to data files
-                ds_data['Q'].to_netcdf(file_dict['Q'],format=hiccup_atm_nc_format,mode='a')
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['Q']].to_netcdf(file_dict[var_dict['Q']],format=hiccup_atm_nc_format,mode='a')
                 ds_data.close()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation',prefix='')
+            if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation')
 
         if adjust_wtr:
-            file_list = get_adj_file_list(['CLDLIQ','CLDICE'])
+            if self.target_model=='EAM'  : var_dict = {'CLDLIQ':'CLDLIQ','CLDICE':'CLDICE'}
+            if self.target_model=='EAMXX': var_dict = {'CLDLIQ':'qc',    'CLDICE':'qi'}
+            file_list = get_adj_file_list(var_dict.values())
             if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 # adjust cloud water to remove negative values
                 if print_memory_usage: print_mem_usage(msg='before adjust_cld_wtr')
-                hsa.adjust_cld_wtr( ds_data, verbose=verbose )
+                hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
                 if print_memory_usage: print_mem_usage(msg='after adjust_cld_wtr')
                 # Write adjusted data back to data files
-                for var in ['CLDLIQ','CLDICE']:
+                ds_data = ds_data.rename(var_dict)
+                for var in var_dict.values():
                     if var in self.atm_var_name_dict.keys():
                         ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
                 ds_data.close()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr',prefix='')
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr')
+
+        if convert_ozone:
+            if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
+            if self.do_timers: timer_start_adj = perf_counter()
+            if self.target_model=='EAM'  : O3_name = 'O3'
+            if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
+            ds_data = xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks())
+            # Convert mass mixing ratio to molecular/volume mixing ratio
+            ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
+            ds_data[O3_name].attrs['units'] = 'mol/mol'
+            ds_data.to_netcdf(file_dict[O3_name],format=hiccup_atm_nc_format,mode='a')
+            ds_data.close()
+            if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
         return
@@ -938,8 +1010,8 @@ class hiccup_data(object):
         for the multifile workflow
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose: print(verbose_indent+'\nApplying random perturbations...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Applying random perturbations...')
 
         # build list of file names for variables to be perturbed
         file_list = []
@@ -950,7 +1022,8 @@ class hiccup_data(object):
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
             # adjust cloud water to remove negative values
-            hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed, verbose=False )
+            hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed, 
+                                            verbose=False, verbose_indent=self.verbose_indent )
             ds_data.compute()
 
         # Write perturbed data back to the individual data files
@@ -969,8 +1042,8 @@ class hiccup_data(object):
         """
         if do_timers is None: do_timers = self.do_timers
         if do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nEditing time and date variables...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Editing time and date variables...')
 
         # time coordinate information
         time_shape = ( len(ds['time']) )
@@ -1059,8 +1132,8 @@ class hiccup_data(object):
         """
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nEditing time and date variables...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Editing time and date variables...')
 
         # xarray will automatically convert the time coordinate,
         # which can be problematic, especially when generating nudging data.
@@ -1085,8 +1158,8 @@ class hiccup_data(object):
         copy necessary time and date information
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nEditing time and date variables...')
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Editing time and date variables...')
 
         ds_in = xr.open_dataset(self.atm_file)
 
@@ -1119,18 +1192,156 @@ class hiccup_data(object):
         if self.do_timers: self.print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
-    def clean_global_attributes(self,file_name,method='xarray',verbose=None):
-        """ 
-        Remove messy global attributes of the file 
+    def convert_to_single_precision_multifile(self,file_dict,verbose=None):
+        """
+        Convert all files in file_dict to single precision
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose: print(verbose_indent+'\nCleaning up excessive global attributes...')
-        
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Converting all data files to single precision...')
+
+        check_dependency('ncpdq')
+
+        for var,file_name in file_dict.items() :
+            tmp_file_name = file_name.replace('.nc',f'.tmp.nc')
+            cmd = f'ncpdq -O --pck_map dbl_flt {file_name} {tmp_file_name}'
+            run_cmd(cmd,verbose)
+            run_cmd(f'mv {tmp_file_name} {file_name}',verbose)
+
+        if self.do_timers: self.print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
+    def combine_files(self,file_dict,output_file_name,delete_files=False,
+                      method='xarray',use_single_precision=None,
+                      permute_dimensions=None,permute_dim_list=None,
+                      combine_uv=None,remove_ilev=None,verbose=None):
+        """
+        Combine files in file_dict into single output file
+        """
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Combining temporary files into new file...')
+        if method not in ['xarray']:
+            raise ValueError(f'combine_files method argument "{method}" is invalid')
+
+        if os.path.isfile(output_file_name): 
+            run_cmd(f'rm {output_file_name} ',verbose)
+
+        # Specify defaults for each target model
+        if self.target_model=='EAM'  : 
+            u_name,v_name,uv_name = 'U','V','UV'
+            if use_single_precision is None: use_single_precision = False
+            if permute_dimensions is None: permute_dimensions = False
+            if combine_uv is None: combine_uv = False
+            if remove_ilev is None: remove_ilev = False
+        if self.target_model=='EAMXX':
+            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            if use_single_precision is None: use_single_precision = True
+            if permute_dimensions is None: permute_dimensions = True
+            if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
+            if combine_uv is None: combine_uv = True
+            if remove_ilev is None: remove_ilev = False
+        if self.target_model=='EAMXX-nudging':
+            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            if use_single_precision is None: use_single_precision = True
+            if permute_dimensions is None: permute_dimensions = True
+            if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
+            if combine_uv is None: combine_uv = False
+            if remove_ilev is None: remove_ilev = True
+
+            
+
+        if permute_dimensions and permute_dim_list is None:
+            raise ValueError('permute_dim_list cannot be None if permute_dimensions=True')
+
+        # Combine temporary files into the final output file
+        if method=='xarray':
+            ds_out = xr.Dataset()
+            for var,file_name in file_dict.items() :
+                ds_tmp = xr.open_dataset(file_name)
+                if use_single_precision: ds_tmp[var] = ds_tmp[var].astype('float32')
+                ds_out = xr.merge([ds_out,ds_tmp],compat='override')
+                ds_tmp.close()
+            if self.target_model=='EAMXX-nudging':
+                ds_out['p_mid'] = ( ds_out['PS']*ds_out['hybm'] + 1e5*ds_out['hyam'] ).astype(ds_out['U'].dtype)
+            if permute_dimensions:
+                ds_out = ds_out.transpose(permute_dim_list[0],
+                                          permute_dim_list[1],
+                                          permute_dim_list[2],
+                                          'ilev','nv','nbnd',missing_dims='ignore')
+            if combine_uv:
+                ds_out[uv_name] = xr.concat([ds_out[u_name], ds_out[v_name]], dim='dim2')
+                ds_out[uv_name] = ds_out[uv_name].transpose('time','ncol','dim2','lev')
+                ds_out = ds_out.drop_vars([u_name,v_name])
+            # for EAMxx add nc, nr, ni, and pref_mid
+            if self.target_model=='EAMXX':
+                ds_out['pref_mid'] = ds_out['lev'].copy(deep=True)
+                ds_out['pref_mid'].attrs['units'] = 'hPa'
+                ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
+                ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
+                if 'nc' not in file_dict.keys():
+                    ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
+                    ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
+                if 'nr' not in file_dict.keys():
+                    ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
+                    ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
+                if 'ni' not in file_dict.keys():
+                    ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
+                    ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
+            ds_out.to_netcdf(output_file_name)
+            ds_out.close()
+
+        # # NCO "append" method
+        # # this method tends to be slower than xarray, but also I couldn't figure
+        # # out how to support the combine_uv and use_single_precision options
+        # # so I've disabled this option for now
+        # if method=='nco':
+        #     check_dependency('ncks')
+        #     if use_single_precision:
+        #         self.convert_to_single_precision_multifile(file_dict,verbose)
+        #     # if combine_uv:
+        #     #     run_cmd(f'ncap2 --overwrite -s \'{uv_name}={u_name}\' ')
+        #     for var,file_name in file_dict.items() :
+        #         cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl'
+        #         cmd+= f' --fl_fmt={ncremap_file_fmt}'
+        #         cmd+= f' {file_name} {output_file_name} '
+        #         run_cmd(cmd,verbose,prepend_line=False)
+        #     if permute_dimensions:
+        #         dim_str = ','.join(permute_dim_list)
+        #         tmp_output_file_name = output_file_name.replace('.nc',f'.tmp.nc')
+        #         cmd = f'ncpdq -O --permute {dim_str}'
+        #         cmd+= f' {output_file_name} {tmp_output_file_name} '
+        #         run_cmd(cmd,verbose)
+        #         run_cmd(f'mv {tmp_output_file_name} {output_file_name}',verbose)
+            
+
+        # make sure time dimension is "unlimited"
+        cmd = f'ncks -O --fl_fmt={ncremap_file_fmt}'
+        cmd+= f' --mk_rec_dmn time'
+        cmd+= f' {output_file_name} {output_file_name} '
+        run_cmd(cmd,verbose,prepend_line=False)
+
+        # Delete temp files
+        if delete_files:
+            if verbose: print(f'\n{self.verbose_indent}Deleting temporary files...')
+            for file_name in file_dict.values() :
+                run_cmd(self.verbose_indent+f'rm {file_name}',verbose,prepend_line=False)
+
+        if self.do_timers: self.print_timer(timer_start)
+        return
+    # --------------------------------------------------------------------------
+    def clean_global_attributes(self,file_name,method='nco',verbose=None):
+        """
+        Remove messy global attributes of the file
+        """
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Cleaning up excessive global attributes...')
+
         global_att_list = ['history_of_appended_files', 'nco_openmp_thread_number', 
                            'input_file', 'map_file', 'remap_version', 'remap_hostname', 
                            'remap_command', 'remap_script', 'NCO' ]
-        
+
         # Remove the attributes listed in global_att_list using xarray
         if method=='xarray':
             ds = xr.open_dataset(file_name)
@@ -1139,6 +1350,9 @@ class hiccup_data(object):
             ds.attrs['history'] = ''
             ds.to_netcdf(file_name)
             ds.close()
+            # reset file format since xarray will automatically convert to netcdf4
+            cmd = f'ncks -O --fl_fmt={ncremap_file_fmt} {file_name} {file_name} '
+            run_cmd(cmd,verbose,prepend_line=False)
 
         # Remove the attributes listed in global_att_list using ncatted
         if method=='nco':
@@ -1153,52 +1367,6 @@ class hiccup_data(object):
                 verbose,prepend_line=False)
 
         if self.do_timers: self.print_timer(timer_start,caller=f'clean_global_attributes_{method}')
-        return
-    # --------------------------------------------------------------------------
-    def combine_files(self,file_dict,output_file_name,delete_files=False,
-                      method='xarray',dtype='float64',verbose=None):
-        """
-        Combine files in file_dict into single output file
-        """
-        if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose: print(verbose_indent+'\nCombining temporary files into new file...')
-        if method not in ['xarray','nco']:
-            raise ValueError(f'combine_files method argument "{method}" is invalid')
-
-        if os.path.isfile(output_file_name): 
-            run_cmd(f'rm {output_file_name} ',verbose)
-
-        # Combine temporary files into the final output file
-        if method=='xarray':
-            ds_out = xr.Dataset()
-            for var,file_name in file_dict.items() :
-                ds_tmp = xr.open_dataset(file_name)
-                ds_out[var] = ds_tmp[var].astype(dtype)
-                ds_tmp.close()
-            ds_out.to_netcdf(output_file_name)
-            ds_out.close()
-
-        # NCO "append" method - this method tends to be slower than xarray
-        if method=='nco':
-            check_dependency('ncks')
-            for var,file_name in file_dict.items() :
-                cmd = f'ncks -A --hdr_pad={hdr_pad} --no_tmp_fl'
-                cmd+= f' --fl_fmt={ncremap_file_fmt}'
-                cmd+= f' {file_name} {output_file_name} '
-                run_cmd(cmd,verbose,prepend_line=False)
-
-        # make sure time dimension is "unlimited"
-        cmd = f'ncks -O --fl_fmt={ncremap_file_fmt} --mk_rec_dmn time {output_file_name} {output_file_name} '
-        run_cmd(cmd,verbose,prepend_line=False)
-
-        # Delete temp files
-        if delete_files:
-            if verbose: print(verbose_indent+'\nDeleting temporary files...')
-            for file_name in file_dict.values() :
-                run_cmd(verbose_indent+f'rm {file_name}',verbose,prepend_line=False)
-
-        if self.do_timers: self.print_timer(timer_start)
         return
 # ------------------------------------------------------------------------------
 # HICCUP Subclasses (associated with the source data)

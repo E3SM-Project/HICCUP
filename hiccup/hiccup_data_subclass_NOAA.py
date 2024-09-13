@@ -3,7 +3,6 @@ import numpy as np
 import xarray as xr
 from time import perf_counter
 from hiccup.hiccup_data_class import hiccup_data
-from hiccup.hiccup_data_class import hiccup_verbose
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
@@ -32,6 +31,8 @@ class NOAA(hiccup_data):
                   check_input_files=None,
                   RRM_grid=None,
                   do_timers=None,
+                  verbose=False,
+                  verbose_indent='',
                 ):
         super().__init__(   
                           target_model=target_model,
@@ -52,6 +53,8 @@ class NOAA(hiccup_data):
                           check_input_files=check_input_files,
                           RRM_grid=RRM_grid,
                           do_timers=do_timers,
+                          verbose=verbose,
+                          verbose_indent=verbose_indent,
                         )
         
         self.src_data_name = 'NOAA'

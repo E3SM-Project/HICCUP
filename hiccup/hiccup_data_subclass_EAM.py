@@ -3,7 +3,6 @@ import numpy as np
 import xarray as xr
 from time import perf_counter
 from hiccup.hiccup_data_class import hiccup_data
-from hiccup.hiccup_data_class import hiccup_verbose
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
@@ -32,6 +31,8 @@ class EAM(hiccup_data):
                   check_input_files=None,
                   RRM_grid=None,
                   do_timers=None,
+                  verbose=False,
+                  verbose_indent='',
                 ):
         super().__init__(   
                           target_model=target_model,
@@ -52,6 +53,8 @@ class EAM(hiccup_data):
                           check_input_files=check_input_files,
                           RRM_grid=RRM_grid,
                           do_timers=do_timers,
+                          verbose=verbose,
+                          verbose_indent=verbose_indent,
                         )
         
         self.src_data_name = 'EAM'
@@ -123,8 +126,8 @@ class EAM(hiccup_data):
         Generate source grid file 
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nGenerating src grid files (np+pg)...')
+        if verbose is None : verbose = self.verbose
+        if verbose : print(self.self.verbose_indent+'\nGenerating src grid files (np+pg)...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if self.src_grid_file is not None:
@@ -176,8 +179,8 @@ class EAM(hiccup_data):
         is the source we need both np4 and pgN grids
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nGenerating dst grid files (np+pg)...')
+        if verbose is None : verbose = self.verbose
+        if verbose : print(self.self.verbose_indent+'\nGenerating dst grid files (np+pg)...')
         
         # Spectral element grid with physics on GLL nodes
         ne  = self.get_dst_grid_ne()
@@ -223,8 +226,8 @@ class EAM(hiccup_data):
         (overloads default routine that assumes only one map file is needed)
         """
         if self.do_timers: timer_start = perf_counter()
-        if verbose is None : verbose = hiccup_verbose
-        if verbose : print(verbose_indent+'\nGenerating mapping files (np+pg)...')
+        if verbose is None : verbose = self.verbose
+        if verbose : print(self.self.verbose_indent+'\nGenerating mapping files (np+pg)...')
 
         check_dependency('ncremap')
 
