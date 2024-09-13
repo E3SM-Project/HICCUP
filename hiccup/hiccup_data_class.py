@@ -17,6 +17,10 @@ from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_mem_usage
 # ------------------------------------------------------------------------------
+# Import timer methods
+from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ext
+from hiccup.hiccup_data_class_timer_methods import print_timer_summary as print_timer_summary_ext
+# ------------------------------------------------------------------------------
 from hiccup.hiccup_constants import MW_dryair
 from hiccup.hiccup_constants import MW_ozone
 # ------------------------------------------------------------------------------
@@ -156,8 +160,17 @@ class hiccup_data(object):
     # Import timer methods
     from hiccup.hiccup_data_class_timer_methods import timer_msg_all
     from hiccup.hiccup_data_class_timer_methods import timer_start_total
-    from hiccup.hiccup_data_class_timer_methods import print_timer
-    from hiccup.hiccup_data_class_timer_methods import print_timer_summary
+    # ------------------------------------------------------------------------------
+    def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
+        msg = print_timer_ext(timer_start,use_color=True,caller=None,print_msg=True)
+        # add message to list of messages for print_timer_summary
+        self.timer_msg_all.append(msg)
+        return
+    def print_timer_summary(self,):
+        """
+        Print timer summary based on information compiled by print_timer()
+        """
+        print_timer_summary_ext( self.timer_start_total, self.timer_msg_all )
     # --------------------------------------------------------------------------
     def __str__(self):
         indent = '    '
@@ -885,8 +898,9 @@ class hiccup_data(object):
         self.do_timers = False
 
         ps_var_name = None
-        if self.target_model=='EAM'  : ps_var_name = 'PS'
-        if self.target_model=='EAMXX': ps_var_name = 'ps'
+        if self.target_model=='EAM'          : ps_var_name = 'PS'
+        if self.target_model=='EAMXX'        : ps_var_name = 'ps'
+        if self.target_model=='EAMXX-nudging': ps_var_name = 'PS'
 
         if ps_var_name is None:
             raise ValueError(f'Error: ps_var_name is not specified for target_model: {self.target_model}')
@@ -1200,7 +1214,7 @@ class hiccup_data(object):
     def combine_files(self,file_dict,output_file_name,delete_files=False,
                       method='xarray',use_single_precision=None,
                       permute_dimensions=None,permute_dim_list=None,
-                      combine_uv=None,verbose=None):
+                      combine_uv=None,remove_ilev=None,verbose=None):
         """
         Combine files in file_dict into single output file
         """
@@ -1213,17 +1227,29 @@ class hiccup_data(object):
         if os.path.isfile(output_file_name): 
             run_cmd(f'rm {output_file_name} ',verbose)
 
+        # Specify defaults for each target model
         if self.target_model=='EAM'  : 
             u_name,v_name,uv_name = 'U','V','UV'
             if use_single_precision is None: use_single_precision = False
             if permute_dimensions is None: permute_dimensions = False
             if combine_uv is None: combine_uv = False
+            if remove_ilev is None: remove_ilev = False
         if self.target_model=='EAMXX':
             u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
             if combine_uv is None: combine_uv = True
+            if remove_ilev is None: remove_ilev = False
+        if self.target_model=='EAMXX-nudging':
+            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            if use_single_precision is None: use_single_precision = True
+            if permute_dimensions is None: permute_dimensions = True
+            if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
+            if combine_uv is None: combine_uv = False
+            if remove_ilev is None: remove_ilev = True
+
+            
 
         if permute_dimensions and permute_dim_list is None:
             raise ValueError('permute_dim_list cannot be None if permute_dimensions=True')
@@ -1236,7 +1262,9 @@ class hiccup_data(object):
                 if use_single_precision: ds_tmp[var] = ds_tmp[var].astype('float32')
                 ds_out = xr.merge([ds_out,ds_tmp],compat='override')
                 ds_tmp.close()
-            if permute_dimensions: 
+            if self.target_model=='EAMXX-nudging':
+                ds_out['p_mid'] = ( ds_out['PS']*ds_out['hybm'] + 1e5*ds_out['hyam'] ).astype(ds_out['U'].dtype)
+            if permute_dimensions:
                 ds_out = ds_out.transpose(permute_dim_list[0],
                                           permute_dim_list[1],
                                           permute_dim_list[2],
