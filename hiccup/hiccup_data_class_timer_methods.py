@@ -5,7 +5,7 @@ timer_start_total = None
 timer_msg_all = []
 # ------------------------------------------------------------------------------
 # Print individual timer information
-def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
+def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
     """
     Print the final timer result based on input start time
     Also update timer_msg_all for use in print_timer_summary
@@ -20,26 +20,24 @@ def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
     # if etime>(2*3600) : time_str += f' ({(etime/3600):.1f} hr)'
     # create the timer result message
     msg = f'{caller:40} elapsed time: {time_str}'
-    # add message to list of messages for print_timer_summary
-    self.timer_msg_all.append(msg)
     # Apply color
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
     # print the message
-    print(f'\n{self.verbose_indent}{msg}')
-    return
+    print(f'\n{msg}')
+    return msg
 # ------------------------------------------------------------------------------
 # Print a summary of timer information
-def print_timer_summary(self,):
+def print_timer_summary(timer_start_total=None,timer_msg_all=None):
     """
     Print timer summary based on information compiled by print_timer()
     """
     # Add timer info for all if timer_start_total was set
-    if self.timer_start_total is not None: 
-        self.print_timer(self.timer_start_total,caller=f'Total',print_msg=False)
-    if self.do_timers:
-        print(f'\n{self.verbose_indent}HICCUP Timer results:')
-        for msg in self.timer_msg_all:
-            print(f'{self.verbose_indent}  {msg}')
+    if timer_start_total is not None:
+        print_timer(timer_start_total,caller=f'Total',print_msg=False)
+    if timer_msg_all is not None:
+        print(f'\nHICCUP Timer results:')
+        for msg in timer_msg_all:
+            print(f'  {msg}')
     return
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
