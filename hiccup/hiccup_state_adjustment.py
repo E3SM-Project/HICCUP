@@ -193,9 +193,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # condition = ( Tstar < T_ref2 )
   # condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
   # Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
-  # del_phis = ds_data['PHIS'] - ds_topo['PHIS']
 
   # Calculate new surface pressure                                               pg 9 eq 12
+  del_phis = ds_data['PHIS'] - ds_topo['PHIS']
   *__, del_phis = xr.broadcast(ds_data['PS'], del_phis)
   beta = del_phis/(Rdair*Tstar)
   temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
