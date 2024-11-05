@@ -169,33 +169,40 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
-  T0    = Tstar + std_lapse*ds_data['PHIS']/gravit                                  # pg 9 eq 13
+  # T0    = Tstar + std_lapse*ds_data['PHIS']/gravit                              # pg 9 eq 13
+
+  # NOTE - The adjustments below originally intended for interpolating data to
+  # the mean sea level pressure, and have often been used for initial condition
+  # generation without incident. However, tropical cyclone simulations with
+  # SCREAM in 2024 revealed that these adjustments can lead to rare edge cases
+  # that produce unreasonable values near topography. Disabling the calculations
+  # altogether seemed to fix the issue, but they remain here to revisit late.
   
-  # calculate alternate surface geopotential to avoid errors when dividing
-  topo_phis_temp = ds_topo['PHIS']
-  topo_phis_temp = topo_phis_temp.where( topo_phis_temp>topo_min_value, topo_min_value )
+  # # calculate alternate surface geopotential to avoid errors when dividing
+  # topo_phis_temp = ds_topo['PHIS']
+  # topo_phis_temp = topo_phis_temp.where( topo_phis_temp>topo_min_value, topo_min_value )
 
-  # The next few lines provide parameter adjustments to deal with  
-  # very high (T_ref1) or low (T_ref2) temperatures 
+  # # The next few lines provide parameter adjustments to deal with  
+  # # very high (T_ref1) or low (T_ref2) temperatures 
 
-  # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.1
-  condition = np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
-  condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
-  alpha = xr.where(condition, Rdair/topo_phis_temp*(T_ref1-Tstar) , alpha)
+  # # inhibit low pressure under elevated hot terrain                             pg 9 eq 14.1
+  # condition = np.logical_and( Tstar <= T_ref1, T0 > T_ref1 )
+  # condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
+  # alpha = xr.where(condition, Rdair/topo_phis_temp*(T_ref1-Tstar) , alpha)
 
-  # inhibit low pressure under elevated hot terrain                              pg 9 eq 14.2
-  condition = np.logical_and( Tstar > T_ref1,  T0 > T_ref1 )
-  condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
-  alpha.values = xr.where(condition, 0, alpha)
-  Tstar.values = xr.where(condition, (T_ref1+Tstar)*0.5 ,Tstar)
+  # # inhibit low pressure under elevated hot terrain                             pg 9 eq 14.2
+  # condition = np.logical_and( Tstar > T_ref1,  T0 > T_ref1 )
+  # condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
+  # alpha.values = xr.where(condition, 0, alpha)
+  # Tstar.values = xr.where(condition, (T_ref1+Tstar)*0.5 ,Tstar)
 
-  # inhibit unduly high pressure below elevated cold terrain                     pg 9 eq 14.3
-  condition = ( Tstar < T_ref2 )
-  condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
-  Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
+  # # inhibit unduly high pressure below elevated cold terrain                    pg 9 eq 14.3
+  # condition = ( Tstar < T_ref2 )
+  # condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
+  # Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
+
+  # Calculate new surface pressure                                              pg 9 eq 12
   del_phis = ds_data['PHIS'] - ds_topo['PHIS']
-
-  # Calculate new surface pressure                                               pg 9 eq 12
   *__, del_phis = xr.broadcast(ds_data['PS'], del_phis)
   beta = del_phis/(Rdair*Tstar)
   temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
