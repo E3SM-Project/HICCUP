@@ -70,7 +70,8 @@ for t in datetime_list:
   if get_atm:
       server.retrieve('reanalysis-era5-pressure-levels',{
         'product_type'  : 'reanalysis',
-        'format'        : 'netcdf',
+        # 'format'        : 'netcdf',
+        'format'        : 'netcdf_legacy',
         'pressure_level': lev,
         'time'          : hr_min,
         'day'           : dy,
@@ -91,7 +92,8 @@ for t in datetime_list:
   if get_sfc:
       server.retrieve('reanalysis-era5-single-levels',{
         'product_type'  : 'reanalysis',
-        'format'        : 'netcdf',
+        # 'format'        : 'netcdf',
+        'format'        : 'netcdf_legacy',
         'time'          : hr_min,
         'day'           : dy,
         'month'         : mn,
@@ -115,7 +117,8 @@ for t in datetime_list:
   if get_lnd:
       server.retrieve('reanalysis-era5-land',{
         'product_type'  : 'reanalysis',
-        'format'        : 'netcdf',
+        # 'format'        : 'netcdf',
+        'format'        : 'netcdf_legacy',
         'time'          : hr_min,
         'day'           : dy,
         'month'         : mn,

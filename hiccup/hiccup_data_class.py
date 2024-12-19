@@ -749,7 +749,8 @@ class hiccup_data(object):
         return 
     # --------------------------------------------------------------------------
     def surface_adjustment_multifile(self,file_dict,verbose=None,
-                                    adj_TS=True,adj_PS=True):
+                                    adj_TS=True,adj_PS=True,
+                                    hybrid_lev=False):
         """
         Perform surface temperature and pressure adjustments 
         using a multifile xarray dataset
@@ -810,6 +811,7 @@ class hiccup_data(object):
             if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+                if hybrid_lev:
                 hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
                                              lev_coord_name=self.lev_name, verbose=verbose, 
                                              verbose_indent=self.verbose_indent )
@@ -827,6 +829,7 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def remap_vertical(self,input_file_name,output_file_name,
                        vert_file_name,ps_name='PS',vert_remap_var_list=None,
+                       src_lev_type='pressure', # pressure / hybrid
                        verbose=None):
         """  
         Vertically remap data and combine into single file 
@@ -863,7 +866,7 @@ class hiccup_data(object):
         cmd  = 'ncremap'
         cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' " # doesn't work with vertical regridding?
         cmd += f' --vrt_fl={vert_file_name}'
-        cmd += f' --ps_nm={ps_name}'
+        if src_lev_type=='pressure': cmd += f' --ps_nm={ps_name}'
         cmd += f' --var_lst={vert_remap_var_list}'
         cmd += f' --in_fl={input_file_name}'
         cmd += f' --out_fl={vert_tmp_file_name}'
@@ -1279,15 +1282,15 @@ class hiccup_data(object):
                 ds_out['pref_mid'].attrs['units'] = 'hPa'
                 ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
                 ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
-                if 'nc' not in file_dict.keys():
-                    ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
-                    ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
-                if 'nr' not in file_dict.keys():
-                    ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
-                    ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
-                if 'ni' not in file_dict.keys():
-                    ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
-                    ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
+                # if 'nc' not in file_dict.keys():
+                #     ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
+                #     ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
+                # if 'nr' not in file_dict.keys():
+                #     ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
+                #     ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
+                # if 'ni' not in file_dict.keys():
+                #     ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
+                #     ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
             ds_out.to_netcdf(output_file_name)
             ds_out.close()
 

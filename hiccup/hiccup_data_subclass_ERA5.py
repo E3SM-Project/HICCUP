@@ -105,10 +105,10 @@ class ERA5(hiccup_data):
             self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
             self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
             self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
-            self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
-            self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
+            # self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
+            # self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
             self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio
-            self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
+            # self.sfc_var_name_dict.update({'ps':'sp'})                  # sfc pressure
             self.sfc_var_name_dict.update({'phis':'z'})                 # surface geopotential
 
         if self.target_model=='EAMXX-nudging':

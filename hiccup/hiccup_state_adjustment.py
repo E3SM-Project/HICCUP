@@ -70,10 +70,28 @@ def chk_finite(x,name=None):
 # Also see: IFS Documentation Cycle CY23r4, 
 # Part VI: Technical and Computational Procedures, 
 # Chapter 2 FULL-POS post-processing and interpolation
+
+#-------------------------------------------------------------------------------
+# def create_hybrid_dp3d( ds ):
+#   """
+#   Generate 3D pressure variable and add to dataset
+#   """
+#   P0 = 1e5
+#   nlev = len(hyai)-1
+#   (ntime,ncol) = ds['PS'].shape
+#   dp3d = xr.zeros_like('T')
+#   for t in range(ntime):
+#      for i in range(ncol):
+#         for k in range(nlev):
+#            p1 = hya[k  ]*P0 + hyb[k  ]*PS[t,i]
+#            p2 = hya[k+1]*P0 + hyb[k+1]*PS[t,i]
+#            # dp3d[t,k,i] = p2 - p1
+#            dp3d[t,k] = p2 - p1
+#   return dp3d
 #-------------------------------------------------------------------------------
 def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
-                             lev_coord_name='lev', debug=False,
-                             verbose=None, verbose_indent='' ):
+                             lev_coord_name='lev', hybrid_lev=False, 
+                             debug=False, verbose=None, verbose_indent='' ):
   """ 
   Adjust the surface pressure based on surace height difference 
   and assumed standard atmosphere lapse rate. Input datasets must
@@ -103,11 +121,22 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if 'ncol_d' in ds_data.dims :
     ds_data = ds_data.rename({'ncol_d':'ncol'})
 
-  # Check for required variables in input datasets
-  for var in ['time','ncol',lev_coord_name] :
-    if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')
-  for var in ['PS','T',pressure_var_name] :
-    if var not in ds_data.variables : raise KeyError(f'{var} is missing from ds_data')
+  # Check for variables and dimension in input datasets
+  def chk_var( ds, var_list ):
+    for var in var_list: 
+      if var not in ds.variables:
+        raise KeyError(f'variable {var} is missing from dataset')
+  def chk_dim( ds, dim_list ):
+    for dim in dim_list: 
+      if dim not in ds.dims:
+        raise KeyError(f'dimension {dim} is missing from dataset')
+  chk_dim( ds_data, ['time','ncol',lev_coord_name] )
+  if hybrid_lev:
+    chk_var( ds_data, ['PS','T','hyam','hybm'] )
+  else:
+    chk_var( ds_data, ['PS','T',pressure_var_name] )
+  
+  # Check for surface geopotential
   if 'PHIS' not in ds_data.variables :
     if 'PHIS_d' in ds_data.variables :
       ds_data = ds_data.rename({'PHIS_d':'PHIS'})
@@ -123,6 +152,19 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     print_stat(ds_data['PS'],name='PS (old)')
 
   nlev = len(ds_data[lev_coord_name])
+
+  # for hybrid level input build 3D pressure variable
+  if hybrid_lev:
+    # ds_data[pressure_var_name] = create_hybrid_dp3d( ds, pressure_var_name )
+    ds_data[pressure_var_name] = ds_data['hyam']*1e5 + ds_data['hybm']*PS
+
+    print()
+    print(ds_data)
+    print()
+    print(ds_data[pressure_var_name])
+    print()
+    # exit()
+    
         
   # Make 3D pressure variable with surface pressure field added at the bottom
   ps_lev_coord = ds_data[pressure_var_name][lev_coord_name]
