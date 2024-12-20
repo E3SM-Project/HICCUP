@@ -539,29 +539,33 @@ class hiccup_data(object):
         var_dict_all.update(self.sfc_var_name_dict)
 
         new_lev_name = None
-        if self.lev_name=='level': new_lev_name = 'plev'
+        if self.lev_name=='level':          new_lev_name = 'plev'
+        if self.lev_name=='pressure_level': new_lev_name = 'plev'
 
         for var, file_name in file_dict.items():
 
-            with xr.open_dataset(file_name,decode_cf=False) as ds_data:
-                ds_data.load()
+            with xr.open_dataset(file_name,decode_cf=False) as ds:
+                ds.load()
                 # Rename the variable
-                if var_dict_all[var] in ds_data: 
-                    ds_data = ds_data.rename({var_dict_all[var]:var})
+                if var_dict_all[var] in ds: 
+                    ds = ds.rename({var_dict_all[var]:var})
                 # Rename the vertical coordinate
                 if new_lev_name is not None \
                 and '_sfc_' not in file_name \
-                and self.lev_name in ds_data:
-                    ds_data = ds_data.rename({self.lev_name:new_lev_name})
+                and self.lev_name in ds:
+                    ds = ds.rename({self.lev_name:new_lev_name})
                 # Do additional variable/attribute renaming specific to the input data
                 adjust_pressure_units = False
                 if new_lev_name is not None and '_sfc_' not in file_name: adjust_pressure_units = True
-                self.rename_vars_special(ds_data,verbose,do_timers=False
+                self.rename_vars_special(ds,verbose,do_timers=False
                                         ,adjust_pressure_units=adjust_pressure_units
                                         ,change_pressure_name=False
                                         ,new_lev_name=new_lev_name)
-            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
-            ds_data.close()
+                # For ERA5 the time dimension changed to "valid_time" after CDS upgrade
+                # changing this within rename_vars_special doesn't work for some reason, so just do it here
+                if 'valid_time' in ds.dims : ds = ds.rename({'valid_time':'time'})
+            ds.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
+            ds.close()
 
         # Reset the level variable name 
         if new_lev_name is not None: self.lev_name = new_lev_name
