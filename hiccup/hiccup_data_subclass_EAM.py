@@ -68,15 +68,19 @@ class EAM(hiccup_data):
 
         # Determine source grid from input atmosphere file
         ds = xr.open_dataset(atm_file)
-        if 'ne' in ds.attrs:
-            ne = ds.attrs['ne']
-        elif 'ncol' in ds.sizes:
-            # use ncol formula to solve for # elements (ne): ncol_dyn = ne^2*6*9+2
-            ne = int( np.sqrt( (ds.sizes['ncol']-2)/(6*9) ) )
-        else:
-            raise KeyError(f'Cannot determine source grid from atm_file: {atm_file}')
 
-        self.src_horz_grid     = f'ne{ne}np4'
+        if check_input_files:
+            if 'ne' in ds.attrs:
+                ne = ds.attrs['ne']
+            elif 'ncol' in ds.sizes:
+                # use ncol formula to solve for # elements (ne): ncol_dyn = ne^2*6*9+2
+                ne = int( np.sqrt( (ds.sizes['ncol']-2)/(6*9) ) )
+            else:
+                raise KeyError(f'Cannot determine source grid from atm_file: {atm_file}')
+        else:
+            ne = 0
+
+        self.src_horz_grid    = f'ne{ne}np4'
         self.src_horz_grid_np = f'ne{ne}np4'
         self.src_horz_grid_pg = f'ne{ne}pg{self.npg}'
 
