@@ -1272,7 +1272,7 @@ class hiccup_data(object):
                 ds_out = ds_out.transpose(permute_dim_list[0],
                                           permute_dim_list[1],
                                           permute_dim_list[2],
-                                          'ilev','nv','nbnd',missing_dims='ignore')
+                                          'ilev','nv','nbnd',...,missing_dims='ignore')
             if combine_uv:
                 ds_out[uv_name] = xr.concat([ds_out[u_name], ds_out[v_name]], dim='dim2')
                 ds_out[uv_name] = ds_out[uv_name].transpose('time','ncol','dim2','lev')
