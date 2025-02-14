@@ -43,7 +43,7 @@ def suffix_as_tuple(suffix):
     suffix_num = "".join(c for c in suffix if c.isdigit())
     assert(suffix_text in order)
     return (order.index(suffix_text), int(suffix_num) if suffix_num else -1)
-def parse_version(version='4.9.2-alpha'):
+def parse_version(version=None):
     """
     parse a version string into a tuple of values, 
     plus a suffix described alpha or beta modifiers
@@ -52,7 +52,7 @@ def parse_version(version='4.9.2-alpha'):
     main_version = tuple(int(n) for n in version_list[0].split("."))
     suffix = version_list[-1] if len(version_list) == 2 else ""
     return main_version, suffix_as_tuple(suffix)
-def compare_version(version, required_version='4.9.2-alpha'):
+def compare_version(version, required_version=None):
     """
     use tuple version of parsed version string to
     return True if version >= required_version 
@@ -65,7 +65,9 @@ def compare_version(version, required_version='4.9.2-alpha'):
 # Check version of NCO - and fail if not recent enough
 def check_nco_version():
     """
-    NCO needs to include a vertical interpolation bug fix added in 4.9.2-alpha09
+    HICCUP requires features available after a specific NCO version:
+    - vertical interpolation bug fix added in 4.9.2-alpha09
+    - netcdf string variable handling adding in 5.3.1
     This method parses the version string to check if the version is correct.
     I'm not sure how to handle the "alpha" part of the version string...
     Note - ncks reports the version information through STDERR instead of STDOUT
@@ -76,8 +78,8 @@ def check_nco_version():
     version_str = err.split('\n',1)[1]
     # grab the characters that come after "version" and remove newline character
     version_str = version_str.split('version ',1)[1].replace('\n','')
-    min_version = '4.9.2-alpha9'
-    if not compare_version(version_str, required_version='4.9.2-alpha'): 
+    min_version = '5.3.1'
+    if not compare_version(version_str, required_version=min_version): 
         # current version is not valid, so exit
         err_msg = f'NCO version {version_str} is too old.'
         err_msg += f'\nHICCUP requires NCO version {min_version} or higher'
