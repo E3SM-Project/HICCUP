@@ -45,7 +45,7 @@ Dependencies:
 
 It is convenient to create a conda env that includes all these dependencies:
   ```
-  conda create --name hiccup_env -c conda-forge xarray dask pandas numpy scipy netcdf4 hdf5 cdsapi tempest-remap nco   
+  conda create --name hiccup_env -c conda-forge xarray dask pandas numpy scipy netcdf4 hdf5 cdsapi tempest-remap "nco>=5.3.1" 
   ```
 
 After creating the environment it can be activated via:
