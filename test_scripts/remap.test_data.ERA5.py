@@ -14,6 +14,11 @@ sfc_dst_file_name = 'test_data/HICCUP_TEST.ERA5.sfc.low-res.nc'
 atm_src_file_name = 'test_data/HICCUP_TEST.ERA5.atm.upack.nc'
 atm_dst_file_name = 'test_data/HICCUP_TEST.ERA5.atm.low-res.nc'
 
+clean       = True
+create_map  = True
+regrid_plv  = True
+regrid_sfc  = True
+
 # ------------------------------------------------------------------------------
 nlat_src,nlon_src = 721,1440
 nlat_dst,nlon_dst = 180,360
@@ -27,17 +32,12 @@ dst_grid_opts = f'-G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'#latlon={nla
 
 map_file = f'{pwd}/files_map/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 
-clean       = True
-create_map  = True
-regrid_data = True
-
 os.makedirs(f'{pwd}/files_grid', exist_ok=True)  # create files_grid path if it doesn't exist
 os.makedirs(f'{pwd}/files_map', exist_ok=True)  # create files_map path if it doesn't exist
 
 # ------------------------------------------------------------------------------
-# Set up terminal colors
+# Set up simple class for coloring terminal text
 class tcolor:
-    """ simple class for coloring terminal text """
     ENDC, BLACK, RED     = '\033[0m','\033[30m','\033[31m'
     GREEN, YELLOW, BLUE  = '\033[32m','\033[33m','\033[34m'
     MAGENTA, CYAN, WHITE = '\033[35m','\033[36m','\033[37m'
@@ -79,10 +79,12 @@ if create_map:
     # Generate mapping file:
     run_cmd(f'ncremap -a traave --src_grd={src_grid_file} --dst_grd={dst_grid_file} -m {map_file} ')
 # ------------------------------------------------------------------------------
-if regrid_data:
+if regrid_sfc:
     # remap the 2D "surface" data
     run_cmd(f'ncremap -m {map_file} -i {sfc_src_file_name} -o {sfc_dst_file_name}  ')
     run_cmd(f'ncrename -v lat,latitude -v lon,longitude {sfc_dst_file_name} ')
+
+if regrid_plv:
     # remap the 3D atmosphere data
     run_cmd(f'ncremap -m {map_file} -i {atm_src_file_name} -o {atm_dst_file_name}  ')
     run_cmd(f'ncrename -v lat,latitude -v lon,longitude {atm_dst_file_name} ')
