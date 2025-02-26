@@ -117,6 +117,10 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # Check for required variables in target topography
   if 'PHIS' not in ds_topo.variables : raise KeyError(f'PHIS is missing from ds_data')
 
+  # If levels are ordered bottom to top we need to flip it
+  if ds_data[lev_coord_name][0] > ds_data[lev_coord_name][-1]:
+    ds_data = ds_data.isel({lev_coord_name:slice(None,None,-1)})
+
   if debug :
     # Debugging print statements
     print(f'{verbose_indent}Before Adjustment:')

@@ -17,6 +17,8 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=N
       # var = ['PS','TS','T','Q','U','CLDLIQ']
       # var = ['T','Q','U','V']
       # var = ['t','q','u','v']
+   else:
+      var = var_list
 
    # specify level to use for data with "lev" dimension
    # starts at TOA, but negative values can be used to start from surface
@@ -44,8 +46,8 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=N
    # res.sfYCellBounds = scrip_ds['grid_corner_lat'].values
    res.sfXArray         = scrip_ds.variables['grid_center_lon'].values
    res.sfXCellBounds    = scrip_ds.variables['grid_corner_lon'].values
-   res.sfXArray         = scrip_ds.variables['grid_center_lon'].values
-   res.sfXCellBounds    = scrip_ds.variables['grid_corner_lon'].values
+   res.sfYArray         = scrip_ds.variables['grid_center_lat'].values
+   res.sfYCellBounds    = scrip_ds.variables['grid_corner_lat'].values
 
    # separate resources for zonal mean plot
    res2 = get_resources()
