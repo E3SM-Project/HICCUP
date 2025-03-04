@@ -58,9 +58,14 @@ class ERA5(hiccup_data):
                         )
 
         self.src_data_name = 'ERA5'
-        # self.lev_name = 'level' # old vertical coordinate name before CDS upgrade
-        self.lev_name = 'pressure_level'
         self.new_lev_name = 'plev'
+        # set vertical coordinate name to accommodate old and new names from CDS upgrade
+        self.lev_name = None
+        if self.atm_file is not None:
+            if 'pressure_level' in self.ds_atm.coords: self.lev_name = 'pressure_level'
+            if 'level'          in self.ds_atm.coords: self.lev_name = 'level'
+            if self.lev_name is None:
+                raise ValueError('ERA5 subclass: lev_name cannot be set from input data coordinates')
 
         if self.target_model=='EAM':
             # Atmospheric variables
