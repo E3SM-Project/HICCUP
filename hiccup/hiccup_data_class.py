@@ -4,11 +4,7 @@
 # NOTE: Variable name dictionaries are defined with the key as the model's 
 # variable name and the value as the reanalysis data variable name
 # ------------------------------------------------------------------------------
-import numpy as np
-import xarray as xr
-import pandas as pd
-import datetime
-import os, re
+import os, re, sys, datetime, numpy as np, xarray as xr, pandas as pd
 from time import perf_counter
 # ------------------------------------------------------------------------------
 import hiccup.hiccup_state_adjustment as hsa
@@ -162,7 +158,8 @@ class hiccup_data(object):
     from hiccup.hiccup_data_class_timer_methods import timer_start_total
     # ------------------------------------------------------------------------------
     def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
-        msg = print_timer_ext(timer_start,use_color=True,caller=None,print_msg=True)
+        if caller is None: caller = sys._getframe(1).f_code.co_name
+        msg = print_timer_ext(timer_start,use_color=True,caller=caller,print_msg=True)
         # add message to list of messages for print_timer_summary
         self.timer_msg_all.append(msg)
         return
