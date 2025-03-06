@@ -127,7 +127,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     print_stat(ds_data['PS'],name='PS (old)')
 
   nlev = len(ds_data[lev_coord_name])
-        
+
   # Make 3D pressure variable with surface pressure field added at the bottom
   ps_lev_coord = ds_data[pressure_var_name][lev_coord_name]
   ps_lev_coord = ps_lev_coord.max().values + ps_lev_coord.diff(lev_coord_name).max().values
@@ -148,18 +148,15 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # calculate dz from hydrostatic formula
   dz = dp / ( gravit * pressure / (Rdair * ds_data['T']) )
 
-  # calculate z by integrating hydrostatic equation
-  # And populate k index array for finding the bottom level
-  z = dz.copy(deep=True)
-  k_ind = xr.full_like(z,-1,dtype=int)
-  # if we don't load these we get a performance bottleneck - not sure why...
-  z.load(); k_ind.load()
-  for k in range(nlev-1,0-1,-1) :
-    k_ind[:,k,:] = np.full_like(k_ind[:,k,:],k)
-    if k <= nlev-2 : z[:,k,:] = z[:,k,:] + dz[:,k,:]
+  # integrate dz to get z
+  z = dz.cumsum(dim=lev_coord_name)
 
-  # Find the lowest height that exceeds the minimum
-  kbot_ind = xr.where(z>=z_min,k_ind,-1).max(dim=lev_coord_name)
+  # Find lowest height exceeding minimum threshold
+  k_coord = xr.DataArray(np.arange(nlev),coords={lev_coord_name:z[lev_coord_name]})
+  kbot_ind = xr.where( z>=z_min, k_coord, -1).max(dim=lev_coord_name)
+  kbot_ind.load() # dask array can't be used in isel() below - so we need to load here
+  if (kbot_ind == -1).any():
+    raise ValueError(f'ERROR: Could not find model level {z_min} m above surface')
 
   # Check that there weren't problems finding the bottom level
   if np.any(kbot_ind.values==-1) : 
