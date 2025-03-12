@@ -11,6 +11,8 @@ from hiccup.hiccup_constants import Rgas
 from hiccup.hiccup_constants import Rdair
 from hiccup.hiccup_constants import Rvapor
 from hiccup.hiccup_constants import P0
+from hiccup.hiccup_utilities import print_stat
+from hiccup.hiccup_utilities import chk_finite
 
 T_ref1    = 290.5       # reference temperature for sfc adjustments
 T_ref2    = 255.0       # reference temperature for sfc adjustments
@@ -20,48 +22,6 @@ z_min = 150.            # min distance [m] from sfc to minimize effects radiatio
 
 verbose_default = False # local verbosity default
 
-#-------------------------------------------------------------------------------
-# Simple routine for chcecking variable values - useful for debugging
-#-------------------------------------------------------------------------------
-def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent=' '*2,compact=True):
-   """ Print min, avg, max, and std deviation of input """
-   if fmt=='f' : fmt = '%.4f'
-   if fmt=='e' : fmt = '%e'
-   if unit!='' : unit = f'[{unit}]'
-   name_len = 20 if compact else len(name)
-   msg = ''
-   line = f'{indent}{name:{name_len}} {unit}'
-   # if not compact: print(line)
-   if not compact: msg += line+'\n'
-   for c in list(stat):
-      if not compact: line = indent
-      if c=='h' : line += '   shp: '+str(x.shape)
-      if c=='a' : line += '   avg: '+fmt%x.mean()
-      if c=='n' : line += '   min: '+fmt%x.min()
-      if c=='x' : line += '   max: '+fmt%x.max()
-      if c=='s' : line += '   std: '+fmt%x.std()
-      # if not compact: print(line)
-      if not compact: msg += line+'\n'
-   # if compact: print(line)
-   if compact: msg += line#+'\n'
-   print(msg)
-   return msg
-#-------------------------------------------------------------------------------
-# Routines for checking for any number of invalid values
-#-------------------------------------------------------------------------------
-def chk_finite(x,name=None):
-  """
-  check the input data for inf values
-  input data should be a xarray DataArray 
-  """
-  inf_cnt = x.where( xr.ufuncs.isinf(x) ).count().values
-  nan_cnt = x.where( xr.ufuncs.isnan(x) ).count().values
-  if inf_cnt>0 or nan_cnt>0: 
-    err_msg = '  '
-    if name is not None: err_msg += f'{name}:  '
-    err_msg += f'invalid values found! {inf_cnt} infs  /  {nan_cnt} nans  '
-    raise ValueError(err_msg)
-  return
 #-------------------------------------------------------------------------------
 # Adjust surface pressure
 # Algorithm based on sea-level pressure calculation

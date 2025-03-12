@@ -94,3 +94,43 @@ def print_mem_usage(indent='  ',msg=''):
     print(indent+f'Memory: {mem_rss_GB:8.2f} / {mem_vms_GB:8.2f}  GB  (RSS/VMS)  {msg}')
     return
 # ------------------------------------------------------------------------------
+# Simple routine to check statistics of an array - useful for debugging
+def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent=' '*2,compact=True):
+   """
+   By default print the min, avg, max, and std dev of input data
+   """
+   if fmt=='f' : fmt = '%.4f'
+   if fmt=='e' : fmt = '%e'
+   if unit!='' : unit = f'[{unit}]'
+   name_len = 20 if compact else len(name)
+   msg = ''
+   line = f'{indent}{name:{name_len}} {unit}'
+   # if not compact: print(line)
+   if not compact: msg += line+'\n'
+   for c in list(stat):
+      if not compact: line = indent
+      if c=='h' : line += '   shp: '+str(x.shape)
+      if c=='a' : line += '   avg: '+fmt%x.mean()
+      if c=='n' : line += '   min: '+fmt%x.min()
+      if c=='x' : line += '   max: '+fmt%x.max()
+      if c=='s' : line += '   std: '+fmt%x.std()
+      if not compact: msg += line+'\n'
+   if compact: msg += line
+   print(msg)
+   return msg
+# ------------------------------------------------------------------------------
+# Method to check for any number of invalid values
+def chk_finite(x,name=None):
+  """
+  check the input data for inf values
+  input data should be a xarray DataArray 
+  """
+  inf_cnt = x.where( xr.ufuncs.isinf(x) ).count().values
+  nan_cnt = x.where( xr.ufuncs.isnan(x) ).count().values
+  if inf_cnt>0 or nan_cnt>0: 
+    err_msg = '  '
+    if name is not None: err_msg += f'{name}:  '
+    err_msg += f'invalid values found! {inf_cnt} infs  /  {nan_cnt} nans  '
+    raise ValueError(err_msg)
+  return
+# ------------------------------------------------------------------------------
