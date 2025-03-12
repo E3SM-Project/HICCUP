@@ -11,6 +11,8 @@ from hiccup.hiccup_constants import Rgas
 from hiccup.hiccup_constants import Rdair
 from hiccup.hiccup_constants import Rvapor
 from hiccup.hiccup_constants import P0
+from hiccup.hiccup_utilities import print_stat
+from hiccup.hiccup_utilities import chk_finite
 
 T_ref1    = 290.5       # reference temperature for sfc adjustments
 T_ref2    = 255.0       # reference temperature for sfc adjustments
@@ -20,46 +22,6 @@ z_min = 150.            # min distance [m] from sfc to minimize effects radiatio
 
 verbose_default = False # local verbosity default
 
-#-------------------------------------------------------------------------------
-# Simple routine for chcecking variable values - useful for debugging
-#-------------------------------------------------------------------------------
-def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  '):
-  """ 
-  Simple routine for printing various statistics or properites of a variable.
-  The characters of the "stat" string variable are used to specify the order 
-  and type of quantities to calculate
-    n   minimum value
-    a   average across all dimensions
-    x   maximum value
-    s   standard deviation
-    h   shape
-  """
-  if fmt=='f' : fmt = '%f'
-  if fmt=='e' : fmt = '%e'
-  if unit!='' : unit = '['+str(unit)+']'
-  print(indent+name+" "+unit)
-  for c in list(stat):
-      if c=='n' : print(indent+'min: '+fmt%x.min() )
-      if c=='a' : print(indent+'avg: '+fmt%x.mean())
-      if c=='x' : print(indent+'max: '+fmt%x.max() )
-      if c=='s' : print(indent+'std: '+fmt%x.std() )
-      if c=='h' : print(indent+'shp: '+str(x.shape) )
-#-------------------------------------------------------------------------------
-# Routines for checking for any number of invalid values
-#-------------------------------------------------------------------------------
-def chk_finite(x,name=None):
-  """
-  check the input data for inf values
-  input data should be a xarray DataArray 
-  """
-  inf_cnt = x.where( xr.ufuncs.isinf(x) ).count().values
-  nan_cnt = x.where( xr.ufuncs.isnan(x) ).count().values
-  if inf_cnt>0 or nan_cnt>0: 
-    err_msg = '  '
-    if name is not None: err_msg += f'{name}:  '
-    err_msg += f'invalid values found! {inf_cnt} infs  /  {nan_cnt} nans  '
-    raise ValueError(err_msg)
-  return
 #-------------------------------------------------------------------------------
 # Adjust surface pressure
 # Algorithm based on sea-level pressure calculation
@@ -117,9 +79,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # Check for required variables in target topography
   if 'PHIS' not in ds_topo.variables : raise KeyError(f'PHIS is missing from ds_data')
 
-  # If levels are ordered bottom to top we need to flip it
+  # Check to make sure that [pressure] levels are ordered top to bottom
   if ds_data[lev_coord_name][0] > ds_data[lev_coord_name][-1]:
-    ds_data = ds_data.isel({lev_coord_name:slice(None,None,-1)})
+    raise ValueError(f'The level coordinate ({lev_coord_name}) must be ordered top/low to bottom/high')
 
   if debug :
     # Debugging print statements
@@ -128,56 +90,72 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 
   nlev = len(ds_data[lev_coord_name])
 
-  # Make 3D pressure variable with surface pressure field added at the bottom
-  ps_lev_coord = ds_data[pressure_var_name][lev_coord_name]
-  ps_lev_coord = ps_lev_coord.max().values + ps_lev_coord.diff(lev_coord_name).max().values
-  ps_tmp = ds_data['PS'].expand_dims({lev_coord_name:[ps_lev_coord]},axis=-1)
-  pressure = ds_data[pressure_var_name]
-  if 'time' not in pressure.dims : pressure = pressure.expand_dims(time=len(ps_tmp['time']),axis=0)
-  if 'ncol' not in pressure.dims : pressure = pressure.expand_dims(ncol=len(ps_tmp['ncol']),axis=2)
-  # If ps_tmp has extra lat/lon coords they will cause an error, so just drop them
-  if 'lat' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lat')
-  if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lon')
-  pressure_with_ps = xr.concat( [ pressure, ps_tmp ], dim=lev_coord_name )
+  #-----------------------------------------------------------------------------
+  # NOTE - Below is the original method that utilizes the minimum altitude (z_min)
+  # to use for interpolation, but this is overly costly for high-res grids.
+  # This method should be put into a seperate function available as an option.
 
-  # calculate pressure thickness
-  dp = pressure_with_ps.isel({lev_coord_name:slice(None,None,-1)}).diff(dim=lev_coord_name)
-  dp = dp.isel({lev_coord_name:slice(None,None,-1)})
-  dp = dp*-1
+  # # Make 3D pressure variable with surface pressure field added at the bottom
+  # ps_lev_coord = ds_data[pressure_var_name][lev_coord_name]
+  # ps_lev_coord = ps_lev_coord.max().values + ps_lev_coord.diff(lev_coord_name).max().values
+  # ps_tmp = ds_data['PS'].expand_dims({lev_coord_name:[ps_lev_coord]},axis=-1)
+  # pressure = ds_data[pressure_var_name]
+  # if 'time' not in pressure.dims : pressure = pressure.expand_dims(time=len(ps_tmp['time']),axis=0)
+  # if 'ncol' not in pressure.dims : pressure = pressure.expand_dims(ncol=len(ps_tmp['ncol']),axis=2)
+  # # If ps_tmp has extra lat/lon coords they will cause an error, so just drop them
+  # if 'lat' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lat')
+  # if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lon')
+  # pressure_with_ps = xr.concat( [ pressure, ps_tmp ], dim=lev_coord_name )
 
-  # calculate dz from hydrostatic formula
-  dz = dp / ( gravit * pressure / (Rdair * ds_data['T']) )
+  # # calculate pressure thickness
+  # dp = pressure_with_ps.isel({lev_coord_name:slice(None,None,-1)}).diff(dim=lev_coord_name)
+  # dp = dp.isel({lev_coord_name:slice(None,None,-1)})
+  # dp = dp*-1
 
-  # integrate dz to get z
-  z = dz.cumsum(dim=lev_coord_name)
+  # # calculate dz from hydrostatic formula
+  # dz = dp / ( gravit * pressure / (Rdair * ds_data['T']) )
 
-  # Find lowest height exceeding minimum threshold
-  k_coord = xr.DataArray(np.arange(nlev),coords={lev_coord_name:z[lev_coord_name]})
-  kbot_ind = xr.where( z>=z_min, k_coord, -1).max(dim=lev_coord_name)
-  kbot_ind.load() # dask array can't be used in isel() below - so we need to load here
-  if (kbot_ind == -1).any():
-    raise ValueError(f'ERROR: Could not find model level {z_min} m above surface')
+  # # integrate dz to get z
+  # z = dz.cumsum(dim=lev_coord_name)
 
-  # Check that there weren't problems finding the bottom level
-  if np.any(kbot_ind.values==-1) : 
-    exit(f'ERROR: could not find model level {z_min} m above the surface ')
+  # # Find lowest height exceeding minimum threshold
+  # k_coord = xr.DataArray(np.arange(nlev),coords={lev_coord_name:z[lev_coord_name]})
+  # kbot_ind = xr.where( z>=z_min, k_coord, -1).max(dim=lev_coord_name)
+  # kbot_ind.load() # dask array can't be used in isel() below - so we need to load here
+  # if (kbot_ind == -1).any():
+  #   raise ValueError(f'ERROR: Could not find model level {z_min} m above surface')
 
-  # Define temperature and pressure for "bottom" level
-  tbot = ds_data['T'].isel({lev_coord_name:kbot_ind})
-  pbot = pressure.isel({lev_coord_name:kbot_ind})
+  # # Check that there weren't problems finding the bottom level
+  # if np.any(kbot_ind.values==-1) : 
+  #   exit(f'ERROR: could not find model level {z_min} m above the surface ')
+
+  # # Define temperature and pressure for "bottom" level
+  # tbot = ds_data['T'].isel({lev_coord_name:kbot_ind})
+  # pbot = pressure.isel({lev_coord_name:kbot_ind})
+
+  #-----------------------------------------------------------------------------
+  # A more performance friendly alternative is to ignore concerns about being
+  # too close to the surface and just use the layer closest to the surface
+
+  tbot = ds_data['T'].isel({lev_coord_name:nlev-1})
+  pbot = ds_data[pressure_var_name].isel({lev_coord_name:nlev-1})
+
+  #-----------------------------------------------------------------------------
   
   alpha = std_lapse*Rdair/gravit                                                    # pg 8 eq 6
   
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
-  # T0    = Tstar + std_lapse*ds_data['PHIS']/gravit                              # pg 9 eq 13
 
+  #-----------------------------------------------------------------------------
   # NOTE - The adjustments below originally intended for interpolating data to
   # the mean sea level pressure, and have often been used for initial condition
   # generation without incident. However, tropical cyclone simulations with
   # SCREAM in 2024 revealed that these adjustments can lead to rare edge cases
   # that produce unreasonable values near topography. Disabling the calculations
   # altogether seemed to fix the issue, but they remain here to revisit late.
+
+  # T0 = Tstar + std_lapse*ds_data['PHIS']/gravit                              # pg 9 eq 13
   
   # # calculate alternate surface geopotential to avoid errors when dividing
   # topo_phis_temp = ds_topo['PHIS']
@@ -202,29 +180,30 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # condition = np.logical_and( condition, ds_topo['PHIS']>topo_min_value )
   # Tstar.values = xr.where(condition, (T_ref2+Tstar)*0.5 ,Tstar)
 
-  # Calculate new surface pressure                                              pg 9 eq 12
+  # # Calculate new surface pressure                                              pg 9 eq 12
+  # del_phis = ds_data['PHIS'] - ds_topo['PHIS']
+  # *__, del_phis = xr.broadcast(ds_data['PS'], del_phis)
+  # beta = del_phis/(Rdair*Tstar)
+  # temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
+  # ps_new = ds_data['PS'] * np.exp( temp )
+  #-----------------------------------------------------------------------------
+
+  # Calculate new surface pressure                                              pg 9 eq 11
   del_phis = ds_data['PHIS'] - ds_topo['PHIS']
   *__, del_phis = xr.broadcast(ds_data['PS'], del_phis)
-  beta = del_phis/(Rdair*Tstar)
-  temp = beta*(1. - 0.5*alpha*beta + (1./3.)*(alpha*beta)**2. )
-  ps_new = ds_data['PS'] * np.exp( temp )
+  ps_new = ds_data['PS'] * np.power( (1.+alpha*del_phis/(Rdair*Tstar)) , 1./alpha )
 
   # save attributes to restore later
   ps_attrs = ds_data['PS'].attrs
 
   # Only update PHIS if phis difference is not negligible
-  ds_data['PS'] = xr.where( np.abs(del_phis) > phis_threshold, ps_new, ds_data['PS'])
+  ds_data['PS'] = xr.where( np.abs(del_phis)>phis_threshold, ps_new, ds_data['PS'])
 
   # restore attributes
   ds_data['PS'].attrs = ps_attrs
 
   if debug :
-    print()
-    print_stat(alpha,name='alpha')
-    print()
-    chk_finite(xr.DataArray( np.exp( temp.values ) ),name='etmp_da')
     chk_finite(ds_data['PS'],name='ps_new')
-    # Debugging print statements
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['PS'],name='PS (new)')
 
