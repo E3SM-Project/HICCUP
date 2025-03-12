@@ -811,6 +811,9 @@ class hiccup_data(object):
             if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+                # If levels are ordered bottom to top we need to flip it
+                if ds_data[self.lev_name][0] > ds_data[self.lev_name][-1]:
+                    ds_data = ds_data.isel({self.lev_name:slice(None,None,-1)})
                 hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
                                              lev_coord_name=self.lev_name, verbose=verbose, 
                                              verbose_indent=self.verbose_indent )
@@ -1250,7 +1253,9 @@ class hiccup_data(object):
             if combine_uv is None: combine_uv = False
             if remove_ilev is None: remove_ilev = True
 
-            
+        if u_name not in file_dict.keys() \
+        or v_name not in file_dict.keys():
+            combine_uv = False
 
         if permute_dimensions and permute_dim_list is None:
             raise ValueError('permute_dim_list cannot be None if permute_dimensions=True')
@@ -1280,13 +1285,13 @@ class hiccup_data(object):
                 ds_out['pref_mid'].attrs['units'] = 'hPa'
                 ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
                 ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
-                if 'nc' not in file_dict.keys():
+                if 'nc' not in file_dict.keys() and 'qv' in file_dict.keys():
                     ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
                     ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
-                if 'nr' not in file_dict.keys():
+                if 'nr' not in file_dict.keys() and 'qv' in file_dict.keys():
                     ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
                     ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
-                if 'ni' not in file_dict.keys():
+                if 'ni' not in file_dict.keys() and 'qv' in file_dict.keys():
                     ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
                     ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
             ds_out.to_netcdf(output_file_name)
