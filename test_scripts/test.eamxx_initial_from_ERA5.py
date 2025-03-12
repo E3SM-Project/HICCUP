@@ -24,7 +24,7 @@ data_tmp     = os.getenv('SCRATCH')+'/HICCUP/test_data_tmp'
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
 
-dst_horz_grid = 'ne30np4' # ne30np4 / ne120np4 / ne512np4 / ne1024np4
+dst_horz_grid = 'ne30np4' # ne30np4 / ne120np4 / ne256np4 / ne512np4 / ne1024np4
 
 dst_vert_grid ='L128'; vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc' # SCREAM
 
@@ -33,6 +33,7 @@ output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.eamxx_initial_from_era5.{
 
 if dst_horz_grid=='ne30np4'  : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 if dst_horz_grid=='ne120np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
+if dst_horz_grid=='ne256np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne256np4pg2_x6t-SGH.nc'
 if dst_horz_grid=='ne512np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne512np4pg2_x6t_20230404.nc'
 if dst_horz_grid=='ne1024np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne1024np4pg2_x6t-SGH.c20210614.nc'
 
