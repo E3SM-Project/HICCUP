@@ -203,12 +203,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   ds_data['PS'].attrs = ps_attrs
 
   if debug :
-    print()
-    print_stat(alpha,name='alpha')
-    print()
-    chk_finite(xr.DataArray( np.exp( temp.values ) ),name='temp_da')
     chk_finite(ds_data['PS'],name='ps_new')
-    # Debugging print statements
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['PS'],name='PS (new)')
 
