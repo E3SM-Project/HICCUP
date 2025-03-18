@@ -6,6 +6,7 @@
 # ==============================================================================
 import os
 from hiccup import hiccup
+hiccup.hdc.print_memory_usage = True
 # ------------------------------------------------------------------------------
 
 # local path for grid and mapping files (move to scratch space for large grids)

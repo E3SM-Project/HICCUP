@@ -6,6 +6,25 @@ import unittest
 import numpy as np
 import xarray as xr
 from hiccup import hiccup_state_adjustment as hsa
+# from hiccup import hiccup_constants
+
+from time import perf_counter
+from hiccup.hiccup_data_class_timer_methods import print_timer
+
+tk_zero = 273.15 # value for converting between celsius and Kelvin
+
+std_lapse = 0.0065           # std. atmosphere lapse rate              ~ -6.5 K/km
+gravit    = 9.80616          # acceleration of gravity                 ~ m/s^2
+boltz     = 1.38065e-23      # boltzmann's constant                    ~ J/k/molecule
+avogad    = 6.02214e26       # avogadro's number                       ~ molecules/kmole
+MW_dryair = 28.966           # molecular weight of dry air             ~ g/mol
+MW_ozone  = 47.998           # molecular weight of ozone               ~ g/mol
+MW_vapor  = 18.0             # molecular weight of dry air             ~ g/mol
+Rgas      = avogad*boltz     # universal gas constant                  ~ J/k/kmole
+Rdair     = Rgas/MW_dryair   # gas constant for dry air                ~ J/k/kg
+Rvapor    = Rgas/MW_vapor    # gas constant for water vapor            ~ J/(kg/kg)
+P0        = 1e5              # reference pressure
+
 
 class standard_atmosphere:
   def __init__(self,altitude):
@@ -27,6 +46,85 @@ class standard_atmosphere:
       else:
         raise ValueError('altitude out of range [0-20000m]')
 
+verbose_default = False # local verbosity default
+
+def remove_supersaturation_test( ds, hybrid_lev=False, pressure_var_name='plev',
+                            debug=False, verbose=None, verbose_indent='' ):
+  """
+  Adjust the surface temperature based on new surace height assumed lapse rate 
+    ncol            # columns
+    qv              specific humidity
+    temperature     temperature at layer mid-points [k]
+    pressure        pressure at layer mid-points    (convert to hPa for qv_sat calculation)
+  """
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Removing super saturated data points...')
+  if debug: print(f'{verbose_indent}remove_supersaturation: DEBUG MODE ENABLED')
+
+  qv_min = 1.0e-9   # minimum specific humidity value allowed
+
+  if hybrid_lev :
+    pressure = get_pressure_from_hybrid(ds)/1e2
+  else :
+    pressure = ds[pressure_var_name]
+
+  if debug:
+    print(); print_stat(pressure,name='pressure in remove_supersaturation')
+    print(); print_stat(ds['Q'],name='qv in remove_supersaturation')
+    print(); print_stat(ds['T'],name='T in remove_supersaturation')
+
+  # Calculate saturation specific humidity
+  qv_sat = calculate_qv_sat_liq(ds['T'],pressure)
+  
+  if debug:
+    print(); print_stat(qv_sat,name='qv_sat in remove_supersaturation')
+
+  # The following check is to avoid the generation of negative values
+  # that can occur in the upper stratosphere and mesosphere
+  # qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0)
+
+  qv_sat = xr.where(qv_sat>=0.0,qv_sat,1.0)
+
+  # Calculate relative humidity for limiter
+  rh = ds['Q'] / qv_sat
+
+  if debug:
+    print(); print_stat(rh,name='rh in remove_supersaturation')
+
+  # save attributes to restore later
+  tmp_attrs = ds['Q'].attrs
+
+  # Apply limiter conditions
+  ds['Q'] = xr.where(rh>1.,qv_sat,ds['Q'])
+  ds['Q'] = xr.where(rh<0.,qv_min,ds['Q'])
+  
+  # restore attributes
+  ds['Q'].attrs = tmp_attrs
+
+  if debug:
+    print(); print_stat(ds['Q'],name='qv in remove_supersaturation after adjustment')
+
+  return
+
+
+def calculate_qv_sat_liq( temperature, pressure ):
+  """ 
+  calculate saturation specific humidity [kg/kg]
+  from temperature [K] and pressure [hPa]
+  """
+
+  # Calculate saturation vapor pressure [hPa] over liquid 
+  # Bolton, D., 1980: The Computation of Equivalent Potential Temperature, MWR, 108, 1046-1053
+  # https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
+  es = 6.112 * np.exp( 17.67*(temperature-273.0)/(temperature-273.0+243.5) ) 
+
+  # Convert to mixing ratio
+  r_sat = (Rdair/Rvapor) * es / (pressure - es)
+
+  # Convert mixing ratio to saturation specific humidity
+  qv_sat = r_sat / ( 1.0 + r_sat )
+
+  return qv_sat
 #===============================================================================
 class state_adjustment_test_case(unittest.TestCase):
   """ 
@@ -37,6 +135,8 @@ class state_adjustment_test_case(unittest.TestCase):
     """ 
     Does surface pressure interpolation give the right value? 
     """
+    timer_start = perf_counter()
+
     phis_int        = np.array([ 3.5e3, 2.5e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3 ])   # interface altitudes to define plev
     phis_min        = np.min(phis_int)
     phis_new        = np.array([ phis_min-0.5e3, phis_min+0.5e3, phis_min ])
@@ -87,11 +187,15 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( ps_new[0] >ps_old[0] )
     self.assertTrue( ps_new[1] <ps_old[1] )
     self.assertTrue( ps_new[2]==ps_old[2] )
+
+    print_timer(timer_start,caller='test_adjust_surface_pressure')
   # ----------------------------------------------------------------------------
   def test_adjust_surface_temperature(self):
     """ 
     Does surface temperature interpolation give the right value? 
     """
+    timer_start = perf_counter()
+
     phis      = 0.5e3
     phis_old  = np.array([phis]*3)
     phis_new  = np.array([ phis-0.5e3, phis+0.5e3, phis ])
@@ -110,11 +214,15 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( ts_new[0] <ts_old[0] )
     self.assertTrue( ts_new[1] >ts_old[1] )
     self.assertTrue( ts_new[2]==ts_old[2] )
+
+    print_timer(timer_start,caller='test_adjust_surface_temperature')
   # ----------------------------------------------------------------------------
   def test_remove_supersaturation(self):
     """ 
     Do supersaturated values get limited correctly? 
     """
+    timer_start = perf_counter()
+
     temperature_in = 300
     pressure_in    = 1010
     qv_sat = hsa.calculate_qv_sat_liq(temperature_in,pressure_in)
@@ -129,16 +237,54 @@ class state_adjustment_test_case(unittest.TestCase):
                     ,'plev':xr.DataArray(pressure,dims=['ncol'])
                     }, coords={'ncol':np.arange(ncol)} )
 
-    hsa.remove_supersaturation( ds )
+    # hsa.remove_supersaturation( ds )
+    remove_supersaturation_test(ds)
 
     rh_out = ds['Q'].values/qv_sat
     expected_answer = np.array([1.0, 1.0, 0.9])
     self.assertTrue( np.all( np.abs(rh_out-expected_answer)<1e-10 ) )
+
+    print_timer(timer_start,caller='test_remove_supersaturation')
+  # ----------------------------------------------------------------------------
+  def test_remove_supersaturation2(self):
+    """ 
+    Do supersaturated values get limited correctly? 
+    """
+    timer_start = perf_counter()
+
+    temperature_in = 300
+    pressure_in    = 1010
+    qv_sat = hsa.calculate_qv_sat_liq(temperature_in,pressure_in)
+    # qv = xr.DataArray(np.array([ 1.1*qv_sat , 1.0*qv_sat , 0.9*qv_sat ]))
+
+    qv = xr.DataArray(np.random.uniform(0.9,1.1,int(1e8)))
+
+    ncol = len(qv.values)
+    temperature = xr.DataArray([temperature_in]*ncol)
+    pressure    = xr.DataArray([pressure_in]   *ncol)
+
+    # Convert into dataset
+    ds = xr.Dataset({'Q'  :xr.DataArray(qv,dims=['ncol'])
+                    ,'T'  :xr.DataArray(temperature,dims=['ncol'])
+                    ,'plev':xr.DataArray(pressure,dims=['ncol'])
+                    }, coords={'ncol':np.arange(ncol)} )
+
+    # hsa.remove_supersaturation( ds )
+    remove_supersaturation_test(ds)
+
+    rh_out = ds['Q'].values/qv_sat
+    # expected_answer = np.array([1.0, 1.0, 0.9])
+    # self.assertTrue( np.all( np.abs(rh_out-expected_answer)<1e-10 ) )
+
+    print_timer(timer_start,caller='test_remove_supersaturation2')
+  
   # ----------------------------------------------------------------------------
   def test_adjust_cld_wtr(self):
     """
     Does cloud water and ice get limited properly?
     """
+    timer_start = perf_counter()
+
     vals = [0,-1,1]
     expected_answer = [0,0,1]
     ncol = np.arange(len(vals))
@@ -150,11 +296,15 @@ class state_adjustment_test_case(unittest.TestCase):
 
     self.assertTrue( np.all( np.abs(ds['CLDLIQ'].values-expected_answer)<1e-10 ) )
     self.assertTrue( np.all( np.abs(ds['CLDICE'].values-expected_answer)<1e-10 ) )
+
+    print_timer(timer_start,caller='test_adjust_cld_wtr')
   # ----------------------------------------------------------------------------
   def test_adjust_cloud_fraction(self):
     """
     Does cloud fraction get limited properly?
     """
+    timer_start = perf_counter()
+
     input_vals = [0,-1,1,2]
     expected_answer = [0,0,1,1]
     ncol = np.arange(len(input_vals))
@@ -164,6 +314,8 @@ class state_adjustment_test_case(unittest.TestCase):
     hsa.adjust_cloud_fraction( ds, frac_var_name='CLOUD_FRAC' )
     
     self.assertTrue( np.all( np.abs(ds['CLOUD_FRAC'].values-expected_answer)<1e-10 ) )
+
+    print_timer(timer_start,caller='test_adjust_cloud_fraction')
   # ----------------------------------------------------------------------------
   # def test_dry_mass_fixer(self):
   #   """ """
