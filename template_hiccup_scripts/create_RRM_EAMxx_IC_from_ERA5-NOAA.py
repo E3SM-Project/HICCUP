@@ -88,11 +88,11 @@ if unpack_nc_files:
 if 'create_map_file' not in locals(): create_map_file = False
 if create_map_file :
 
-    # HICCUP cannot create an RRM grid file - so it must be specified
-    hiccup_data.src_grid_file = # user generated map file
+    # Create the source grid description files needed for the mapping file
+    hiccup_data.create_src_grid_file()
 
-    # Create destination grid description files needed for the mapping file
-    hiccup_data.create_dst_grid_file()
+    # HICCUP cannot create an RRM grid file - so it must be specified
+    hiccup_data.dst_grid_file = # user generated grid file
 
     # Create mapping file
     hiccup_data.create_map_file()
