@@ -1262,12 +1262,14 @@ class hiccup_data(object):
 
         # Combine temporary files into the final output file
         if method=='xarray':
+
             ds_out = xr.Dataset()
-            for var,file_name in file_dict.items() :
+            for var,file_name in file_dict.items():
                 ds_tmp = xr.open_dataset(file_name)
                 if use_single_precision: ds_tmp[var] = ds_tmp[var].astype('float32')
                 ds_out = xr.merge([ds_out,ds_tmp],compat='override')
                 ds_tmp.close()
+
             if self.target_model=='EAMXX-nudging':
                 ds_out['p_mid'] = ( ds_out['PS']*ds_out['hybm'] + 1e5*ds_out['hyam'] ).astype(ds_out['U'].dtype)
             if permute_dimensions:
@@ -1279,21 +1281,23 @@ class hiccup_data(object):
                 ds_out[uv_name] = xr.concat([ds_out[u_name], ds_out[v_name]], dim='dim2')
                 ds_out[uv_name] = ds_out[uv_name].transpose('time','ncol','dim2','lev')
                 ds_out = ds_out.drop_vars([u_name,v_name])
-            # for EAMxx add nc, nr, ni, and pref_mid
+            # for EAMxx add pref_mid
             if self.target_model=='EAMXX':
                 ds_out['pref_mid'] = ds_out['lev'].copy(deep=True)
                 ds_out['pref_mid'].attrs['units'] = 'hPa'
                 ds_out['pref_mid'].attrs['standard_name'] = 'atmosphere_hybrid_sigma_pressure_coordinate'
                 ds_out['pref_mid'].attrs['formula_terms'] = 'a: hyam b: hybm p0: P0 ps: PS'
-                if 'nc' not in file_dict.keys() and 'qv' in file_dict.keys():
-                    ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
-                    ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
-                if 'nr' not in file_dict.keys() and 'qv' in file_dict.keys():
-                    ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
-                    ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
-                if 'ni' not in file_dict.keys() and 'qv' in file_dict.keys():
-                    ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
-                    ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
+            # # for EAMxx add number concentration fields - no longer need this
+            # if self.target_model=='EAMXX':
+                # if 'nc' not in file_dict.keys() and 'qv' in file_dict.keys():
+                #     ds_out['nc'] = ds_out['qv'].copy(deep=True)*0
+                #     ds_out['nc'].attrs['long_name'] = 'Grid box averaged cloud liquid number'
+                # if 'nr' not in file_dict.keys() and 'qv' in file_dict.keys():
+                #     ds_out['nr'] = ds_out['qv'].copy(deep=True)*0
+                #     ds_out['nr'].attrs['long_name'] = 'Grid box averaged rain number'
+                # if 'ni' not in file_dict.keys() and 'qv' in file_dict.keys():
+                #     ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
+                #     ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
             ds_out.to_netcdf(output_file_name)
             ds_out.close()
 
@@ -1363,14 +1367,16 @@ class hiccup_data(object):
         # Remove the attributes listed in global_att_list using ncatted
         if method=='nco':
             check_dependency('ncatted')
-            cmd = 'ncatted -O '
+            cmd = 'ncatted '
             for att in global_att_list: cmd += f' -a {att},global,d,, '
-            cmd += f' {file_name} {file_name} '
+            cmd += f' {file_name} {file_name}.ncatted_tmp '
             run_cmd(cmd,verbose)
+            run_cmd(f'mv {file_name}.ncatted_tmp {file_name}',verbose)
 
         # Also reset the history attribute
-        run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name} {file_name}',
+        run_cmd(f'ncatted -h -a history,global,o,c, {file_name} {file_name}.ncatted_tmp',
                 verbose,prepend_line=False)
+        run_cmd(f'mv {file_name}.ncatted_tmp {file_name}',verbose)
 
         if self.do_timers: self.print_timer(timer_start,caller=f'clean_global_attributes_{method}')
         return

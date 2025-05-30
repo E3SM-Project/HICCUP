@@ -6,6 +6,10 @@ from hiccup.hiccup_data_class import hiccup_data
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
+
+# log file for Tempest output
+tempest_log_file = 'TempestRemap.log'
+
 # ------------------------------------------------------------------------------
 # HICCUP subclass for EAM source data - i.e. repurpose existing model init data
 # ------------------------------------------------------------------------------
@@ -131,7 +135,7 @@ class EAM(hiccup_data):
         """
         if self.do_timers: timer_start = perf_counter()
         if verbose is None : verbose = self.verbose
-        if verbose : print(self.self.verbose_indent+'\nGenerating src grid files (np+pg)...')
+        if verbose : print(self.verbose_indent+'\nGenerating src grid files (np+pg)...')
 
         # Remove the file here to prevent the warning message when ncremap overwrites it
         if self.src_grid_file is not None:
@@ -184,7 +188,7 @@ class EAM(hiccup_data):
         """
         if self.do_timers: timer_start = perf_counter()
         if verbose is None : verbose = self.verbose
-        if verbose : print(self.self.verbose_indent+'\nGenerating dst grid files (np+pg)...')
+        if verbose : print(self.verbose_indent+'\nGenerating dst grid files (np+pg)...')
         
         # Spectral element grid with physics on GLL nodes
         ne  = self.get_dst_grid_ne()
@@ -231,7 +235,7 @@ class EAM(hiccup_data):
         """
         if self.do_timers: timer_start = perf_counter()
         if verbose is None : verbose = self.verbose
-        if verbose : print(self.self.verbose_indent+'\nGenerating mapping files (np+pg)...')
+        if verbose : print(self.verbose_indent+'\nGenerating mapping files (np+pg)...')
 
         check_dependency('ncremap')
 
