@@ -169,15 +169,15 @@ class state_adjustment_test_case(unittest.TestCase):
                          # ,'plev':xr.DataArray(pressure_mid,dims=['ncol','lev'])
                          ,'plev':xr.DataArray(pressure_mid,dims=['lev'])
                          # ,'Pint':xr.DataArray(pressure_int,dims=['ncol','lev'])
-                         }
-                         ,coords={'ncol':np.arange(ncol)
+                         },
+                         coords={'ncol':np.arange(ncol)
                                  ,'lev':np.arange(plev)
                                  ,'ilev':np.arange(ilev)}
                         ).expand_dims(time=1,axis=0).copy(deep=True)
     ds_data = ds_data.chunk(2)
     ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
 
-    hsa.adjust_surface_pressure( ds_data, ds_topo, debug=False )
+    ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, debug=False )
 
     # Get the adjusted surface pressure for value checking
     ps_new = ds_data['PS'].isel(time=0).values
@@ -206,7 +206,7 @@ class state_adjustment_test_case(unittest.TestCase):
                          ,'TS'  :(['ncol'],ts_old)})
     ds_topo = xr.Dataset({'PHIS':(['ncol'],phis_new)})
 
-    hsa.adjust_surface_temperature( ds_data, ds_topo )
+    ds_data = hsa.adjust_surface_temperature( ds_data, ds_topo )
 
     ts_new = ds_data['TS'].values
 
@@ -292,7 +292,7 @@ class state_adjustment_test_case(unittest.TestCase):
                     ,'CLDICE':xr.DataArray(vals,dims=['ncol'])
                     }, coords={'ncol':ncol} )
 
-    hsa.adjust_cld_wtr( ds )
+    ds = hsa.adjust_cld_wtr( ds )
 
     self.assertTrue( np.all( np.abs(ds['CLDLIQ'].values-expected_answer)<1e-10 ) )
     self.assertTrue( np.all( np.abs(ds['CLDICE'].values-expected_answer)<1e-10 ) )
@@ -311,7 +311,7 @@ class state_adjustment_test_case(unittest.TestCase):
     ds = xr.Dataset({'CLOUD_FRAC':xr.DataArray(input_vals,dims=['ncol'])
                     }, coords={'ncol':ncol} )
 
-    hsa.adjust_cloud_fraction( ds, frac_var_name='CLOUD_FRAC' )
+    ds = hsa.adjust_cloud_fraction( ds, frac_var_name='CLOUD_FRAC' )
     
     self.assertTrue( np.all( np.abs(ds['CLOUD_FRAC'].values-expected_answer)<1e-10 ) )
 
