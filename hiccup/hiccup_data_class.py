@@ -12,6 +12,7 @@ from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_mem_usage
+from hiccup.hiccup_utilities import print_stat
 # ------------------------------------------------------------------------------
 # Import timer methods
 from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ext
@@ -797,8 +798,8 @@ class hiccup_data(object):
             if self.do_timers: timer_start_adj = perf_counter()
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-                hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose, 
-                                                verbose_indent=self.verbose_indent )
+                ds_data = hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose,
+                                                          verbose_indent=self.verbose_indent )
             ds_data = ds_data.rename(var_dict)
             ds_data[var_dict['TS']].to_netcdf(file_dict[var_dict['TS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
@@ -814,9 +815,9 @@ class hiccup_data(object):
                 # If levels are ordered bottom to top we need to flip it
                 if ds_data[self.lev_name][0] > ds_data[self.lev_name][-1]:
                     ds_data = ds_data.isel({self.lev_name:slice(None,None,-1)})
-                hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
-                                             lev_coord_name=self.lev_name, verbose=verbose, 
-                                             verbose_indent=self.verbose_indent )
+                ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
+                                                       lev_coord_name=self.lev_name, verbose=verbose,
+                                                       verbose_indent=self.verbose_indent )
             ds_data = ds_data.rename(var_dict)
             ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
@@ -963,14 +964,15 @@ class hiccup_data(object):
 
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-                # adjust water vapor to eliminate supersaturation
                 if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
-                hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose, verbose_indent=self.verbose_indent )
+                ds_data = hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose,
+                                                      verbose_indent=self.verbose_indent )
                 if print_memory_usage: print_mem_usage(msg='after remove_supersaturation')
                 # Write adjusted data back to data files
-                ds_data = ds_data.rename(var_dict)
-                ds_data[var_dict['Q']].to_netcdf(file_dict[var_dict['Q']],format=hiccup_atm_nc_format,mode='a')
+                tmp_file_name = file_dict[var_dict['Q']]
+                ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=hiccup_atm_nc_format,mode='a')
                 ds_data.close()
+                run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation')
 
         if adjust_wtr:
@@ -982,7 +984,7 @@ class hiccup_data(object):
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 # adjust cloud water to remove negative values
                 if print_memory_usage: print_mem_usage(msg='before adjust_cld_wtr')
-                hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
+                ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
                 if print_memory_usage: print_mem_usage(msg='after adjust_cld_wtr')
                 # Write adjusted data back to data files
                 ds_data = ds_data.rename(var_dict)
@@ -992,18 +994,22 @@ class hiccup_data(object):
                 ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr')
 
+        # disable ozone conversion for model=>model cases
+        if convert_ozone and self.target_model==self.src_data_name : convert_ozone = False
+
         if convert_ozone:
-            if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
-            if self.do_timers: timer_start_adj = perf_counter()
-            if self.target_model=='EAM'  : O3_name = 'O3'
-            if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
-            ds_data = xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks())
-            # Convert mass mixing ratio to molecular/volume mixing ratio
-            ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
-            ds_data[O3_name].attrs['units'] = 'mol/mol'
-            ds_data.to_netcdf(file_dict[O3_name],format=hiccup_atm_nc_format,mode='a')
-            ds_data.close()
-            if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
+            if self.src_data_name=='ERA5':
+                if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
+                if self.do_timers: timer_start_adj = perf_counter()
+                if self.target_model=='EAM'  : O3_name = 'O3'
+                if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
+                ds_data = xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks())
+                # Convert mass mixing ratio to molecular/volume mixing ratio
+                ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
+                ds_data[O3_name].attrs['units'] = 'mol/mol'
+                ds_data.to_netcdf(file_dict[O3_name],format=hiccup_atm_nc_format,mode='a')
+                ds_data.close()
+                if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
         return
@@ -1026,8 +1032,8 @@ class hiccup_data(object):
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
             # adjust cloud water to remove negative values
-            hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed, 
-                                            verbose=False, verbose_indent=self.verbose_indent )
+            ds_data = hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed,
+                                                      verbose=False, verbose_indent=self.verbose_indent )
             ds_data.compute()
 
         # Write perturbed data back to the individual data files
@@ -1265,8 +1271,12 @@ class hiccup_data(object):
 
             ds_out = xr.Dataset()
             for var,file_name in file_dict.items():
-                ds_tmp = xr.open_dataset(file_name)
+                ds_tmp = xr.open_dataset(file_name,chunks={'ncol':'auto','ncol_d':'auto'})
+                # make sure to drop unadjusted versions of sfc pressure
+                if var!='PS' and 'PS' in ds_tmp: ds_tmp = ds_tmp.drop_vars('PS')
+                # convert to single precision if requested
                 if use_single_precision: ds_tmp[var] = ds_tmp[var].astype('float32')
+                # merge each dataset
                 ds_out = xr.merge([ds_out,ds_tmp],compat='override')
                 ds_tmp.close()
 
