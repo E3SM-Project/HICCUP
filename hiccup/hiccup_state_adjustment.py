@@ -83,7 +83,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if ds_data[lev_coord_name][0] > ds_data[lev_coord_name][-1]:
     raise ValueError(f'The level coordinate ({lev_coord_name}) must be ordered top/low to bottom/high')
 
-  if debug :
+  if debug:
     # Debugging print statements
     print(f'{verbose_indent}Before Adjustment:')
     print_stat(ds_data['PS'],name='PS (old)')
@@ -196,18 +196,21 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # save attributes to restore later
   ps_attrs = ds_data['PS'].attrs
 
+  if debug: ps_old = ds_data['PS'].copy(deep=True)
+
   # Only update PHIS if phis difference is not negligible
   ds_data['PS'] = xr.where( np.abs(del_phis)>phis_threshold, ps_new, ds_data['PS'])
 
   # restore attributes
   ds_data['PS'].attrs = ps_attrs
 
-  if debug :
+  if debug:
     chk_finite(ds_data['PS'],name='ps_new')
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['PS'],name='PS (new)')
+    print_stat(ds_data['PS']-ps_old, name='PS diff')
 
-  return
+  return ds_data
 
 #-------------------------------------------------------------------------------
 # Adjust surface temperature
@@ -272,7 +275,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['TS'],name='TS (new)')
 
-  return 
+  return ds_data
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -330,7 +333,7 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   if debug:
     print(); print_stat(ds['Q'],name='qv in remove_supersaturation after adjustment')
 
-  return
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -344,7 +347,7 @@ def adjust_cld_wtr( ds, verbose=None, verbose_indent='' ):
   for var in ['CLDLIQ','CLDICE']:
     if var in ds.data_vars: ds[var].values = xr.where( ds[var].values>=0, ds[var], 0. )
 
-  return
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -357,7 +360,8 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None, verbose_inden
 
   ds[frac_var_name].values = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
   ds[frac_var_name].values = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
-  return
+
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -390,7 +394,7 @@ def apply_random_perturbations( ds, var_list=None, seed=None,
     # use "small" perturbations => 1% of std-dev
     ds[var] = ds[var] + rng.standard_normal( ds[var].shape ) * ds[var].std().values * 0.01
 
-  return
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
