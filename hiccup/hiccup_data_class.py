@@ -6,6 +6,7 @@
 # ------------------------------------------------------------------------------
 import os, re, sys, datetime, numpy as np, xarray as xr, pandas as pd
 from time import perf_counter
+from functools import partial
 # ------------------------------------------------------------------------------
 import hiccup.hiccup_state_adjustment as hsa
 from hiccup.hiccup_utilities import check_dependency
@@ -22,7 +23,8 @@ from hiccup.hiccup_constants import MW_dryair
 from hiccup.hiccup_constants import MW_ozone
 # ------------------------------------------------------------------------------
 enable_chunks = True
-ncol_chunk_size = 1000
+ncol_chunk_size = 'auto'
+lev_chunk_size = 'auto'
 
 print_memory_usage = False
 
@@ -257,9 +259,9 @@ class hiccup_data(object):
         """
         if enable_chunks:
             if ncol_only:
-                return {'ncol':ncol_chunk_size}
+                return {'ncol':ncol_chunk_size,'ncol_d':ncol_chunk_size}
             else:
-                return {'ncol':ncol_chunk_size,'lev':10}
+                return {'ncol':ncol_chunk_size,'ncol_d':ncol_chunk_size,'lev':lev_chunk_size}
         else:
             chunk = None
         return chunks
@@ -772,18 +774,11 @@ class hiccup_data(object):
         # build dict of variables needed for adjustment
         var_dict = {}
         if self.target_model=='EAM':
-            if adj_TS:
-                var_dict['TS'] = 'TS'
-            if adj_PS:
-                var_dict['PS']   = 'PS'
-                var_dict['PHIS'] = 'PHIS'
-                var_dict['T']    = 'T'
+            if adj_TS: var_dict.update({'TS':'TS'})
+            if adj_PS: var_dict.update({'PS':'PS','PHIS':'PHIS','T':'T'})
         if self.target_model=='EAMXX':
             if adj_TS: adj_TS = False ; print(adj_TS_warning_msg)
-            if adj_PS:
-                var_dict['PS']   = 'ps'
-                var_dict['PHIS'] = 'phis'
-                var_dict['T']    = 'T_mid'
+            if adj_PS: var_dict.update({'PS':'ps','PHIS':'phis','T':'T_mid'})
 
         file_list = []
         for var,file_name in file_dict.items():
@@ -807,10 +802,20 @@ class hiccup_data(object):
 
         if print_memory_usage: print_mem_usage(msg='after adj_TS')
 
+        # remove redundant PS variable from datasets for open_mfdataset preprocessing
+        def _drop_ps(ds,file_dict):
+            var = None
+            for key in file_dict:
+                if file_dict[key]==ds.encoding["source"]: var = key
+            if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
+            return ds
+        partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
+
         # Adjust surface pressure to match new surface height
         if adj_PS:
             if self.do_timers: timer_start_adj = perf_counter()
-            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
+                                   preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 # If levels are ordered bottom to top we need to flip it
                 if ds_data[self.lev_name][0] > ds_data[self.lev_name][-1]:
@@ -956,13 +961,23 @@ class hiccup_data(object):
 
         if print_memory_usage: print_mem_usage(msg='start atmos_state_adjustment_multifile()')
 
+        # remove redundant PS variable from datasets for open_mfdataset preprocessing
+        def _drop_ps(ds,file_dict):
+            var = None
+            for key in file_dict:
+                if file_dict[key]==ds.encoding["source"]: var = key
+            if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
+            return ds
+        partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
+
         if adjust_sat:
             if self.target_model=='EAM'  : var_dict = {'Q':'Q', 'T':'T',    'PS':'PS'}
             if self.target_model=='EAMXX': var_dict = {'Q':'qv','T':'T_mid','PS':'ps'}
             file_list = get_adj_file_list(var_dict.values())
             if self.do_timers: timer_start_adj = perf_counter()
 
-            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
+                                   preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
                 ds_data = hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose,
