@@ -1,6 +1,6 @@
-import xarray as xr, numpy as np, os, datetime
+import xarray as xr, numpy as np, os, datetime, copy, numba
 #-------------------------------------------------------------------------------
-from hiccup.hiccup_constants import std_lapse
+from hiccup.hiccup_constants import std_lapse, dry_lapse
 from hiccup.hiccup_constants import gravit
 from hiccup.hiccup_constants import boltz
 from hiccup.hiccup_constants import avogad
@@ -19,6 +19,9 @@ T_ref2    = 255.0       # reference temperature for sfc adjustments
 
 phis_threshold = 1e-3   # threshold for determining if 2 phis values are different
 z_min = 150.            # min distance [m] from sfc to minimize effects radiation
+
+lapse_rate = std_lapse
+# lapse_rate = dry_lapse
 
 verbose_default = False # local verbosity default
 
@@ -53,8 +56,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if verbose: print(f'\n{verbose_indent}Adjusting surface pressure...')
   if debug: print(f'{verbose_indent}adjust_surface_pressure: DEBUG MODE ENABLED')
 
-  # define minimum threshold to use when dividing by topo height
-  topo_min_value = 10.
+  # # define minimum threshold to use when dividing by topo height
+  # topo_min_value = 10.
 
   # Make sure to use PHIS_d if file contains both
   if 'PHIS_d' in ds_topo.variables : 
@@ -62,8 +65,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
     ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
 
-  if 'ncol_d' in ds_data.dims :
-    ds_data = ds_data.rename({'ncol_d':'ncol'})
+  rename_ncol = False
+  if 'ncol_d' in ds_data.dims: ds_data = ds_data.rename({'ncol_d':'ncol'}) ; rename_ncol = True
 
   # Check for required variables in input datasets
   for var in ['time','ncol',lev_coord_name] :
@@ -141,8 +144,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   pbot = ds_data[pressure_var_name].isel({lev_coord_name:nlev-1})
 
   #-----------------------------------------------------------------------------
-  
-  alpha = std_lapse*Rdair/gravit                                                    # pg 8 eq 6
+
+  alpha = lapse_rate*Rdair/gravit                                               # pg 8 eq 6
   
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
@@ -155,7 +158,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # that produce unreasonable values near topography. Disabling the calculations
   # altogether seemed to fix the issue, but they remain here to revisit late.
 
-  # T0 = Tstar + std_lapse*ds_data['PHIS']/gravit                              # pg 9 eq 13
+  # T0 = Tstar + lapse_rate*ds_data['PHIS']/gravit                              # pg 9 eq 13
   
   # # calculate alternate surface geopotential to avoid errors when dividing
   # topo_phis_temp = ds_topo['PHIS']
@@ -203,6 +206,9 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 
   # restore attributes
   ds_data['PS'].attrs = ps_attrs
+
+  # change the dimension name back if it was changed above
+  if rename_ncol: ds_data = ds_data.rename({'ncol':'ncol_d'})
 
   if debug:
     chk_finite(ds_data['PS'],name='ps_new')
@@ -265,7 +271,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
   # save attributes to restore later
   ts_attrs = ds_data['TS'].attrs
 
-  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*std_lapse/gravit
+  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse_rate/gravit
 
   # restore attributes
   ds_data['TS'].attrs = ts_attrs
@@ -274,6 +280,94 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
     # Debugging print statements
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['TS'],name='TS (new)')
+
+  return ds_data
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# @numba.njit()
+# def pressure_interpolation_numba( ntime, ncol, p_mid_new, p_mid_old, T_old, T_new ):
+#   # simple interpolation - does not extrapolate
+#   for t in range(ntime):
+#     for i in range(ncol):
+#       T_new[t,:,i] = np.interp( p_mid_new[t,:,i], p_mid_old[t,:,i], T_old[t,:,i] )
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# @numba.njit()
+# def adjust_temperature_numba( ntime, ncol, p_mid_new, p_mid_old, T_old, T_new ):
+#   """
+#   adjust temperature for change in surface pressure using the std atmosphere lapse rate
+#   """
+#   for t in range(ntime):
+#     for i in range(ncol):
+#       # pressure thickness
+#       dp = p_mid_new[t,:,i] - p_mid_old[t,:,i]
+#       # use ideal gass law to get density
+#       rho = p_mid_old[t,:,i] / ( Rdair * T_old[t,:,i] )
+#       # use hydrostatic euqation to convert dp to dz
+#       dz = -1 * dp / ( rho * gravit )
+#       # calculate new temperature value
+#       T_new[t,:,i] = T_old[t,:,i] + std_lapse*dz
+
+#   return T_new
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def adjust_temperature_eam( ds_data, ps_old, debug=False,
+                            verbose=None, verbose_indent='' ):
+  """ 
+  Adjust the temperature profile based on surace pressure difference 
+  created by adjust_surface_pressure(). Input datasets must
+  include the following variables:
+    time                  time coordinate
+    ncol                  column index coordinate
+    hyam                  hybrid vertical coordinate A coefficient
+    hybm                  hybrid vertical coordinate B coefficient
+    PS                    input old surface pressure      [Pa]
+    T                     temperature on level centers    [K]
+  additionally, the previous sfc pressure "ps_old" must be provided
+  """
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Adjusting temperature profile (EAM)...')
+  if debug: print(f'{verbose_indent}adjust_temperature_eam: DEBUG MODE ENABLED')
+
+  rename_ncol = False
+  if 'ncol_d' in ds_data.dims: ds_data = ds_data.rename({'ncol_d':'ncol'}) ; rename_ncol=True
+  if 'ncol_d' in ps_old.dims : ps_old = ps_old.rename({'ncol_d':'ncol'})
+
+  # Check for required variables in input datasets
+  for var in ['time','ncol'] :
+    if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')
+  for var in ['PS','T','hyam','hybm','P0'] :
+    if var not in ds_data.variables : raise KeyError(f'{var} is missing from ds_data')
+
+  # calculate pressure profile for each column
+  p_mid_old = ds_data['hyam']*ds_data['P0'] + ds_data['hybm']*ps_old
+  p_mid_new = ds_data['hyam']*ds_data['P0'] + ds_data['hybm']*ds_data['PS']
+
+  p_mid_old = p_mid_old.transpose('time','lev','ncol')
+  p_mid_new = p_mid_new.transpose('time','lev','ncol')
+
+  T_old = ds_data['T'].copy(deep=True)
+
+  # T_adj = adjust_temperature_numba( len(ds_data.time), len(ds_data.ncol),
+  #                                   p_mid_new.values, p_mid_old.values,
+  #                                   T_old.values, ds_data['T'].values)
+  # ds_data['T'] = ( ds_data['T'].dims, T_adj )
+
+  # pressure thickness
+  dp = p_mid_new - p_mid_old
+  
+  # use ideal gass law to get density
+  rho = p_mid_old / ( Rdair * T_old )
+  
+  # use hydrostatic euqation to convert dp to dz
+  dz = -1 * dp / ( rho * gravit )
+
+  # calculate new temperature value
+  ds_data['T'] = T_old + lapse_rate*dz
+
+  # change the dimension name back if it was changed above
+  if rename_ncol: ds_data = ds_data.rename({'ncol':'ncol_d'})
 
   return ds_data
 

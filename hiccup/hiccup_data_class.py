@@ -753,7 +753,7 @@ class hiccup_data(object):
         return 
     # --------------------------------------------------------------------------
     def surface_adjustment_multifile(self,file_dict,verbose=None,
-                                    adj_TS=True,adj_PS=True):
+                                    adj_TS=True,adj_PS=True,adj_T_eam=False):
         """
         Perform surface temperature and pressure adjustments 
         using a multifile xarray dataset
@@ -761,6 +761,29 @@ class hiccup_data(object):
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Performing surface adjustments...')
+
+        # get list of file names for variables needed for adjustment
+        def get_adj_file_list(var_list):
+            file_list = []
+            for var,file_name in file_dict.items():
+                if var in var_list: file_list.append(file_name)
+            return file_list
+
+        def flip_lev(ds_data):
+            # If levels are ordered bottom to top we need to flip it
+            if ds_data[self.lev_name][0] > ds_data[self.lev_name][-1]:
+                ds_data = ds_data.isel({self.lev_name:slice(None,None,-1)})
+            return ds_data
+
+        if adj_T_eam and not adj_PS: 
+            raise ValueError('Cannot adjust temperature (adj_T_eam) without adjust sfc pressure (adj_PS)')
+
+        # If temperature profile adjustment is needed we need to save the surface pressure
+        # prior to adjust_surface_pressure() to send to adjust_temperature_eam(),
+        # creating a new temporary file is a good way to do this
+        if adj_T_eam and adj_PS:
+            file_dict['PS_old'] = file_dict['PS'].replace('PS','PS_old')
+            run_cmd(f'cp {file_dict["PS"]} {file_dict["PS_old"]} ',verbose,shell=True)
 
         # update lev name in case it has not been updated previously
         self.lev_name = self.new_lev_name
@@ -780,10 +803,7 @@ class hiccup_data(object):
             if adj_TS: adj_TS = False ; print(adj_TS_warning_msg)
             if adj_PS: var_dict.update({'PS':'ps','PHIS':'phis','T':'T_mid'})
 
-        file_list = []
-        for var,file_name in file_dict.items():
-            if var in var_dict.values():
-                file_list.append(file_name)
+        file_list = get_adj_file_list(var_dict.values())
 
         # Load topo data for surface adjustment - use same chunking
         ds_topo = xr.open_dataset(self.topo_file,chunks=self.get_chunks())
@@ -799,10 +819,9 @@ class hiccup_data(object):
             ds_data[var_dict['TS']].to_netcdf(file_dict[var_dict['TS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature')
+            if print_memory_usage: print_mem_usage(msg='after adj_TS')
 
-        if print_memory_usage: print_mem_usage(msg='after adj_TS')
-
-        # remove redundant PS variable from datasets for open_mfdataset preprocessing
+        # preprocessing routine to remove redundant PS variable from datasets
         def _drop_ps(ds,file_dict):
             var = None
             for key in file_dict:
@@ -817,18 +836,94 @@ class hiccup_data(object):
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-                # If levels are ordered bottom to top we need to flip it
-                if ds_data[self.lev_name][0] > ds_data[self.lev_name][-1]:
-                    ds_data = ds_data.isel({self.lev_name:slice(None,None,-1)})
+                ds_data = flip_lev(ds_data) # If levels are ordered bottom to top we need to flip it
+                # ps_old = ds_data['PS'].copy(deep=True)
                 ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
                                                        lev_coord_name=self.lev_name, verbose=verbose,
                                                        verbose_indent=self.verbose_indent )
+                # ps_new = ds_data['PS'].copy(deep=True)
+                # ps_diff = ps_new - ps_old
+                # print()
+                # print_stat(ps_old,name='ps_old')
+                # print_stat(ps_new,name='ps_new')
+                # print_stat(ps_diff,name='ps_diff')
+                # print()
             ds_data = ds_data.rename(var_dict)
             ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure')
+            if print_memory_usage: print_mem_usage(msg='after adj_PS')
 
-        if print_memory_usage: print_mem_usage(msg='after adj_PS')
+        '''
+        # Adjust temperature profile - experimental NCO based version
+        if adj_T_eam:
+            if self.do_timers: timer_start_adj = perf_counter()
+
+            vert_file = '/global/homes/w/whannah/HICCUP/files_vert/L80_for_E3SMv3.nc'
+
+            src_vert_file = f'{self.tmp_dir}/tmp_fat_vert_src.{self.dst_horz_grid}.{self.dst_vert_grid}.{timestamp}.nc'
+            dst_vert_file = f'{self.tmp_dir}/tmp_fat_vert_dst.{self.dst_horz_grid}.{self.dst_vert_grid}.{timestamp}.nc'
+    
+            run_cmd(f'cp {vert_file} {src_vert_file}',verbose,shell=True)
+            run_cmd(f'cp {vert_file} {dst_vert_file}',verbose,shell=True)
+    
+            ps_file_old = file_dict['PS_old']
+            ps_file_new = file_dict['PS']
+
+            run_cmd(f'ncks -A --hdr_pad={hdr_pad} {ps_file_old} {src_vert_file} ',verbose,shell=True)
+            run_cmd(f'ncks -A --hdr_pad={hdr_pad} {ps_file_new} {dst_vert_file} ',verbose,shell=True)
+
+            ps_name = 'PS'
+            T_name = var_dict['T']
+            
+            input_file_name
+            vert_tmp_file_name = input_file_name.replace('.nc',f'.vert_remap_tmp.nc')
+
+            # Perform the vertical remapping
+            cmd  = 'ncremap'
+            cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
+            cmd += f' --vrt_in={src_vert_file}'
+            cmd += f' --vrt_out={dst_vert_file}'
+            cmd += f' --ps_nm={ps_name}'
+            cmd += f' --var_lst={T_name}'
+            cmd += f' --in_fl={input_file_name}'
+            cmd += f' --out_fl={vert_tmp_file_name}'
+            cmd += f' --fl_fmt={ncremap_file_fmt} '
+            run_cmd(cmd,verbose,shell=True)
+
+            # Overwrite the output file with the vertically interpolated data
+            if input_file_name==output_file_name:
+                run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
+
+            # The command above was causing a strange issue where the file was
+            # not completely written when the next step happened. Adding the lines
+            # below to fixes the problem, but I do not understand why...
+            ds = xr.open_dataset(output_file_name)
+            ds.close()
+
+        '''
+
+        # Adjust temperature profile
+        if adj_T_eam:
+            if self.do_timers: timer_start_adj = perf_counter()
+            if self.target_model=='EAM'  : var_dict = {'T':'T',    'PS':'PS'}
+            if self.target_model=='EAMXX': var_dict = {'T':'T_mid','PS':'ps'}
+            file_list = get_adj_file_list(var_dict.values())
+            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
+                                   preprocess=partial_drop_ps) as ds_data:
+                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+                ds_ps_old = xr.open_dataset(file_dict['PS_old'],chunks=self.get_chunks()).copy(deep=True)
+                da_old = ds_data['T'].copy(deep=True)
+                ds_data = hsa.adjust_temperature_eam( ds_data, ds_ps_old['PS'], 
+                                                      verbose=verbose, verbose_indent=self.verbose_indent )
+                print()
+                print_stat((ds_data['T']-da_old),name='T diff from interpolation')
+                print()
+            ds_data = ds_data.rename(var_dict)
+            ds_data[var_dict['T']].to_netcdf(file_dict[var_dict['T']],format=hiccup_atm_nc_format,mode='a')
+            ds_data.close()
+            if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_temperature_eam')
+            if print_memory_usage: print_mem_usage(msg='after adj_T_eam')
 
         if self.do_timers: self.print_timer(timer_start)
 
