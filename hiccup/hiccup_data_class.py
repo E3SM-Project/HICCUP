@@ -123,6 +123,12 @@ class hiccup_data(object):
         self.map_dir = map_dir
         self.tmp_dir = tmp_dir
 
+        # set flag to indicate whether source data uses hybrid vertical coordinate
+        if self.src_data_name in ['EAM','EAMXX']:
+            self.src_hybrid_lev = True
+        else:
+            self.src_hybrid_lev = False
+
         # Check if sst/ice dataset is supported
         # if self.sstice_name not in [None,'NOAA']: 
         #     err_msg = f'sstice_name={self.sstice_name} is not currently supported'
@@ -839,8 +845,8 @@ class hiccup_data(object):
                 ds_data = flip_lev(ds_data) # If levels are ordered bottom to top we need to flip it
                 # ps_old = ds_data['PS'].copy(deep=True)
                 ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
-                                                       lev_coord_name=self.lev_name, verbose=verbose,
-                                                       verbose_indent=self.verbose_indent )
+                                                       lev_coord_name=self.lev_name, hybrid_lev=self.src_hybrid_lev,
+                                                       verbose=verbose, verbose_indent=self.verbose_indent )
                 # ps_new = ds_data['PS'].copy(deep=True)
                 # ps_diff = ps_new - ps_old
                 # print()

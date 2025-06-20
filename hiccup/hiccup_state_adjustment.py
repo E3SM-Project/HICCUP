@@ -37,8 +37,8 @@ verbose_default = False # local verbosity default
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
 def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
-                             lev_coord_name='lev', debug=False,
-                             verbose=None, verbose_indent='' ):
+                             lev_coord_name='lev', hybrid_lev=False,
+                             debug=False, verbose=None, verbose_indent='' ):
   """ 
   Adjust the surface pressure based on surace height difference 
   and assumed standard atmosphere lapse rate. Input datasets must
@@ -141,7 +141,12 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # too close to the surface and just use the layer closest to the surface
 
   tbot = ds_data['T'].isel({lev_coord_name:nlev-1})
-  pbot = ds_data[pressure_var_name].isel({lev_coord_name:nlev-1})
+
+  if hybrid_lev:
+    pbot = ds_data['hyam'].isel({lev_coord_name:nlev-1}) * ds_data['P0'] \
+          +ds_data['hybm'].isel({lev_coord_name:nlev-1}) * ds_data['PS']
+  else:
+    pbot = ds[pressure_var_name].isel({lev_coord_name:nlev-1})
 
   #-----------------------------------------------------------------------------
 
