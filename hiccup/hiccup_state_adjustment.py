@@ -143,7 +143,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     pbot = ds_data['hyam'].isel({lev_coord_name:nlev-1}) * ds_data['P0'] \
           +ds_data['hybm'].isel({lev_coord_name:nlev-1}) * ds_data['PS']
   else:
-    pbot = ds[pressure_var_name].isel({lev_coord_name:nlev-1})
+    pbot = ds_data[pressure_var_name].isel({lev_coord_name:nlev-1})
 
   #-----------------------------------------------------------------------------
 
