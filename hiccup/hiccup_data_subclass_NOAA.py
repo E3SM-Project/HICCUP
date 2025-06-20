@@ -62,6 +62,9 @@ class NOAA(hiccup_data):
         self.sst_name = 'sst'
         self.ice_name = 'icec'
 
+        # set flag to indicate whether source data uses hybrid vertical coordinate
+        self.src_hybrid_lev = False
+
         self.ds_sst = xr.open_dataset(self.sst_file)
         self.ds_ice = xr.open_dataset(self.sst_file)
 

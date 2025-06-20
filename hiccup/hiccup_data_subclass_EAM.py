@@ -65,6 +65,9 @@ class EAM(hiccup_data):
         self.lev_name = 'lev'
         self.new_lev_name = 'lev'
 
+        # set flag to indicate whether source data uses hybrid vertical coordinate
+        self.src_hybrid_lev = True
+
         self.npg = 2
 
         self.dst_horz_grid_np = self.dst_horz_grid

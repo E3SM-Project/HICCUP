@@ -69,6 +69,9 @@ class CAMS(hiccup_data):
             self.atm_var_name_dict.update({'dst_a3':'aermr06'})     # Dust Aerosol (0.90 - 20.0 um) Mixing Ratio
             self.sfc_var_name_dict.update({'PS':'sp'})              # sfc pressure
 
+        # set flag to indicate whether source data uses hybrid vertical coordinate
+        self.src_hybrid_lev = False
+        
         # if self.target_model=='EAMXX':
         #     self.atm_var_name_dict.update({'lat':'latitude'})
         #     self.atm_var_name_dict.update({'lon':'longitude'})
