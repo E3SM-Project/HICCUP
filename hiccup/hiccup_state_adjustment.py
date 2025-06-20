@@ -287,33 +287,6 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-# @numba.njit()
-# def pressure_interpolation_numba( ntime, ncol, p_mid_new, p_mid_old, T_old, T_new ):
-#   # simple interpolation - does not extrapolate
-#   for t in range(ntime):
-#     for i in range(ncol):
-#       T_new[t,:,i] = np.interp( p_mid_new[t,:,i], p_mid_old[t,:,i], T_old[t,:,i] )
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
-# @numba.njit()
-# def adjust_temperature_numba( ntime, ncol, p_mid_new, p_mid_old, T_old, T_new ):
-#   """
-#   adjust temperature for change in surface pressure using the std atmosphere lapse rate
-#   """
-#   for t in range(ntime):
-#     for i in range(ncol):
-#       # pressure thickness
-#       dp = p_mid_new[t,:,i] - p_mid_old[t,:,i]
-#       # use ideal gass law to get density
-#       rho = p_mid_old[t,:,i] / ( Rdair * T_old[t,:,i] )
-#       # use hydrostatic euqation to convert dp to dz
-#       dz = -1 * dp / ( rho * gravit )
-#       # calculate new temperature value
-#       T_new[t,:,i] = T_old[t,:,i] + std_lapse*dz
-
-#   return T_new
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
 def adjust_temperature_eam( ds_data, ps_old, debug=False,
                             verbose=None, verbose_indent='' ):
   """ 
@@ -350,11 +323,6 @@ def adjust_temperature_eam( ds_data, ps_old, debug=False,
   p_mid_new = p_mid_new.transpose('time','lev','ncol')
 
   T_old = ds_data['T'].copy(deep=True)
-
-  # T_adj = adjust_temperature_numba( len(ds_data.time), len(ds_data.ncol),
-  #                                   p_mid_new.values, p_mid_old.values,
-  #                                   T_old.values, ds_data['T'].values)
-  # ds_data['T'] = ( ds_data['T'].dims, T_adj )
 
   # pressure thickness
   dp = p_mid_new - p_mid_old
