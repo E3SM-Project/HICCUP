@@ -1,6 +1,6 @@
 import xarray as xr, numpy as np, os, datetime, copy, numba
 #-------------------------------------------------------------------------------
-from hiccup.hiccup_constants import std_lapse, dry_lapse
+from hiccup.hiccup_constants import std_lapse
 from hiccup.hiccup_constants import gravit
 from hiccup.hiccup_constants import boltz
 from hiccup.hiccup_constants import avogad
@@ -19,9 +19,6 @@ T_ref2    = 255.0       # reference temperature for sfc adjustments
 
 phis_threshold = 1e-3   # threshold for determining if 2 phis values are different
 z_min = 150.            # min distance [m] from sfc to minimize effects radiation
-
-lapse_rate = std_lapse
-# lapse_rate = dry_lapse
 
 verbose_default = False # local verbosity default
 
@@ -150,7 +147,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
 
   #-----------------------------------------------------------------------------
 
-  alpha = lapse_rate*Rdair/gravit                                               # pg 8 eq 6
+  alpha = std_lapse*Rdair/gravit                                               # pg 8 eq 6
   
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
@@ -163,7 +160,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # that produce unreasonable values near topography. Disabling the calculations
   # altogether seemed to fix the issue, but they remain here to revisit late.
 
-  # T0 = Tstar + lapse_rate*ds_data['PHIS']/gravit                              # pg 9 eq 13
+  # T0 = Tstar + std_lapse*ds_data['PHIS']/gravit                              # pg 9 eq 13
   
   # # calculate alternate surface geopotential to avoid errors when dividing
   # topo_phis_temp = ds_topo['PHIS']
@@ -276,7 +273,7 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
   # save attributes to restore later
   ts_attrs = ds_data['TS'].attrs
 
-  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*lapse_rate/gravit
+  ds_data['TS'].values = ds_data['TS'] - ( ds_data['PHIS'] - ds_topo['PHIS'] )*std_lapse/gravit
 
   # restore attributes
   ds_data['TS'].attrs = ts_attrs
@@ -369,7 +366,7 @@ def adjust_temperature_eam( ds_data, ps_old, debug=False,
   dz = -1 * dp / ( rho * gravit )
 
   # calculate new temperature value
-  ds_data['T'] = T_old + lapse_rate*dz
+  ds_data['T'] = T_old + std_lapse*dz
 
   # change the dimension name back if it was changed above
   if rename_ncol: ds_data = ds_data.rename({'ncol':'ncol_d'})
