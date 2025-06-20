@@ -46,6 +46,21 @@ ncremap_file_fmt = '64bit_data'
 tempest_log_file = 'TempestRemap.log'
 
 # ------------------------------------------------------------------------------
+# open_mfdataset preprocessing - remove redundant PS variable from datasets
+def _drop_ps(ds,file_dict):
+    var = None
+    for key in file_dict:
+        if file_dict[key]==ds.encoding["source"]: var = key
+    if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
+    return ds
+# ------------------------------------------------------------------------------
+# get list of file names for variables needed for adjustment
+def get_adj_file_list(var_list,file_dict):
+    file_list = []
+    for var,file_name in file_dict.items():
+        if var in var_list: file_list.append(file_name)
+    return file_list
+# ------------------------------------------------------------------------------
 # Base Class
 # ------------------------------------------------------------------------------
 class hiccup_data(object):
@@ -122,12 +137,6 @@ class hiccup_data(object):
         self.grid_dir = grid_dir
         self.map_dir = map_dir
         self.tmp_dir = tmp_dir
-
-        # set flag to indicate whether source data uses hybrid vertical coordinate
-        if self.src_data_name in ['EAM','EAMXX']:
-            self.src_hybrid_lev = True
-        else:
-            self.src_hybrid_lev = False
 
         # Check if sst/ice dataset is supported
         # if self.sstice_name not in [None,'NOAA']: 
@@ -768,13 +777,6 @@ class hiccup_data(object):
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Performing surface adjustments...')
 
-        # get list of file names for variables needed for adjustment
-        def get_adj_file_list(var_list):
-            file_list = []
-            for var,file_name in file_dict.items():
-                if var in var_list: file_list.append(file_name)
-            return file_list
-
         def flip_lev(ds_data):
             # If levels are ordered bottom to top we need to flip it
             if ds_data[self.lev_name][0] > ds_data[self.lev_name][-1]:
@@ -809,7 +811,7 @@ class hiccup_data(object):
             if adj_TS: adj_TS = False ; print(adj_TS_warning_msg)
             if adj_PS: var_dict.update({'PS':'ps','PHIS':'phis','T':'T_mid'})
 
-        file_list = get_adj_file_list(var_dict.values())
+        file_list = get_adj_file_list(var_dict.values(),file_dict)
 
         # Load topo data for surface adjustment - use same chunking
         ds_topo = xr.open_dataset(self.topo_file,chunks=self.get_chunks())
@@ -827,13 +829,6 @@ class hiccup_data(object):
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature')
             if print_memory_usage: print_mem_usage(msg='after adj_TS')
 
-        # preprocessing routine to remove redundant PS variable from datasets
-        def _drop_ps(ds,file_dict):
-            var = None
-            for key in file_dict:
-                if file_dict[key]==ds.encoding["source"]: var = key
-            if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
-            return ds
         partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
 
         # Adjust surface pressure to match new surface height
@@ -857,7 +852,7 @@ class hiccup_data(object):
             if self.do_timers: timer_start_adj = perf_counter()
             if self.target_model=='EAM'  : var_dict = {'T':'T',    'PS':'PS'}
             if self.target_model=='EAMXX': var_dict = {'T':'T_mid','PS':'ps'}
-            file_list = get_adj_file_list(var_dict.values())
+            file_list = get_adj_file_list(var_dict.values(),file_dict)
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
@@ -985,6 +980,57 @@ class hiccup_data(object):
         if self.do_timers: self.print_timer(timer_start)
         return
     # --------------------------------------------------------------------------
+    def atmos_state_adjustment_multifile_adjust_sat(self,file_dict,verbose=None):
+        """
+        Perform post-remapping atmospheric state adjustments 
+        for the multifile workflow
+        """
+        if verbose is None: verbose = self.verbose
+        if self.target_model=='EAM'  : var_dict = {'Q':'Q', 'T':'T',    'PS':'PS'}
+        if self.target_model=='EAMXX': var_dict = {'Q':'qv','T':'T_mid','PS':'ps'}
+        file_list = get_adj_file_list(var_dict.values(),file_dict)
+        partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
+                               preprocess=partial_drop_ps) as ds_data:
+            ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+            if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
+            ds_data = hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose,
+                                                  verbose_indent=self.verbose_indent )
+            if print_memory_usage: print_mem_usage(msg='after remove_supersaturation')
+            # Write adjusted data back to data files
+            tmp_file_name = file_dict[var_dict['Q']]
+            ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=hiccup_atm_nc_format,mode='a')
+            ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+        return
+    # --------------------------------------------------------------------------
+    def atmos_state_adjustment_multifile_adjust_wtr(self,file_dict,verbose=None):
+        """
+        Perform post-remapping atmospheric state adjustments 
+        for the multifile workflow
+        """
+        if verbose is None: verbose = self.verbose
+        if self.target_model=='EAM'  : var_dict = {'CLDLIQ':'CLDLIQ','CLDICE':'CLDICE'}
+        if self.target_model=='EAMXX': var_dict = {'CLDLIQ':'qc',    'CLDICE':'qi'}
+        file_list = get_adj_file_list(var_dict.values(),file_dict)
+        # before running cloud water adjustment, make sure that cloud water variables are available
+        # if the file_list comes back empty then assume this was intentional (maybe for testing)
+        if file_list==[]: return
+        partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
+        with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
+            ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
+            # adjust cloud water to remove negative values
+            if print_memory_usage: print_mem_usage(msg='before adjust_cld_wtr')
+            ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
+            if print_memory_usage: print_mem_usage(msg='after adjust_cld_wtr')
+            # Write adjusted data back to data files
+            ds_data = ds_data.rename(var_dict)
+            for var in var_dict.values():
+                if var in self.atm_var_name_dict.keys():
+                    ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
+            ds_data.close()
+        return
+    # --------------------------------------------------------------------------
     def atmos_state_adjustment_multifile(self,file_dict,verbose=None,
                                         adjust_sat=True,adjust_wtr=True,
                                         convert_ozone=True):
@@ -996,61 +1042,16 @@ class hiccup_data(object):
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Performing state adjustments...')
 
-        # get list of file names for variables needed for adjustment
-        def get_adj_file_list(var_list):
-            file_list = []
-            for var,file_name in file_dict.items():
-                if var in var_list: file_list.append(file_name)
-            return file_list
-
         if print_memory_usage: print_mem_usage(msg='start atmos_state_adjustment_multifile()')
 
-        # remove redundant PS variable from datasets for open_mfdataset preprocessing
-        def _drop_ps(ds,file_dict):
-            var = None
-            for key in file_dict:
-                if file_dict[key]==ds.encoding["source"]: var = key
-            if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
-            return ds
-        partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
-
         if adjust_sat:
-            if self.target_model=='EAM'  : var_dict = {'Q':'Q', 'T':'T',    'PS':'PS'}
-            if self.target_model=='EAMXX': var_dict = {'Q':'qv','T':'T_mid','PS':'ps'}
-            file_list = get_adj_file_list(var_dict.values())
             if self.do_timers: timer_start_adj = perf_counter()
-
-            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
-                                   preprocess=partial_drop_ps) as ds_data:
-                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-                if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
-                ds_data = hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose,
-                                                      verbose_indent=self.verbose_indent )
-                if print_memory_usage: print_mem_usage(msg='after remove_supersaturation')
-                # Write adjusted data back to data files
-                tmp_file_name = file_dict[var_dict['Q']]
-                ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=hiccup_atm_nc_format,mode='a')
-                ds_data.close()
-                run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+            self.atmos_state_adjustment_multifile_adjust_sat(file_dict)
             if self.do_timers: self.print_timer(timer_start_adj,caller='remove_supersaturation')
-
+        
         if adjust_wtr:
-            if self.target_model=='EAM'  : var_dict = {'CLDLIQ':'CLDLIQ','CLDICE':'CLDICE'}
-            if self.target_model=='EAMXX': var_dict = {'CLDLIQ':'qc',    'CLDICE':'qi'}
-            file_list = get_adj_file_list(var_dict.values())
             if self.do_timers: timer_start_adj = perf_counter()
-            with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
-                ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-                # adjust cloud water to remove negative values
-                if print_memory_usage: print_mem_usage(msg='before adjust_cld_wtr')
-                ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
-                if print_memory_usage: print_mem_usage(msg='after adjust_cld_wtr')
-                # Write adjusted data back to data files
-                ds_data = ds_data.rename(var_dict)
-                for var in var_dict.values():
-                    if var in self.atm_var_name_dict.keys():
-                        ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
-                ds_data.close()
+            self.atmos_state_adjustment_multifile_adjust_wtr(file_dict)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_cld_wtr')
 
         # disable ozone conversion for model=>model cases
