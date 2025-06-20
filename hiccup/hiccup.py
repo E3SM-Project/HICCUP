@@ -29,36 +29,60 @@ np.seterr(over='ignore')
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 # ------------------------------------------------------------------------------
-# Get default topography file name
+def get_mach_inputdata_path():
+    """
+    Check the existence of valid paths to determine current machine and
+    return the input data path of the current machine
+    """
+
+    paths_to_check = []
+    paths_to_check.append('/global/cfs/projectdirs/e3sm/inputdata')             # NERSC
+    paths_to_check.append('/lcrc/group/e3sm/data/inputdata')                    # LCRC
+    paths_to_check.append('/gpfs/alpine/cli115/world-shared/e3sm/inputdata')    # OLCF
+
+    din_loc_root = None
+    for p in paths_to_check:
+        if os.path.exists(p):
+            din_loc_root = f'{p}/atm/cam/topo'
+
+    if din_loc_root is None:
+        raise ValueError('No default for topo_file_root! Topo file root must be manually specified.')
+
+    return din_loc_root
+
 # ------------------------------------------------------------------------------
 def get_default_topo_file_name(grid,topo_file_root=None):
     """
-    return default topo file associated with input grid name
+    Return default topo file associated with input grid name
+
+    Note that newer versions of E3SM tend to use the rougher topo denoted by "x6t"
+    in place of the smoother version denoted by "16xdel2"
+
+    Also, some E3SM configurations that use the newer orographic drag schemes
+    require additional "orographic shape" parameters to be included in the topo
+    file - but these are not required for the surface adjustment in HICCUP
     """
-    root_err_msg = 'No default for topo_file_root! Topo file root must be manually specified.'
-    file_err_msg = 'No default for topo_file_name! Topo file path must be manually specified.'
 
     # Set root directory path if not provided
     if topo_file_root is None:
-        nersc_inputdata_path = '/global/cfs/projectdirs/e3sm/inputdata'
-        olcf_inputdata_path  = '/gpfs/alpine/cli115/world-shared/e3sm/inputdata'
-        if os.path.exists(nersc_inputdata_path): topo_file_root = f'{nersc_inputdata_path}/atm/cam/topo'
-        if os.path.exists(olcf_inputdata_path) : topo_file_root = f'{ olcf_inputdata_path}/atm/cam/topo'
-        if topo_file_root is None: raise ValueError(root_err_msg)
+        topo_file_root = get_mach_inputdata_path()
     
     # Set default topo file
     topo_file_name = None
-    if grid=='ne1024np4': topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
-    if grid=='ne256np4' : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
-    if grid=='ne120np4' : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
-    if grid=='ne45np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne45np4pg2_16xdel2.c20200615.nc'
-    if grid=='ne30np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc'
-    if grid=='ne16np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne16np4pg2_16xdel2_20200527.nc'
-    if grid=='ne11np4'  : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne11np4_16xconsistentSGH.c20160612.nc'
-    if grid=='ne4np4'   : topo_file_name = f'{topo_file_root}/USGS-gtopo30_ne4pg2_16xdel2-PFC-consistentSGH.c20190618.nc'
+    if grid=='ne1024np4': topo_file_name = 'USGS-gtopo30_ne1024np4_16xconsistentSGH_20190528.nc'
+    if grid=='ne512np4' : topo_file_name = 'USGS-gtopo30_ne512np4pg2_16xconsistentSGH_20190212_converted.nc'
+    if grid=='ne256np4' : topo_file_name = 'USGS-gtopo30_ne256np4pg2_16xdel2_20200213.nc'
+    if grid=='ne120np4' : topo_file_name = 'USGS-gtopo30_ne120np4_16xdel2-PFC-consistentSGH.nc'
+    if grid=='ne45np4'  : topo_file_name = 'USGS-gtopo30_ne45np4pg2_16xdel2.c20200615.nc'
+    if grid=='ne30np4'  : topo_file_name = 'USGS-gtopo30_ne30np4pg2_x6t-SGH.c20210614.nc'
+    if grid=='ne16np4'  : topo_file_name = 'USGS-gtopo30_ne16np4pg2_16xdel2_20200527.nc'
+    if grid=='ne11np4'  : topo_file_name = 'USGS-gtopo30_ne11np4_16xconsistentSGH.c20160612.nc'
+    if grid=='ne4np4'   : topo_file_name = 'USGS-gtopo30_ne4np4pg2_16x_converted.c20200527.nc'
     
-    if topo_file_name is None: raise ValueError(file_err_msg)
-    return topo_file_name
+    if topo_file_name is None:
+        raise ValueError('No default for topo_file_name for grid={grid} - Topo file path must be manually specified.')
+
+    return f'{topo_file_root}/{topo_file_name}'
 # ------------------------------------------------------------------------------
 # Method for returning class object
 # ------------------------------------------------------------------------------

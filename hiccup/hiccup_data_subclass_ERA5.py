@@ -67,6 +67,9 @@ class ERA5(hiccup_data):
             if self.lev_name is None:
                 raise ValueError('ERA5 subclass: lev_name cannot be set from input data coordinates')
 
+        # set flag to indicate whether source data uses hybrid vertical coordinate
+        self.src_hybrid_lev = False
+        
         if self.target_model=='EAM':
             # Atmospheric variables
             self.atm_var_name_dict.update({'lat':'latitude'})

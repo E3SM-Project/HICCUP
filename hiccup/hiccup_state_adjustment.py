@@ -1,4 +1,4 @@
-import xarray as xr, numpy as np, os, datetime
+import xarray as xr, numpy as np, os, datetime, copy, numba
 #-------------------------------------------------------------------------------
 from hiccup.hiccup_constants import std_lapse
 from hiccup.hiccup_constants import gravit
@@ -34,8 +34,8 @@ verbose_default = False # local verbosity default
 # Chapter 2 FULL-POS post-processing and interpolation
 #-------------------------------------------------------------------------------
 def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
-                             lev_coord_name='lev', debug=False,
-                             verbose=None, verbose_indent='' ):
+                             lev_coord_name='lev', hybrid_lev=False,
+                             debug=False, verbose=None, verbose_indent='' ):
   """ 
   Adjust the surface pressure based on surace height difference 
   and assumed standard atmosphere lapse rate. Input datasets must
@@ -53,8 +53,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if verbose: print(f'\n{verbose_indent}Adjusting surface pressure...')
   if debug: print(f'{verbose_indent}adjust_surface_pressure: DEBUG MODE ENABLED')
 
-  # define minimum threshold to use when dividing by topo height
-  topo_min_value = 10.
+  # # define minimum threshold to use when dividing by topo height
+  # topo_min_value = 10.
 
   # Make sure to use PHIS_d if file contains both
   if 'PHIS_d' in ds_topo.variables : 
@@ -62,8 +62,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
     if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
     ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
 
-  if 'ncol_d' in ds_data.dims :
-    ds_data = ds_data.rename({'ncol_d':'ncol'})
+  rename_ncol = False
+  if 'ncol_d' in ds_data.dims: ds_data = ds_data.rename({'ncol_d':'ncol'}) ; rename_ncol = True
 
   # Check for required variables in input datasets
   for var in ['time','ncol',lev_coord_name] :
@@ -83,7 +83,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   if ds_data[lev_coord_name][0] > ds_data[lev_coord_name][-1]:
     raise ValueError(f'The level coordinate ({lev_coord_name}) must be ordered top/low to bottom/high')
 
-  if debug :
+  if debug:
     # Debugging print statements
     print(f'{verbose_indent}Before Adjustment:')
     print_stat(ds_data['PS'],name='PS (old)')
@@ -138,11 +138,16 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # too close to the surface and just use the layer closest to the surface
 
   tbot = ds_data['T'].isel({lev_coord_name:nlev-1})
-  pbot = ds_data[pressure_var_name].isel({lev_coord_name:nlev-1})
+
+  if hybrid_lev:
+    pbot = ds_data['hyam'].isel({lev_coord_name:nlev-1}) * ds_data['P0'] \
+          +ds_data['hybm'].isel({lev_coord_name:nlev-1}) * ds_data['PS']
+  else:
+    pbot = ds_data[pressure_var_name].isel({lev_coord_name:nlev-1})
 
   #-----------------------------------------------------------------------------
-  
-  alpha = std_lapse*Rdair/gravit                                                    # pg 8 eq 6
+
+  alpha = std_lapse*Rdair/gravit                                               # pg 8 eq 6
   
   # provisional extrapolated surface temperature
   Tstar = tbot + alpha*tbot*( ds_data['PS']/pbot - 1.)                          # pg 8 eq 5
@@ -196,18 +201,24 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # save attributes to restore later
   ps_attrs = ds_data['PS'].attrs
 
+  if debug: ps_old = ds_data['PS'].copy(deep=True)
+
   # Only update PHIS if phis difference is not negligible
   ds_data['PS'] = xr.where( np.abs(del_phis)>phis_threshold, ps_new, ds_data['PS'])
 
   # restore attributes
   ds_data['PS'].attrs = ps_attrs
 
-  if debug :
+  # change the dimension name back if it was changed above
+  if rename_ncol: ds_data = ds_data.rename({'ncol':'ncol_d'})
+
+  if debug:
     chk_finite(ds_data['PS'],name='ps_new')
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['PS'],name='PS (new)')
+    print_stat(ds_data['PS']-ps_old, name='PS diff')
 
-  return
+  return ds_data
 
 #-------------------------------------------------------------------------------
 # Adjust surface temperature
@@ -272,7 +283,63 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
     print(f'{verbose_indent}After Adjustment:')
     print_stat(ds_data['TS'],name='TS (new)')
 
-  return 
+  return ds_data
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def adjust_temperature_eam( ds_data, ps_old, debug=False,
+                            verbose=None, verbose_indent='' ):
+  """ 
+  Adjust the temperature profile based on surace pressure difference 
+  created by adjust_surface_pressure(). Input datasets must
+  include the following variables:
+    time                  time coordinate
+    ncol                  column index coordinate
+    hyam                  hybrid vertical coordinate A coefficient
+    hybm                  hybrid vertical coordinate B coefficient
+    PS                    input old surface pressure      [Pa]
+    T                     temperature on level centers    [K]
+  additionally, the previous sfc pressure "ps_old" must be provided
+  """
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Adjusting temperature profile (EAM)...')
+  if debug: print(f'{verbose_indent}adjust_temperature_eam: DEBUG MODE ENABLED')
+
+  rename_ncol = False
+  if 'ncol_d' in ds_data.dims: ds_data = ds_data.rename({'ncol_d':'ncol'}) ; rename_ncol=True
+  if 'ncol_d' in ps_old.dims : ps_old = ps_old.rename({'ncol_d':'ncol'})
+
+  # Check for required variables in input datasets
+  for var in ['time','ncol'] :
+    if var not in ds_data.dims : raise KeyError(f'{var} is missing from ds_data')
+  for var in ['PS','T','hyam','hybm','P0'] :
+    if var not in ds_data.variables : raise KeyError(f'{var} is missing from ds_data')
+
+  # calculate pressure profile for each column
+  p_mid_old = ds_data['hyam']*ds_data['P0'] + ds_data['hybm']*ps_old
+  p_mid_new = ds_data['hyam']*ds_data['P0'] + ds_data['hybm']*ds_data['PS']
+
+  p_mid_old = p_mid_old.transpose('time','lev','ncol')
+  p_mid_new = p_mid_new.transpose('time','lev','ncol')
+
+  T_old = ds_data['T'].copy(deep=True)
+
+  # pressure thickness
+  dp = p_mid_new - p_mid_old
+  
+  # use ideal gass law to get density
+  rho = p_mid_old / ( Rdair * T_old )
+  
+  # use hydrostatic euqation to convert dp to dz
+  dz = -1 * dp / ( rho * gravit )
+
+  # calculate new temperature value
+  ds_data['T'] = T_old + std_lapse*dz
+
+  # change the dimension name back if it was changed above
+  if rename_ncol: ds_data = ds_data.rename({'ncol':'ncol_d'})
+
+  return ds_data
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -330,7 +397,7 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   if debug:
     print(); print_stat(ds['Q'],name='qv in remove_supersaturation after adjustment')
 
-  return
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -344,7 +411,7 @@ def adjust_cld_wtr( ds, verbose=None, verbose_indent='' ):
   for var in ['CLDLIQ','CLDICE']:
     if var in ds.data_vars: ds[var].values = xr.where( ds[var].values>=0, ds[var], 0. )
 
-  return
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -357,7 +424,8 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None, verbose_inden
 
   ds[frac_var_name].values = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
   ds[frac_var_name].values = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
-  return
+
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -390,7 +458,7 @@ def apply_random_perturbations( ds, var_list=None, seed=None,
     # use "small" perturbations => 1% of std-dev
     ds[var] = ds[var] + rng.standard_normal( ds[var].shape ) * ds[var].std().values * 0.01
 
-  return
+  return ds
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------

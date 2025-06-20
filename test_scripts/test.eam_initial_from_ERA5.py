@@ -62,9 +62,19 @@ print('\n  Output files')
 print(f'    output atm file: {output_atm_file_name}')
 print()
 
+# ------------------------------------------------------------------------------
+# reduced variable set for quicker testing
+atm_keys_all = hiccup_data.atm_var_name_dict.copy().keys()
+sfc_keys_all = hiccup_data.sfc_var_name_dict.copy().keys()
+atm_keys_keep = ['lat','lon','T','Q','U','O3']
+sfc_keys_keep = ['PS','TS','PHIS']
+for key in atm_keys_all:
+  if key not in atm_keys_keep: del hiccup_data.atm_var_name_dict[key]
+for key in sfc_keys_all:
+  if key not in sfc_keys_keep: del hiccup_data.sfc_var_name_dict[key]
+# ------------------------------------------------------------------------------
 # Get dict of temporary files for each variable
 file_dict = hiccup_data.get_multifile_dict(timestamp=999)
-
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
 # hiccup_data.unpack_data_files()

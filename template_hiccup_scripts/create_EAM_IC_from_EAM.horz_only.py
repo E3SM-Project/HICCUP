@@ -4,6 +4,27 @@
 # This tool automates the creation of atmospheric initial condition files for 
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
+'''
+# NOTE - the standard "eam.i" file does not include the PHIS variable, which
+# is a problem for performing the surface adjustment step. To address this
+# I've put example commands below to add the PHIS variable from the original
+# topography file into the initial condition file, so that it can be remapped
+# to the new grid and used for the surface adjustment.
+
+DIN_LOC_ROOT=/global/cfs/cdirs/e3sm/inputdata
+src_init_root=${DIN_LOC_ROOT}/atm/cam/inic/homme
+dst_init_root=/global/cfs/cdirs/m4310/whannah/files_init
+src_init_file=${src_init_root}/eami_mam4_Linoz_ne30np4_L80_c20231010.nc
+dst_init_file=${dst_init_root}/eami_mam4_Linoz_ne30np4_L80_c20231010_w-phis.nc
+src_topo_file=${DIN_LOC_ROOT}/atm/cam/topo/USGS-gtopo30_ne30np4pg2_16xdel2.c20200108.nc
+
+cp ${src_init_file}  ${dst_init_file}
+ncks -A ${src_topo_file} ${dst_init_file} -v PHIS_d
+ncrename -v PHIS_d,PHIS  ${dst_init_file}
+echo ; echo ${dst_init_file} ; echo
+
+'''
+# ==================================================================================================
 import os, optparse, datetime
 from hiccup import hiccup
 # ------------------------------------------------------------------------------
@@ -16,35 +37,22 @@ parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output 
 # Logical flags for controlling what this script will do (comment out to disable)
 create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
+do_sfc_adjust   = True    # perform surface adjustments
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 # ------------------------------------------------------------------------------
 
-# local path for grid and mapping files (move this a scratch space for large grids)
-hiccup_root = os.getenv('HOME')+'/HICCUP'
-
-# Path for data output
-data_root = os.getenv('SCRATCH')+'/HICCUP/data' # NERSC
-# data_root = os.getenv('MEMBERWORK')+'/cli115/HICCUP/data/'  # OLCF
-
-# Path for supported E3SM input data
-inputdata_path = '/global/cfs/cdirs/e3sm/inputdata'
-
-# time stamp for output file (= datetime.datetime.utcnow().strftime('%Y%m%d')])
-timestamp = '20220707'
-
-# output horizontal grid for atmosphere
-dst_horz_grid = 'ne16np4'
-
-# output vertical grid for atmosphere
-dst_vert_grid = 'L72'
+output_root   = os.getenv('SCRATCH')+'/HICCUP' # root path for HICCUP output
+dst_horz_grid = 'ne16np4'                      # output horizontal grid for atmosphere
+dst_vert_grid = 'L72'                          # output vertical grid for atmosphere
+timestamp     = '99999999'                     # time stamp for output file
 
 # specify input file name
-# cami_file = f'{inputdata_path}/atm/cam/inic/homme/eam_i_mam3_Linoz_ne30np4_L60_c20210917.nc'
-cami_file = f'{inputdata_path}/atm/cam/inic/homme/cami_mam3_Linoz_ne30np4_L72_c160214.nc'
+src_eami_file = f'{output_root}/files_init/eami_mam4_Linoz_ne30np4_L80_c20231010_w-phis.nc'
+# src_eami_file = '/global/cfs/cdirs/e3sm/inputdata/atm/cam/inic/homme/cami_mam3_Linoz_ne30np4_L72_c160214.nc'
 
 # specify output file
-output_atm_file_name = f'{data_root}/HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
+dst_eami_file = f'{output_root}/files_init/HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
 
 # topo file of output grid - replace this with file path if no default is set
 topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
@@ -59,10 +67,13 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='EAM',
                                         target_model='EAM', # options: EAM / EAMXX
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
-                                        atm_file=cami_file,
-                                        sfc_file=cami_file,
+                                        atm_file=src_eami_file,
+                                        sfc_file=src_eami_file,
                                         topo_file=topo_file_name,
-                                        output_dir=data_root,
+                                        output_dir=f'{output_root}/files_init',
+                                        grid_dir=f'{output_root}/files_grid',
+                                        map_dir=f'{output_root}/files_map',
+                                        tmp_dir=f'{output_root}/files_hiccup_tmp',
                                         verbose=True,)
 
 # Print some informative stuff
@@ -70,7 +81,7 @@ print('\n  Input Files')
 print(f'    input atm file:  {hiccup_data.atm_file}')
 print(f'    input topo file: {hiccup_data.topo_file}')
 print('\n  Output files')
-print(f'    output atm file: {output_atm_file_name}')
+print(f'    output atm file: {dst_eami_file}')
 
 # ------------------------------------------------------------------------------
 # create file name dictionaries for np4 and pg2 data (both are needed)
@@ -122,6 +133,14 @@ if remap_data_horz :
     hiccup_data.add_time_date_variables_multifile_eam(file_dict=file_dict_pg)
 
 # ------------------------------------------------------------------------------
+# Do surface adjustments
+if 'do_sfc_adjust' not in locals(): do_sfc_adjust = False
+if do_sfc_adjust:
+
+    hiccup_data.surface_adjustment_multifile(file_dict=file_dict_np,
+                                             adj_TS=False,adj_PS=True)
+
+# ------------------------------------------------------------------------------
 # Perform final state adjustments on interpolated data and add additional data
 if 'do_state_adjust' not in locals(): do_state_adjust = False
 if do_state_adjust :
@@ -142,16 +161,16 @@ if combine_files :
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict_all
                              ,delete_files=True
-                             ,output_file_name=output_atm_file_name)
+                             ,output_file_name=dst_eami_file)
 
     # Clean up the global attributes of the file
-    hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
+    hiccup_data.clean_global_attributes(file_name=dst_eami_file)
 
 # ------------------------------------------------------------------------------
 # Print final output file name
 
 print()
-print(f'output_atm_file_name: {output_atm_file_name}')
+print(f'dst_eami_file: {dst_eami_file}')
 print()
 
 # Print summary of timer info
