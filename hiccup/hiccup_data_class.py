@@ -843,71 +843,14 @@ class hiccup_data(object):
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 ds_data = flip_lev(ds_data) # If levels are ordered bottom to top we need to flip it
-                # ps_old = ds_data['PS'].copy(deep=True)
                 ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
                                                        lev_coord_name=self.lev_name, hybrid_lev=self.src_hybrid_lev,
                                                        verbose=verbose, verbose_indent=self.verbose_indent )
-                # ps_new = ds_data['PS'].copy(deep=True)
-                # ps_diff = ps_new - ps_old
-                # print()
-                # print_stat(ps_old,name='ps_old')
-                # print_stat(ps_new,name='ps_new')
-                # print_stat(ps_diff,name='ps_diff')
-                # print()
             ds_data = ds_data.rename(var_dict)
             ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure')
             if print_memory_usage: print_mem_usage(msg='after adj_PS')
-
-        '''
-        # Adjust temperature profile - experimental NCO based version
-        if adj_T_eam:
-            if self.do_timers: timer_start_adj = perf_counter()
-
-            vert_file = '/global/homes/w/whannah/HICCUP/files_vert/L80_for_E3SMv3.nc'
-
-            src_vert_file = f'{self.tmp_dir}/tmp_fat_vert_src.{self.dst_horz_grid}.{self.dst_vert_grid}.{timestamp}.nc'
-            dst_vert_file = f'{self.tmp_dir}/tmp_fat_vert_dst.{self.dst_horz_grid}.{self.dst_vert_grid}.{timestamp}.nc'
-    
-            run_cmd(f'cp {vert_file} {src_vert_file}',verbose,shell=True)
-            run_cmd(f'cp {vert_file} {dst_vert_file}',verbose,shell=True)
-    
-            ps_file_old = file_dict['PS_old']
-            ps_file_new = file_dict['PS']
-
-            run_cmd(f'ncks -A --hdr_pad={hdr_pad} {ps_file_old} {src_vert_file} ',verbose,shell=True)
-            run_cmd(f'ncks -A --hdr_pad={hdr_pad} {ps_file_new} {dst_vert_file} ',verbose,shell=True)
-
-            ps_name = 'PS'
-            T_name = var_dict['T']
-            
-            input_file_name
-            vert_tmp_file_name = input_file_name.replace('.nc',f'.vert_remap_tmp.nc')
-
-            # Perform the vertical remapping
-            cmd  = 'ncremap'
-            cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
-            cmd += f' --vrt_in={src_vert_file}'
-            cmd += f' --vrt_out={dst_vert_file}'
-            cmd += f' --ps_nm={ps_name}'
-            cmd += f' --var_lst={T_name}'
-            cmd += f' --in_fl={input_file_name}'
-            cmd += f' --out_fl={vert_tmp_file_name}'
-            cmd += f' --fl_fmt={ncremap_file_fmt} '
-            run_cmd(cmd,verbose,shell=True)
-
-            # Overwrite the output file with the vertically interpolated data
-            if input_file_name==output_file_name:
-                run_cmd(f'mv {vert_tmp_file_name} {output_file_name} ')
-
-            # The command above was causing a strange issue where the file was
-            # not completely written when the next step happened. Adding the lines
-            # below to fixes the problem, but I do not understand why...
-            ds = xr.open_dataset(output_file_name)
-            ds.close()
-
-        '''
 
         # Adjust temperature profile
         if adj_T_eam:
