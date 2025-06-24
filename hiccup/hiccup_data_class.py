@@ -50,7 +50,7 @@ tempest_log_file = 'TempestRemap.log'
 def _drop_ps(ds,file_dict):
     var = None
     for key in file_dict:
-        if file_dict[key]==ds.encoding["source"]: var = key
+        if os.path.samefile(file_dict[key], ds.encoding["source"]): var = key
     if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
     return ds
 # ------------------------------------------------------------------------------

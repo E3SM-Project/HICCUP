@@ -66,6 +66,13 @@ for t in datetime_list:
   output_file_sfc = output_file_plv.replace('.atm.','.sfc.')
   output_file_lnd = output_file_plv.replace('.atm.','.lnd.')
   #-----------------------------------------------------------------------------
+  print()
+  if get_atm: print(f'output_file_plv: {output_file_plv}')
+  # if get_atm: print(f'output_file_mlv: {output_file_mlv}')
+  if get_sfc: print(f'output_file_sfc: {output_file_sfc}')
+  if get_lnd: print(f'output_file_lnd: {output_file_lnd}')
+  print()
+  #-----------------------------------------------------------------------------
   # atmossphere pressure level data
   if get_atm:
       server.retrieve('reanalysis-era5-pressure-levels',{
