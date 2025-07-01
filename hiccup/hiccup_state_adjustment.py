@@ -1,4 +1,4 @@
-import xarray as xr, numpy as np, os, datetime, copy, numba
+import xarray as xr, numpy as np, os, datetime, copy
 #-------------------------------------------------------------------------------
 from hiccup.hiccup_constants import std_lapse
 from hiccup.hiccup_constants import gravit
