@@ -125,6 +125,16 @@ class hiccup_data(object):
         self.verbose = verbose
         self.verbose_indent = verbose_indent
 
+        # initialize other various attributes that might be used
+        self.src_horz_grid_np   = None
+        self.src_horz_grid_pg   = None
+        self.dst_horz_grid      = None
+        self.dst_horz_grid_pg   = None
+        self.ds_atm             = None
+        self.ds_sfc             = None
+        self.timer_start_total  = None
+        self.timer_msg_all      = None
+
         if check_input_files is None: check_input_files = True
 
         # Set output paths for data, grid, and map files
@@ -172,12 +182,12 @@ class hiccup_data(object):
     from hiccup.hiccup_data_class_sstice_methods import sstice_adjustments
     # --------------------------------------------------------------------------
     # Import timer methods
-    from hiccup.hiccup_data_class_timer_methods import timer_msg_all
-    from hiccup.hiccup_data_class_timer_methods import timer_start_total
+    # from hiccup.hiccup_data_class_timer_methods import timer_msg_all
+    # from hiccup.hiccup_data_class_timer_methods import timer_start_total
     # ------------------------------------------------------------------------------
     def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
         if caller is None: caller = sys._getframe(1).f_code.co_name
-        msg = print_timer_ext(timer_start,use_color=True,caller=caller,print_msg=True)
+        msg = print_timer_ext(timer_start,use_color=use_color,caller=caller,print_msg=print_msg)
         # add message to list of messages for print_timer_summary
         self.timer_msg_all.append(msg)
         return
@@ -213,41 +223,50 @@ class hiccup_data(object):
         Return number of elements of source grid (if starting from model data)
         """
         if hasattr(self, 'src_horz_grid_np'):
+            if self.src_horz_grid_np is None: return
             result = re.search('ne(.*)np', self.src_horz_grid_np)
             return result.group(1) if result else 0
         else:
-            raise AttributeError('src_horz_grid_np not found in HICCUP object')
+            raise AttributeError('src_horz_grid_np attribute not found!')
     # --------------------------------------------------------------------------
     def get_src_grid_npg(self):
         """
         Return number of FV physgrid cells (npg) of source grid (if starting from model data)
         """
         if hasattr(self, 'src_horz_grid_pg'):
+            if self.src_horz_grid_pg is None: return
             result = re.search('pg(.*)', self.src_horz_grid_pg)
             return result.group(1) if result else 0
         else:
-            raise AttributeError('src_horz_grid_pg not found!')
+            raise AttributeError('src_horz_grid_pg attribute not found!')
     # --------------------------------------------------------------------------
     def get_dst_grid_ne(self):
         """
         Return number of elements of target model grid
         """
-        if 'np4' in self.dst_horz_grid:
-            result = re.search('ne(.*)np', self.dst_horz_grid)
-        if 'pg' in self.dst_horz_grid:
-            result = re.search('ne(.*)pg', self.dst_horz_grid)
-        return result.group(1) if result else 0
+        if hasattr(self, 'dst_horz_grid'):
+            if self.dst_horz_grid is None: return
+            if 'np4' in self.dst_horz_grid:
+                result = re.search('ne(.*)np', self.dst_horz_grid)
+            if 'pg' in self.dst_horz_grid:
+                result = re.search('ne(.*)pg', self.dst_horz_grid)
+            return result.group(1) if result else 0
+        else:
+            raise AttributeError('dst_horz_grid attribute not found!')
     # --------------------------------------------------------------------------
     def get_dst_grid_npg(self):
         """
         Return number of FV physgrid cells (npg) of target model grid
         """
         if hasattr(self, 'dst_horz_grid_pg'):
+            if self.dst_horz_grid_pg is None: return
             result = re.search('pg(.*)', self.dst_horz_grid_pg)
             return result.group(1) if result else 0
-        else:
+        elif hasattr(self, 'dst_horz_grid'):
             result = re.search('pg(.*)', self.dst_horz_grid)
             return result.group(1) if result else 0
+        else:
+            raise AttributeError('dst_horz_grid_pg and dst_horz_grid attributes not found!')
     # --------------------------------------------------------------------------
     def get_dst_grid_ncol(self):
         """
@@ -283,25 +302,33 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def check_file_vars(self):
         """ 
-        Check that required variables are in the input files 
+        Check input files for required variables
+        """
+        if self.ds_atm is not None: 
+            self.check_file_vars_impl(self.ds_atm,
+                                      self.atm_var_name_dict,
+                                      self.atm_file)
+        if self.ds_sfc is not None:
+            self.check_file_vars_impl(self.ds_sfc,
+                                      self.sfc_var_name_dict,
+                                      self.sfc_file)
+        return
+    # --------------------------------------------------------------------------
+    def check_file_vars_impl(self, ds, var_name_dict, file_name):
+        """
+        Check input files for required variables for a given dataset object
         """
 
-        # Create list of variables in the files
-        atm_file_vars = []
-        sfc_file_vars = []
-        for key in self.ds_atm.variables.keys(): atm_file_vars.append(key)
-        for key in self.ds_sfc.variables.keys(): sfc_file_vars.append(key)
+        # Create list of variables in the file
+        file_vars = []
+        for key in ds.variables.keys():
+            file_vars.append(key)
 
         # Check that all required data exists in the atm file
-        for key in self.atm_var_name_dict : 
-            if self.atm_var_name_dict[key] not in atm_file_vars: 
-                raise ValueError(f'{self.atm_var_name_dict[key]} is not in ATM dataset: ({self.atm_file})')
-
-        # Check that all required data exists in the sfc file
-        for key in self.sfc_var_name_dict : 
-            if self.sfc_var_name_dict[key] not in sfc_file_vars: 
-                raise ValueError(f'{self.sfc_var_name_dict[key]} is not in SFC dataset: ({self.sfc_file})')
-
+        for key in var_name_dict : 
+            if var_name_dict[key] not in file_vars: 
+                raise ValueError(f'{var_name_dict[key]} is not in dataset: ({file_name})')
+        
         return
     # --------------------------------------------------------------------------
     def unpack_data_files(self,verbose=None):

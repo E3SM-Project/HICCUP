@@ -8,7 +8,6 @@ timer_msg_all = []
 def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
     """
     Print the final timer result based on input start time
-    Also update timer_msg_all for use in print_timer_summary
     """
     # if caller is not provider get name of parent routine
     if caller is None: caller = sys._getframe(1).f_code.co_name
@@ -23,7 +22,7 @@ def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
     # Apply color
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
     # print the message
-    print(f'\n{msg}')
+    if print_msg: print(f'\n{msg}')
     return msg
 # ------------------------------------------------------------------------------
 # Print a summary of timer information
