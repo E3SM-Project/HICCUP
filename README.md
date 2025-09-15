@@ -203,7 +203,7 @@ using the compsets such as FC5AV1C-L. The initialization data needs to be copied
 to the scratch space of the machine to ensure they are accessible to the compute 
 nodes. 
 
-The atmospheric initial condition file is specified by editing the "user_nl_cam"
+The atmospheric initial condition file is specified by editing the "user_nl_eam"
 file found in the case directory to include:
   
   ncdata = < path to hiccup atmos initial condition file >
@@ -238,7 +238,7 @@ does the modifications described above:
   os.system(f'./xmlchange SSTICE_YEAR_START={iyr}')
   os.system(f'./xmlchange SSTICE_YEAR_END={iyr+1}')
 
-  file = open('user_nl_cam','a') 
+  file = open('user_nl_eam','a') 
   file.write(f' ncdata = \'{init_file_atm}\'\n')
   file.close()
   ################################################
