@@ -87,11 +87,14 @@ def check_nco_version():
     return
 # ------------------------------------------------------------------------------
 # Method for monitoring memory usage (for debugging and development)
-def print_mem_usage(indent='  ',msg=''):
-    # mem_rss_GB = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1e-6
+def print_mem_usage(indent='  ',msg=None,use_color=True):
+    if msg is None: msg = sys._getframe(1).f_code.co_name
     mem_rss_GB = psutil.Process().memory_info().rss * 1e-9
     mem_vms_GB = psutil.Process().memory_info().vms * 1e-9
-    print(indent+f'Memory: {mem_rss_GB:8.2f} / {mem_vms_GB:8.2f}  GB  (RSS/VMS)  {msg}')
+    print_msg = f'{indent}Memory: {mem_rss_GB:8.2f} / {mem_vms_GB:8.2f}  GB  (RSS/VMS)'
+    if use_color: print_msg = tcolor.CYAN + print_msg + tcolor.ENDC
+    print_msg += f'  {msg}'
+    print(print_msg)
     return
 # ------------------------------------------------------------------------------
 # Simple routine to check statistics of an array - useful for debugging
