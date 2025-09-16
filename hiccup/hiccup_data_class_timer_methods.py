@@ -4,7 +4,6 @@ from hiccup.hiccup_utilities import tcolor
 timer_start_total = None
 timer_msg_all = []
 # ------------------------------------------------------------------------------
-# Print individual timer information
 def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
     """
     Print the final timer result based on input start time
@@ -25,7 +24,6 @@ def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
     if print_msg: print(f'\n{msg}')
     return msg
 # ------------------------------------------------------------------------------
-# Print a summary of timer information
 def print_timer_summary(timer_start_total=None,timer_msg_all=None):
     """
     Print timer summary based on information compiled by print_timer()
@@ -34,7 +32,7 @@ def print_timer_summary(timer_start_total=None,timer_msg_all=None):
     if timer_start_total is not None:
         print_timer(timer_start_total,caller=f'Total',print_msg=False)
     if timer_msg_all is not None:
-        print(f'\nHICCUP Timer results:')
+        print(f'\nHICCUP timer results:')
         for msg in timer_msg_all:
             print(f'  {msg}')
     return
