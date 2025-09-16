@@ -211,7 +211,7 @@ class hiccup_data(object):
         print(f'\nHICCUP memory usage summary:')
         if len(self.memory_msg_list)>0:
             for msg in self.memory_msg_list:
-                print(msg)
+                print(f'  {msg}')
         print()
         print(f'  Memory RSS max: {self.memory_rss_max} GB')
         print(f'  Memory VMS max: {self.memory_vms_max} GB')
@@ -1062,11 +1062,10 @@ class hiccup_data(object):
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                preprocess=partial_drop_ps) as ds_data:
             ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-            if print_memory_usage: self.print_mem_usage(msg='before remove_supersaturation')
             ds_data = hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose,
                                                   verbose_indent=self.verbose_indent )
-            if print_memory_usage: self.print_mem_usage(msg='after remove_supersaturation')
             # Write adjusted data back to data files
+            ds_data = ds_data.rename(var_dict)
             tmp_file_name = file_dict[var_dict['Q']]
             ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
@@ -1091,9 +1090,7 @@ class hiccup_data(object):
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
             ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
             # adjust cloud water to remove negative values
-            if print_memory_usage: self.print_mem_usage(msg='before adjust_cld_wtr')
             ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
-            if print_memory_usage: self.print_mem_usage(msg='after adjust_cld_wtr')
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
             for var in var_dict.values():

@@ -4,10 +4,11 @@ from hiccup.hiccup_utilities import tcolor
 timer_start_total = None
 timer_msg_all = []
 # ------------------------------------------------------------------------------
-def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
+def print_timer(timer_start,indent=None,use_color=True,caller=None,print_msg=True):
     """
     Print the final timer result based on input start time
     """
+    if indent is None: indent = '  '
     # if caller is not provider get name of parent routine
     if caller is None: caller = sys._getframe(1).f_code.co_name
     # calculate elapsed time

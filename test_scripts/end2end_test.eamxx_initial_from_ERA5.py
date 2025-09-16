@@ -8,19 +8,10 @@ import os
 from hiccup import hiccup
 hiccup.hdc.print_memory_usage = True
 # ------------------------------------------------------------------------------
-# local path for grid and mapping files (move to scratch space for large grids)
+# local path for grid and mapping files
 hiccup_root  = os.getenv('HOME')+'/HICCUP'
 data_root    = f'{hiccup_root}/test_data'
-# data_tmp     = f'{hiccup_root}/test_data_tmp'       # local machine
-# din_loc_root = os.getenv('HOME')+'/E3SM/inputdata'  # local machine
-# ------------------------------------------------------------------------------
-# NERSC paths
-din_loc_root = '/global/cfs/cdirs/e3sm/inputdata'
-data_tmp     = os.getenv('SCRATCH')+'/HICCUP/test_data_tmp'
-# ------------------------------------------------------------------------------
-# LLNL paths
-# din_loc_root = '/p/lustre2/hannah6/inputdata'
-# data_tmp     = '/p/lustre1/hannah6/hiccup_scratch/test_data_tmp'
+data_tmp     = f'{hiccup_root}/test_data_tmp'
 # ------------------------------------------------------------------------------
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
@@ -32,11 +23,7 @@ dst_vert_grid ='L128'; vert_file_name = f'{hiccup_root}/files_vert/vert_coord_E3
 # Specify output file names
 output_atm_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.eamxx_initial_from_era5.{dst_horz_grid}.{dst_vert_grid}.nc'
 
-if dst_horz_grid=='ne30np4'  : topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
-if dst_horz_grid=='ne120np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne120np4pg2_16xdel2.nc'
-if dst_horz_grid=='ne256np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne256np4pg2_x6t-SGH.nc'
-if dst_horz_grid=='ne512np4' : topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne512np4pg2_x6t_20230404.nc'
-if dst_horz_grid=='ne1024np4': topo_file = f'{din_loc_root}/atm/cam/topo/USGS-gtopo30_ne1024np4pg2_x6t-SGH.c20210614.nc'
+topo_file = f'{data_root}/USGS-gtopo30_ne30np4_16xdel2-PFC-consistentSGH.nc'
 
 # Create data class instance, which includes xarray file dataset objects
 # and variable name dictionaries for mapping between naming conventions.
@@ -89,7 +76,8 @@ hiccup_data.surface_adjustment_multifile(file_dict=file_dict)
 hiccup_data.remap_vertical_multifile(file_dict=file_dict,
                                      vert_file_name=vert_file_name)
 # Perform final state adjustments on interpolated data and add additional data
-hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
+hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict,adjust_sat=True,
+                                             adjust_wtr=True,convert_ozone=True)
 # Combine and delete temporary files
 hiccup_data.combine_files(file_dict=file_dict,
                           delete_files=True,
