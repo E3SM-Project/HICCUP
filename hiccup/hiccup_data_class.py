@@ -12,12 +12,12 @@ import hiccup.hiccup_state_adjustment as hsa
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
-from hiccup.hiccup_utilities import print_mem_usage
 from hiccup.hiccup_utilities import print_stat
 # ------------------------------------------------------------------------------
-# Import timer methods
+# Import timer and memory monitoring methods
 from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ext
 from hiccup.hiccup_data_class_timer_methods import print_timer_summary as print_timer_summary_ext
+from hiccup.hiccup_data_class_memory_methods import print_mem_usage as print_mem_usage_ext
 # ------------------------------------------------------------------------------
 from hiccup.hiccup_constants import MW_dryair
 from hiccup.hiccup_constants import MW_ozone
@@ -125,6 +125,18 @@ class hiccup_data(object):
         self.verbose = verbose
         self.verbose_indent = verbose_indent
 
+        # initialize other various attributes that might be used
+        self.src_horz_grid_np   = None
+        self.src_horz_grid_pg   = None
+        self.dst_horz_grid_pg   = None
+        self.ds_atm             = None
+        self.ds_sfc             = None
+        self.timer_start_total  = None
+        self.timer_msg_all      = None
+        self.memory_rss_max     = None
+        self.memory_vms_max     = None
+        self.memory_msg_list    = []
+
         if check_input_files is None: check_input_files = True
 
         # Set output paths for data, grid, and map files
@@ -171,21 +183,39 @@ class hiccup_data(object):
     from hiccup.hiccup_data_class_sstice_methods import sstice_rename_vars
     from hiccup.hiccup_data_class_sstice_methods import sstice_adjustments
     # --------------------------------------------------------------------------
-    # Import timer methods
-    from hiccup.hiccup_data_class_timer_methods import timer_msg_all
-    from hiccup.hiccup_data_class_timer_methods import timer_start_total
-    # ------------------------------------------------------------------------------
     def print_timer(self,timer_start,use_color=True,caller=None,print_msg=True):
         if caller is None: caller = sys._getframe(1).f_code.co_name
-        msg = print_timer_ext(timer_start,use_color=True,caller=caller,print_msg=True)
+        msg = print_timer_ext(timer_start,use_color=use_color,caller=caller,print_msg=print_msg)
         # add message to list of messages for print_timer_summary
         self.timer_msg_all.append(msg)
         return
+    # --------------------------------------------------------------------------
     def print_timer_summary(self,):
         """
         Print timer summary based on information compiled by print_timer()
         """
         print_timer_summary_ext( self.timer_start_total, self.timer_msg_all )
+    # --------------------------------------------------------------------------
+    def print_mem_usage(self,indent=None,msg=None,use_color=True):
+        (print_msg, mem_rss_GB, mem_vms_GB) = print_mem_usage_ext(indent=indent,msg=msg,use_color=use_color)
+        # add memory message to list in case we want to print them all out later
+        self.memory_msg_list.append(print_msg)
+        # initialize class memory min/max trackers if not done yet
+        if self.memory_rss_max is None: self.memory_rss_max = mem_rss_GB
+        if self.memory_vms_max is None: self.memory_vms_max = mem_vms_GB
+        # update class memory min/max trackers
+        self.memory_rss_max = max(self.memory_rss_max,mem_rss_GB)
+        self.memory_vms_max = max(self.memory_vms_max,mem_vms_GB)
+    # --------------------------------------------------------------------------
+    def print_memory_summary(self):
+        print(f'\nHICCUP memory usage summary:')
+        if len(self.memory_msg_list)>0:
+            for msg in self.memory_msg_list:
+                print(f'  {msg}')
+        print()
+        print(f'  Memory RSS max: {self.memory_rss_max} GB')
+        print(f'  Memory VMS max: {self.memory_vms_max} GB')
+        return
     # --------------------------------------------------------------------------
     def __str__(self):
         indent = '    '
@@ -213,41 +243,50 @@ class hiccup_data(object):
         Return number of elements of source grid (if starting from model data)
         """
         if hasattr(self, 'src_horz_grid_np'):
+            if self.src_horz_grid_np is None: return
             result = re.search('ne(.*)np', self.src_horz_grid_np)
             return result.group(1) if result else 0
         else:
-            raise AttributeError('src_horz_grid_np not found in HICCUP object')
+            raise AttributeError('src_horz_grid_np attribute not found!')
     # --------------------------------------------------------------------------
     def get_src_grid_npg(self):
         """
         Return number of FV physgrid cells (npg) of source grid (if starting from model data)
         """
         if hasattr(self, 'src_horz_grid_pg'):
+            if self.src_horz_grid_pg is None: return
             result = re.search('pg(.*)', self.src_horz_grid_pg)
             return result.group(1) if result else 0
         else:
-            raise AttributeError('src_horz_grid_pg not found!')
+            raise AttributeError('src_horz_grid_pg attribute not found!')
     # --------------------------------------------------------------------------
     def get_dst_grid_ne(self):
         """
         Return number of elements of target model grid
         """
-        if 'np4' in self.dst_horz_grid:
-            result = re.search('ne(.*)np', self.dst_horz_grid)
-        if 'pg' in self.dst_horz_grid:
-            result = re.search('ne(.*)pg', self.dst_horz_grid)
-        return result.group(1) if result else 0
+        if hasattr(self, 'dst_horz_grid'):
+            if self.dst_horz_grid is None: return
+            if 'np4' in self.dst_horz_grid:
+                result = re.search('ne(.*)np', self.dst_horz_grid)
+            if 'pg' in self.dst_horz_grid:
+                result = re.search('ne(.*)pg', self.dst_horz_grid)
+            return result.group(1) if result else 0
+        else:
+            raise AttributeError('dst_horz_grid attribute not found!')
     # --------------------------------------------------------------------------
     def get_dst_grid_npg(self):
         """
         Return number of FV physgrid cells (npg) of target model grid
         """
         if hasattr(self, 'dst_horz_grid_pg'):
+            if self.dst_horz_grid_pg is None: return
             result = re.search('pg(.*)', self.dst_horz_grid_pg)
             return result.group(1) if result else 0
-        else:
+        elif hasattr(self, 'dst_horz_grid'):
             result = re.search('pg(.*)', self.dst_horz_grid)
             return result.group(1) if result else 0
+        else:
+            raise AttributeError('dst_horz_grid_pg and dst_horz_grid attributes not found!')
     # --------------------------------------------------------------------------
     def get_dst_grid_ncol(self):
         """
@@ -283,31 +322,40 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def check_file_vars(self):
         """ 
-        Check that required variables are in the input files 
+        Check input files for required variables
+        """
+        if self.ds_atm is not None: 
+            self.check_file_vars_impl(self.ds_atm,
+                                      self.atm_var_name_dict,
+                                      self.atm_file)
+        if self.ds_sfc is not None:
+            self.check_file_vars_impl(self.ds_sfc,
+                                      self.sfc_var_name_dict,
+                                      self.sfc_file)
+        return
+    # --------------------------------------------------------------------------
+    def check_file_vars_impl(self, ds, var_name_dict, file_name):
+        """
+        Check input files for required variables for a given dataset object
         """
 
-        # Create list of variables in the files
-        atm_file_vars = []
-        sfc_file_vars = []
-        for key in self.ds_atm.variables.keys(): atm_file_vars.append(key)
-        for key in self.ds_sfc.variables.keys(): sfc_file_vars.append(key)
+        # Create list of variables in the file
+        file_vars = []
+        for key in ds.variables.keys():
+            file_vars.append(key)
 
         # Check that all required data exists in the atm file
-        for key in self.atm_var_name_dict : 
-            if self.atm_var_name_dict[key] not in atm_file_vars: 
-                raise ValueError(f'{self.atm_var_name_dict[key]} is not in ATM dataset: ({self.atm_file})')
-
-        # Check that all required data exists in the sfc file
-        for key in self.sfc_var_name_dict : 
-            if self.sfc_var_name_dict[key] not in sfc_file_vars: 
-                raise ValueError(f'{self.sfc_var_name_dict[key]} is not in SFC dataset: ({self.sfc_file})')
-
+        for key in var_name_dict : 
+            if var_name_dict[key] not in file_vars: 
+                raise ValueError(f'{var_name_dict[key]} is not in dataset: ({file_name})')
+        
         return
     # --------------------------------------------------------------------------
     def unpack_data_files(self,verbose=None):
         """
         Make sure data files are unpacked
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Unpacking data files...')
@@ -320,6 +368,7 @@ class hiccup_data(object):
             if f is not None :
                 run_cmd(f'ncpdq -U --ovr {f} {f}',verbose,prepend_line=False)
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def create_dst_grid_file(self,verbose=None):
@@ -327,6 +376,7 @@ class hiccup_data(object):
         Generate destination model grid file. Normally, we only care about 
         mapping to the GLL/np4 grid, unless the source data is an EAM file
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Generating dst grid file...')
@@ -383,6 +433,7 @@ class hiccup_data(object):
             raise ValueError(f'dst_horz_grid={self.dst_horz_grid} is not currently supported')
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return 
     # --------------------------------------------------------------------------
     def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=False):
@@ -391,6 +442,7 @@ class hiccup_data(object):
         This routine assumes that the destination is always GLL/np4.
         For mapping EAM to EAM data this method is overloaded below. 
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Generating mapping file...')
@@ -424,6 +476,7 @@ class hiccup_data(object):
         run_cmd(cmd,verbose,shell=True)
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def get_multifile_dict(self,verbose=None,timestamp=None):
@@ -507,6 +560,7 @@ class hiccup_data(object):
         """ 
         Rename variables in file according to variable name dictionaries 
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Renaming variables to match model variable names...')
@@ -534,6 +588,7 @@ class hiccup_data(object):
         # Do additional variable/attribute renaming specific to the input data
         self.rename_vars_special(file_name,verbose)
 
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def rename_vars_multifile(self,file_dict,verbose=None):
@@ -541,6 +596,7 @@ class hiccup_data(object):
         Rename variables in file list according to variable name dictionaries 
         This approach was developed specifically for very fine grids like ne1024
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Renaming variables to match model variable names...')
@@ -586,13 +642,14 @@ class hiccup_data(object):
         if new_lev_name is not None: self.lev_name = new_lev_name
 
         if self.do_timers: self.print_timer(timer_start)
-
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def add_reference_pressure(self,file_name,verbose=None):
         """ 
         Add P0 variable 
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Adding reference pressure (P0)...')
@@ -609,12 +666,14 @@ class hiccup_data(object):
                 verbose,prepend_line=False,shell=True)
         
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None):
         """  
         Horizontally remap data and combine into single file 
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the data to temporary files...')
@@ -671,6 +730,7 @@ class hiccup_data(object):
         run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',verbose,prepend_line=False)
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def remap_horizontal_multifile(self,file_dict,verbose=None):
@@ -678,6 +738,7 @@ class hiccup_data(object):
         Horizontally remap data into seperate files for each variable
         This approach was developed specifically for very fine grids like ne1024
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the multi-file data to temporary files...')
@@ -716,7 +777,7 @@ class hiccup_data(object):
             run_cmd(cmd,verbose,shell=True)
 
         if self.do_timers: self.print_timer(timer_start)
-
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return 
     # --------------------------------------------------------------------------
     def remap_horizontal_multifile_eam(self,file_dict,verbose=None):
@@ -724,6 +785,7 @@ class hiccup_data(object):
         Horizontally remap data into seperate files for each variable
         This approach was developed specifically for very fine grids like ne1024
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the multi-file data to temporary files...')
@@ -764,7 +826,7 @@ class hiccup_data(object):
             ds.close()
 
         if self.do_timers: self.print_timer(timer_start)
-
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return 
     # --------------------------------------------------------------------------
     def surface_adjustment_multifile(self,file_dict,verbose=None,
@@ -773,6 +835,7 @@ class hiccup_data(object):
         Perform surface temperature and pressure adjustments 
         using a multifile xarray dataset
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Performing surface adjustments...')
@@ -795,8 +858,6 @@ class hiccup_data(object):
 
         # update lev name in case it has not been updated previously
         self.lev_name = self.new_lev_name
-
-        if print_memory_usage: print_mem_usage(msg='start surface_adjustment_multifile()')
 
         adj_TS_warning_msg = 'WARNING - surface_adjustment_multifile: '+\
         f'\n  adj_TS in  is not supported for {self.target_model}, disabling.'+\
@@ -827,7 +888,7 @@ class hiccup_data(object):
             ds_data[var_dict['TS']].to_netcdf(file_dict[var_dict['TS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature')
-            if print_memory_usage: print_mem_usage(msg='after adj_TS')
+            if print_memory_usage: self.print_mem_usage(msg='after adj_TS')
 
         partial_drop_ps = partial(_drop_ps, file_dict=file_dict)
 
@@ -845,7 +906,7 @@ class hiccup_data(object):
             ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure')
-            if print_memory_usage: print_mem_usage(msg='after adj_PS')
+            if print_memory_usage: self.print_mem_usage(msg='after adj_PS')
 
         # Adjust temperature profile
         if adj_T_eam:
@@ -867,10 +928,10 @@ class hiccup_data(object):
             ds_data[var_dict['T']].to_netcdf(file_dict[var_dict['T']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_temperature_eam')
-            if print_memory_usage: print_mem_usage(msg='after adj_T_eam')
+            if print_memory_usage: self.print_mem_usage(msg='after adj_T_eam')
 
         if self.do_timers: self.print_timer(timer_start)
-
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
 
     # --------------------------------------------------------------------------
@@ -880,6 +941,10 @@ class hiccup_data(object):
         """  
         Vertically remap data and combine into single file 
         """
+        print_memory_usage_loc = print_memory_usage
+        current_func,parent_func = sys._getframe(0).f_code.co_name, sys._getframe(1).f_code.co_name
+        if parent_func==current_func+'_multifile': print_memory_usage_loc = False
+        if print_memory_usage_loc: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Vertically remapping the data...')
@@ -930,6 +995,7 @@ class hiccup_data(object):
         ds.close()
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage_loc: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def remap_vertical_multifile(self,file_dict,vert_file_name,verbose=None):
@@ -937,6 +1003,7 @@ class hiccup_data(object):
         wrapper around remap_vertical to support multi-file workflow
         specifically needed for very fine grids like ne1024
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Vertically remapping the multi-file data...')
 
@@ -978,6 +1045,7 @@ class hiccup_data(object):
         self.do_timers = prev_do_timers
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def atmos_state_adjustment_multifile_adjust_sat(self,file_dict,verbose=None):
@@ -985,6 +1053,7 @@ class hiccup_data(object):
         Perform post-remapping atmospheric state adjustments 
         for the multifile workflow
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if verbose is None: verbose = self.verbose
         if self.target_model=='EAM'  : var_dict = {'Q':'Q', 'T':'T',    'PS':'PS'}
         if self.target_model=='EAMXX': var_dict = {'Q':'qv','T':'T_mid','PS':'ps'}
@@ -993,15 +1062,15 @@ class hiccup_data(object):
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                preprocess=partial_drop_ps) as ds_data:
             ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-            if print_memory_usage: print_mem_usage(msg='before remove_supersaturation')
             ds_data = hsa.remove_supersaturation( ds_data, hybrid_lev=True, verbose=verbose,
                                                   verbose_indent=self.verbose_indent )
-            if print_memory_usage: print_mem_usage(msg='after remove_supersaturation')
             # Write adjusted data back to data files
+            ds_data = ds_data.rename(var_dict)
             tmp_file_name = file_dict[var_dict['Q']]
             ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
             run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def atmos_state_adjustment_multifile_adjust_wtr(self,file_dict,verbose=None):
@@ -1009,6 +1078,7 @@ class hiccup_data(object):
         Perform post-remapping atmospheric state adjustments 
         for the multifile workflow
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if verbose is None: verbose = self.verbose
         if self.target_model=='EAM'  : var_dict = {'CLDLIQ':'CLDLIQ','CLDICE':'CLDICE'}
         if self.target_model=='EAMXX': var_dict = {'CLDLIQ':'qc',    'CLDICE':'qi'}
@@ -1020,15 +1090,14 @@ class hiccup_data(object):
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
             ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
             # adjust cloud water to remove negative values
-            if print_memory_usage: print_mem_usage(msg='before adjust_cld_wtr')
             ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
-            if print_memory_usage: print_mem_usage(msg='after adjust_cld_wtr')
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
             for var in var_dict.values():
                 if var in self.atm_var_name_dict.keys():
                     ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def atmos_state_adjustment_multifile(self,file_dict,verbose=None,
@@ -1038,11 +1107,10 @@ class hiccup_data(object):
         Perform post-remapping atmospheric state adjustments 
         for the multifile workflow
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Performing state adjustments...')
-
-        if print_memory_usage: print_mem_usage(msg='start atmos_state_adjustment_multifile()')
 
         if adjust_sat:
             if self.do_timers: timer_start_adj = perf_counter()
@@ -1072,6 +1140,7 @@ class hiccup_data(object):
                 if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def atmos_state_apply_perturbations_multifile(self,file_dict,seed=None,verbose=None):
@@ -1079,6 +1148,7 @@ class hiccup_data(object):
         apply post-remapping atmospheric perturbations
         for the multifile workflow
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Applying random perturbations...')
@@ -1104,12 +1174,17 @@ class hiccup_data(object):
         ds_data.close()
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def add_time_date_variables(self,ds,verbose=None,do_timers=None):
         """
         Check final output file and add necessary time and date information
         """
+        print_memory_usage_loc = print_memory_usage
+        current_func,parent_func = sys._getframe(0).f_code.co_name, sys._getframe(1).f_code.co_name
+        if parent_func==current_func+'_multifile': print_memory_usage_loc = False
+        if print_memory_usage_loc: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if do_timers is None: do_timers = self.do_timers
         if do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
@@ -1196,11 +1271,13 @@ class hiccup_data(object):
         #     ds['time_written'].attrs['long_name'] = ''
 
         if do_timers: self.print_timer(timer_start)
+        if print_memory_usage_loc: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def add_time_date_variables_multifile(self,file_dict,verbose=None,ref_date='1850-01-01'):
         """
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Editing time and date variables...')
@@ -1221,12 +1298,14 @@ class hiccup_data(object):
             # run_cmd(f'ncdump {file_name} -v time | tail | grep "time =" ',verbose,shell=True)
             # run_cmd(f'ncdump {file_name} -h | grep "time:units" ',verbose,shell=True)
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def add_time_date_variables_multifile_eam(self,file_dict,verbose=None):
         """
         copy necessary time and date information
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Editing time and date variables...')
@@ -1260,12 +1339,14 @@ class hiccup_data(object):
             ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
             ds_data.close()
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def convert_to_single_precision_multifile(self,file_dict,verbose=None):
         """
         Convert all files in file_dict to single precision
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Converting all data files to single precision...')
@@ -1279,6 +1360,7 @@ class hiccup_data(object):
             run_cmd(f'mv {tmp_file_name} {file_name}',verbose)
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def combine_files(self,file_dict,output_file_name,delete_files=False,
@@ -1288,9 +1370,11 @@ class hiccup_data(object):
         """
         Combine files in file_dict into single output file
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Combining temporary files into new file...')
+
         if method not in ['xarray']:
             raise ValueError(f'combine_files method argument "{method}" is invalid')
 
@@ -1408,12 +1492,14 @@ class hiccup_data(object):
                 run_cmd(self.verbose_indent+f'rm {file_name}',verbose,prepend_line=False)
 
         if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
     def clean_global_attributes(self,file_name,method='nco',verbose=None):
         """
         Remove messy global attributes of the file
         """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Cleaning up excessive global attributes...')
@@ -1449,6 +1535,7 @@ class hiccup_data(object):
         run_cmd(f'mv {file_name}.ncatted_tmp {file_name}',verbose)
 
         if self.do_timers: self.print_timer(timer_start,caller=f'clean_global_attributes_{method}')
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
 # ------------------------------------------------------------------------------
 # HICCUP Subclasses (associated with the source data)

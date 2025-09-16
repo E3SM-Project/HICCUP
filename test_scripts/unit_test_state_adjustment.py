@@ -2,52 +2,17 @@
 #===================================================================================================
 # Unit testing for state_adjustment module
 #===================================================================================================
-import unittest
-import numpy as np
-import xarray as xr
-from hiccup import hiccup_state_adjustment as hsa
-# from hiccup import hiccup_constants
-
+import unittest, numpy as np, xarray as xr
 from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer
-
-tk_zero = 273.15 # value for converting between celsius and Kelvin
-
-std_lapse = 0.0065           # std. atmosphere lapse rate              ~ -6.5 K/km
-gravit    = 9.80616          # acceleration of gravity                 ~ m/s^2
-boltz     = 1.38065e-23      # boltzmann's constant                    ~ J/k/molecule
-avogad    = 6.02214e26       # avogadro's number                       ~ molecules/kmole
-MW_dryair = 28.966           # molecular weight of dry air             ~ g/mol
-MW_ozone  = 47.998           # molecular weight of ozone               ~ g/mol
-MW_vapor  = 18.0             # molecular weight of dry air             ~ g/mol
-Rgas      = avogad*boltz     # universal gas constant                  ~ J/k/kmole
-Rdair     = Rgas/MW_dryair   # gas constant for dry air                ~ J/k/kg
-Rvapor    = Rgas/MW_vapor    # gas constant for water vapor            ~ J/(kg/kg)
-P0        = 1e5              # reference pressure
-
-
-class standard_atmosphere:
-  def __init__(self,altitude):
-    """ 
-    Return a 2-uplet (pressure, temperature) depending on provided altitude.
-    Units are SI (m, PA, Kelvin)
-    """
-    self.altitude = altitude
-    self.pressure = np.empty(altitude.shape)
-    self.temperature = np.empty(altitude.shape)
-    for k in range(len(altitude)):
-      if altitude[k]<=11000: 
-        # troposphere
-        self.pressure[k] = 101325 * (1 - 2.25569E-5 * self.altitude[k])**5.25616
-        self.temperature[k] = 288.14 - 0.00649 * self.altitude[k]        
-      elif altitude[k]<=20000:  
-        self.pressure[k] = 0.223356 * 101325 * np.exp(-0.000157688 * (self.altitude[k] - 11000))  # stratosphere
-        self.temperature[k] = 216.66
-      else:
-        raise ValueError('altitude out of range [0-20000m]')
+from hiccup import hiccup_state_adjustment as hsa
+from hiccup.standard_atmosphere import standard_atmosphere
+from hiccup.hiccup_constants import Rdair
+from hiccup.hiccup_constants import Rvapor
 
 verbose_default = False # local verbosity default
 
+#===============================================================================
 def remove_supersaturation_test( ds, hybrid_lev=False, pressure_var_name='plev',
                             debug=False, verbose=None, verbose_indent='' ):
   """
@@ -106,7 +71,7 @@ def remove_supersaturation_test( ds, hybrid_lev=False, pressure_var_name='plev',
 
   return
 
-
+#===============================================================================
 def calculate_qv_sat_liq( temperature, pressure ):
   """ 
   calculate saturation specific humidity [kg/kg]
@@ -125,6 +90,7 @@ def calculate_qv_sat_liq( temperature, pressure ):
   qv_sat = r_sat / ( 1.0 + r_sat )
 
   return qv_sat
+
 #===============================================================================
 class state_adjustment_test_case(unittest.TestCase):
   """ 

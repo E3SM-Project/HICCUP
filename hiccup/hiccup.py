@@ -150,6 +150,7 @@ def create_hiccup_data( src_data_name,
 
             # global timer_start_total
             obj.timer_start_total = perf_counter()
+            obj.timer_msg_all = []
 
             # Return the object if everything checks out
             return obj

@@ -4,12 +4,11 @@ from hiccup.hiccup_utilities import tcolor
 timer_start_total = None
 timer_msg_all = []
 # ------------------------------------------------------------------------------
-# Print individual timer information
-def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
+def print_timer(timer_start,indent=None,use_color=True,caller=None,print_msg=True):
     """
     Print the final timer result based on input start time
-    Also update timer_msg_all for use in print_timer_summary
     """
+    if indent is None: indent = '  '
     # if caller is not provider get name of parent routine
     if caller is None: caller = sys._getframe(1).f_code.co_name
     # calculate elapsed time
@@ -23,10 +22,9 @@ def print_timer(timer_start,use_color=True,caller=None,print_msg=True):
     # Apply color
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
     # print the message
-    print(f'\n{msg}')
+    if print_msg: print(f'\n{msg}')
     return msg
 # ------------------------------------------------------------------------------
-# Print a summary of timer information
 def print_timer_summary(timer_start_total=None,timer_msg_all=None):
     """
     Print timer summary based on information compiled by print_timer()
@@ -35,7 +33,7 @@ def print_timer_summary(timer_start_total=None,timer_msg_all=None):
     if timer_start_total is not None:
         print_timer(timer_start_total,caller=f'Total',print_msg=False)
     if timer_msg_all is not None:
-        print(f'\nHICCUP Timer results:')
+        print(f'\nHICCUP timer results:')
         for msg in timer_msg_all:
             print(f'  {msg}')
     return

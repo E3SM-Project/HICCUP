@@ -1,6 +1,5 @@
 # This module contains some useful utility routines used in hiccup_data_class.py
 import os, sys, re, shutil, subprocess as sp
-import resource, psutil
 verbose_default = False # local verbosity default
 # ------------------------------------------------------------------------------
 # class for terminal colors
@@ -84,14 +83,6 @@ def check_nco_version():
         err_msg = f'NCO version {version_str} is too old.'
         err_msg += f'\nHICCUP requires NCO version {min_version} or higher'
         raise EnvironmentError(err_msg)
-    return
-# ------------------------------------------------------------------------------
-# Method for monitoring memory usage (for debugging and development)
-def print_mem_usage(indent='  ',msg=''):
-    # mem_rss_GB = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1e-6
-    mem_rss_GB = psutil.Process().memory_info().rss * 1e-9
-    mem_vms_GB = psutil.Process().memory_info().vms * 1e-9
-    print(indent+f'Memory: {mem_rss_GB:8.2f} / {mem_vms_GB:8.2f}  GB  (RSS/VMS)  {msg}')
     return
 # ------------------------------------------------------------------------------
 # Simple routine to check statistics of an array - useful for debugging
