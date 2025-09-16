@@ -8,11 +8,11 @@ import os
 from hiccup import hiccup
 hiccup.hdc.print_memory_usage = True
 # ------------------------------------------------------------------------------
-
-# local path for grid and mapping files (move to scratch space for large grids)
-hiccup_root = os.getenv('HOME')+'/HICCUP'
-data_root = f'{hiccup_root}/test_data'
-data_tmp = f'{hiccup_root}/test_data_tmp'
+# local path for grid and mapping files
+hiccup_root  = os.getenv('HOME')+'/HICCUP'
+data_root    = f'{hiccup_root}/test_data'
+data_tmp     = f'{hiccup_root}/test_data_tmp'
+# ------------------------------------------------------------------------------
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist
 
@@ -50,56 +50,32 @@ file_dict = hiccup_data.get_multifile_dict(timestamp=999)
 
 # ------------------------------------------------------------------------------
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
-
 # hiccup_data.unpack_data_files()
-
 # ------------------------------------------------------------------------------
-# Create grid and mapping files
-
 # Create grid description files needed for the mapping file
 hiccup_data.create_src_grid_file()
 hiccup_data.create_dst_grid_file()
-
 # Create mapping file
 hiccup_data.create_map_file()
-
-# ------------------------------------------------------------------------------
-# perform multi-file horizontal remap
-
 # Horizontally regrid the data
 hiccup_data.remap_horizontal_multifile(file_dict=file_dict)
-
 # Rename variables to match what the model expects
 hiccup_data.rename_vars_multifile(file_dict=file_dict)
-
 # Add time/date information
 hiccup_data.add_time_date_variables_multifile(file_dict=file_dict)
-
-# ------------------------------------------------------------------------------
 # Vertically remap the data
-
 hiccup_data.remap_vertical_multifile(file_dict=file_dict,
                                      vert_file_name=vert_file_name)
-
-# ------------------------------------------------------------------------------
-# Combine files
-
 # Combine and delete temporary files
 hiccup_data.combine_files(file_dict=file_dict,delete_files=True,
                           output_file_name=output_cams_file_name)
-
 # Clean up the global attributes of the file
 hiccup_data.clean_global_attributes(file_name=output_cams_file_name)
-
 # ------------------------------------------------------------------------------
 # Print final output file name
-
-print()
-print(f'output_cams_file_name: {output_cams_file_name}')
-print()
-
-# Print summary of timer info
+print();print(f'output_cams_file_name: {output_cams_file_name}');print()
+# Print summary of performance info
+hiccup_data.print_memory_summary()
 hiccup_data.print_timer_summary()
-
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

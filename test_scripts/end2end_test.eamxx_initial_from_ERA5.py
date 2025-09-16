@@ -99,7 +99,8 @@ hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
 # ------------------------------------------------------------------------------
 # Print final output file name
 print(); print(f'output_atm_file_name: {output_atm_file_name}'); print()
-# Print summary of timer info
+# Print summary of performance info
+hiccup_data.print_memory_summary()
 hiccup_data.print_timer_summary()
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
