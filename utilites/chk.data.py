@@ -27,10 +27,10 @@ indent = ' '*4
 #-------------------------------------------------------------------------------
 # Simple routine for chcecking variable values - useful for debugging
 #-------------------------------------------------------------------------------
-def print_stat(x,name='(no name)',unit='',fmt='f',stat='naxh',indent='  ',compact=True):
+def print_stat(x,name='(no name)',unit='',fmt='e',stat='naxh',indent='  ',compact=True):
   """ Print min, avg, max, and std deviation of input """
   if fmt=='f' : fmt = '%20.10f'
-  if fmt=='e' : fmt = '%e'
+  if fmt=='e' : fmt = '%+8.2e'
   if unit!='' : unit = f'[{unit}]'
   name_len = 25 if compact else len(name)
   msg = ''
@@ -77,15 +77,19 @@ for file_name in files :
 
     for var in var_list: 
 
-        # Print stats, but skip time related and other variables
-        if var not in ['lat_vertices','lon_vertices','time_bnds','area','hyam','hybm','hyai','hybi'] and ds[var].dims!=('time',):
-          print_stat(ds[var],name=var,indent=indent,stat='nxh')
+      # print(f'var: {var}')
 
-          inf_cnt = ds[var].where( np.isinf(ds[var]) ).count().values
-          nan_cnt = ds[var].where( np.isnan(ds[var]) ).count().values
+      # Print stats, but skip time related and other variables
+      if var not in [ 'lat_vertices','lon_vertices','time_bnds',\
+                      'area','hyam','hybm','hyai','hybi','expver'] \
+          and ds[var].dims!=('time',):
+        print_stat(ds[var],name=var,indent=indent,stat='nxh')
 
-          if inf_cnt>0: print(f'{indent}{var}: inf values found! ({inf_cnt})')
-          if nan_cnt>0: print(f'{indent}{var}: nan values found! ({nan_cnt})')
+        inf_cnt = ds[var].where( np.isinf(ds[var]) ).count().values
+        nan_cnt = ds[var].where( np.isnan(ds[var]) ).count().values
+
+        if inf_cnt>0: print(f'{indent}{var}: inf values found! ({inf_cnt})')
+        if nan_cnt>0: print(f'{indent}{var}: nan values found! ({nan_cnt})')
 
 print('\ndone.\n')
 
