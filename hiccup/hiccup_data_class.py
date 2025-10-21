@@ -1454,6 +1454,7 @@ class hiccup_data(object):
 # HICCUP Subclasses (associated with the source data)
 # ------------------------------------------------------------------------------
 import hiccup.hiccup_data_subclass_ERA5
+import hiccup.hiccup_data_subclass_IFS
 import hiccup.hiccup_data_subclass_CAMS
 import hiccup.hiccup_data_subclass_NOAA
 import hiccup.hiccup_data_subclass_EAM
