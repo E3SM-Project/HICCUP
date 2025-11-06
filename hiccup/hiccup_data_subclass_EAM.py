@@ -120,16 +120,32 @@ class EAM(hiccup_data):
             if len(ds['ncol_d'])!=ncol_size_np and len(ds['ncol_d'])!=ncol_size_pg:
                 raise ValueError('input data file does not have expected dimension sizes')
 
-        for key in ds.variables.keys(): 
-            if key in ['lat','lon','lat_d','lon_d','lat_vertices','lon_vertices']:
-                continue
-            if 'ncol_d' in ds[key].dims: 
-                self.atm_var_name_dict_np.update({key:key})
-            if 'ncol' in ds[key].dims:
-                if ds.sizes['ncol']==ncol_size_np:
+        if self.target_model=='EAM':
+            for key in ds.variables.keys(): 
+                if key in ['lat','lon','lat_d','lon_d','lat_vertices','lon_vertices']:
+                    continue
+                if 'ncol_d' in ds[key].dims: 
                     self.atm_var_name_dict_np.update({key:key})
-                if ds.sizes['ncol']==ncol_size_pg:
-                    self.atm_var_name_dict_pg.update({key:key})
+                if 'ncol' in ds[key].dims:
+                    if ds.sizes['ncol']==ncol_size_np:
+                        self.atm_var_name_dict_np.update({key:key})
+                    if ds.sizes['ncol']==ncol_size_pg:
+                        self.atm_var_name_dict_pg.update({key:key})
+
+        if self.target_model=='EAMXX':
+            self.atm_var_name_dict = {}
+            self.sfc_var_name_dict = {}
+            self.atm_var_name_dict.update({'lat':'lat'})
+            self.atm_var_name_dict.update({'lon':'lon'})
+            self.atm_var_name_dict.update({'T_mid':'T'})                # temperature
+            self.atm_var_name_dict.update({'qv':'Q'})                   # specific humidity
+            self.atm_var_name_dict.update({'horiz_winds_u':'U'})        # zonal wind
+            self.atm_var_name_dict.update({'horiz_winds_v':'V'})        # meridional wind
+            self.atm_var_name_dict.update({'o3_volume_mix_ratio':'O3'}) # ozone mass mixing ratio
+            self.atm_var_name_dict.update({'qc':'CLDLIQ'})              # specific cloud liq water
+            self.atm_var_name_dict.update({'qi':'CLDICE'})              # specific cloud ice water
+            self.sfc_var_name_dict.update({'ps':'PS'})                  # sfc pressure
+            self.sfc_var_name_dict.update({'phis':'PHIS'})              # surface geopotential
 
     # --------------------------------------------------------------------------
     def create_src_grid_file(self,verbose=None):

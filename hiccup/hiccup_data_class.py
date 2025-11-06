@@ -51,7 +51,10 @@ def _drop_ps(ds,file_dict):
     var = None
     for key in file_dict:
         if os.path.samefile(file_dict[key], ds.encoding["source"]): var = key
-    if var!='PS' and 'PS' in ds: ds = ds.drop_vars('PS')
+    valid_ps_name_list = ['PS','ps']
+    if var not in valid_ps_name_list:
+        for ps_name in valid_ps_name_list:
+            if ps_name in ds: ds = ds.drop_vars(ps_name)
     return ds
 # ------------------------------------------------------------------------------
 # get list of file names for variables needed for adjustment
@@ -849,13 +852,6 @@ class hiccup_data(object):
         if adj_T_eam and not adj_PS: 
             raise ValueError('Cannot adjust temperature (adj_T_eam) without adjust sfc pressure (adj_PS)')
 
-        # If temperature profile adjustment is needed we need to save the surface pressure
-        # prior to adjust_surface_pressure() to send to adjust_temperature_eam(),
-        # creating a new temporary file is a good way to do this
-        if adj_T_eam and adj_PS:
-            file_dict['PS_old'] = file_dict['PS'].replace('PS','PS_old')
-            run_cmd(f'cp {file_dict["PS"]} {file_dict["PS_old"]} ',verbose,shell=True)
-
         # update lev name in case it has not been updated previously
         self.lev_name = self.new_lev_name
 
@@ -871,6 +867,15 @@ class hiccup_data(object):
         if self.target_model=='EAMXX':
             if adj_TS: adj_TS = False ; print(adj_TS_warning_msg)
             if adj_PS: var_dict.update({'PS':'ps','PHIS':'phis','T':'T_mid'})
+
+        # If temperature profile adjustment is needed we need to save the surface pressure
+        # prior to adjust_surface_pressure() to send to adjust_temperature_eam(),
+        # creating a new temporary file is a good way to do this
+        if adj_T_eam and adj_PS:
+            # file_dict[f'PS_old'] = file_dict[var_dict['PS']].replace(var_dict['PS'],'PS_old')
+            # run_cmd(f'cp {file_dict[var_dict['PS']]} {file_dict["PS_old"]} ',verbose,shell=True)
+            ps_old_file = file_dict[var_dict['PS']].replace(var_dict['PS'],'PS_old')
+            run_cmd(f'cp {file_dict[var_dict['PS']]} {ps_old_file} ',verbose,shell=True)
 
         file_list = get_adj_file_list(var_dict.values(),file_dict)
 
@@ -917,9 +922,9 @@ class hiccup_data(object):
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
-                ds_ps_old = xr.open_dataset(file_dict['PS_old'],chunks=self.get_chunks()).copy(deep=True)
+                ds_ps_old = xr.open_dataset(ps_old_file,chunks=self.get_chunks()).copy(deep=True)
                 da_old = ds_data['T'].copy(deep=True)
-                ds_data = hsa.adjust_temperature_eam( ds_data, ds_ps_old['PS'], 
+                ds_data = hsa.adjust_temperature_eam( ds_data, ds_ps_old[var_dict['PS']],
                                                       verbose=verbose, verbose_indent=self.verbose_indent )
                 print()
                 print_stat((ds_data['T']-da_old),name='T diff from interpolation')
@@ -927,6 +932,7 @@ class hiccup_data(object):
             ds_data = ds_data.rename(var_dict)
             ds_data[var_dict['T']].to_netcdf(file_dict[var_dict['T']],format=hiccup_atm_nc_format,mode='a')
             ds_data.close()
+            run_cmd(self.verbose_indent+f'rm {ps_old_file}',verbose,shell=True)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_temperature_eam')
             if print_memory_usage: self.print_mem_usage(msg='after adj_T_eam')
 
@@ -962,7 +968,7 @@ class hiccup_data(object):
         if vert_remap_var_list is None :
             vert_remap_var_list = []
             ds = xr.open_dataset(input_file_name)
-            for key in ds.variables.keys(): 
+            for key in ds.variables.keys():
                 vert_remap_var_list.append(key)
                 # only remap variables with lev coord in order to
                 # ignore other variables (i.e. TS, PS) - not necessary?
@@ -1433,7 +1439,9 @@ class hiccup_data(object):
                                           'ilev','nv','nbnd',...,missing_dims='ignore')
             if combine_uv:
                 ds_out[uv_name] = xr.concat([ds_out[u_name], ds_out[v_name]], dim='dim2')
-                ds_out[uv_name] = ds_out[uv_name].transpose('time','ncol','dim2','lev')
+                if 'ncol'   in ds_out.dims: ncol_dim = 'ncol'
+                if 'ncol_d' in ds_out.dims: ncol_dim = 'ncol_d'
+                ds_out[uv_name] = ds_out[uv_name].transpose('time',ncol_dim,'dim2','lev')
                 ds_out = ds_out.drop_vars([u_name,v_name])
             # for EAMxx add pref_mid
             if self.target_model=='EAMXX':
