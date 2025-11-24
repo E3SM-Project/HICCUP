@@ -1398,7 +1398,7 @@ class hiccup_data(object):
             u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
-            if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
+            if permute_dim_list is None:permute_dim_list = ['time','ncol','lev']
             if combine_uv is None: combine_uv = True
             if remove_ilev is None: remove_ilev = False
         if self.target_model=='EAMXX-nudging':
@@ -1408,6 +1408,11 @@ class hiccup_data(object):
             if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
             if combine_uv is None: combine_uv = False
             if remove_ilev is None: remove_ilev = True
+
+        print()
+        print(f'permute_dimensions: {permute_dimensions}')
+        print(f'permute_dim_list  : {permute_dim_list}')
+        print()
 
         if u_name not in file_dict.keys() \
         or v_name not in file_dict.keys():
@@ -1432,7 +1437,11 @@ class hiccup_data(object):
 
             if self.target_model=='EAMXX-nudging':
                 ds_out['p_mid'] = ( ds_out['PS']*ds_out['hybm'] + 1e5*ds_out['hyam'] ).astype(ds_out['U'].dtype)
+
             if permute_dimensions:
+                if 'ncol' in permute_dim_list and 'ncol_d' in ds_out.dims:
+                    for d,dim in enumerate(permute_dim_list):
+                        if dim=='ncol': permute_dim_list[d] = 'ncol_d'
                 ds_out = ds_out.transpose(permute_dim_list[0],
                                           permute_dim_list[1],
                                           permute_dim_list[2],
