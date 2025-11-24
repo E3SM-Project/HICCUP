@@ -26,7 +26,7 @@ parser = OptionParser(usage=usage)
 parser.add_option('--start-date',  dest='start_date',  default=None,  help='date of first file [yyyymmdd]')
 parser.add_option('--final-date',  dest='final_date',  default=None,  help='date of last file [yyyymmdd] (optional)')
 parser.add_option('--start-hour',  dest='start_hour',  default='00',  help='UTC hour of first file (default=00Z)')
-parser.add_option('--final-hour',  dest='final_hour',  default='00',  help='UTC hour of last file (default=00Z)')
+parser.add_option('--final-hour',  dest='final_hour',  default=None,  help='UTC hour of last file (default=00Z)')
 parser.add_option('--data-freq',   dest='data_freq',   default='24h', help='frequency of data files (default=24h)')
 parser.add_option('--output-root', dest='output_root', default='./',  help='Output path for data files (default is PWD)')
 (opts, args) = parser.parse_args()
@@ -34,6 +34,7 @@ parser.add_option('--output-root', dest='output_root', default='./',  help='Outp
 # check that input arguments are valid
 if opts.start_date is None: raise ValueError(f'{clr.RED}initialization date was not specified{clr.END}')
 if opts.final_date is None: opts.final_date = opts.start_date
+if opts.final_hour is None: opts.final_hour = opts.start_hour
 #---------------------------------------------------------------------------------------------------
 # build list of dates and times from input arguments
 beg_date = datetime.datetime.strptime(f'{opts.start_date} {opts.start_hour}', '%Y%m%d %H')
