@@ -872,10 +872,9 @@ class hiccup_data(object):
         # prior to adjust_surface_pressure() to send to adjust_temperature_eam(),
         # creating a new temporary file is a good way to do this
         if adj_T_eam and adj_PS:
-            # file_dict[f'PS_old'] = file_dict[var_dict['PS']].replace(var_dict['PS'],'PS_old')
-            # run_cmd(f'cp {file_dict[var_dict['PS']]} {file_dict["PS_old"]} ',verbose,shell=True)
-            ps_old_file = file_dict[var_dict['PS']].replace(var_dict['PS'],'PS_old')
-            run_cmd(f'cp {file_dict[var_dict['PS']]} {ps_old_file} ',verbose,shell=True)
+            ps_file = file_dict[var_dict['PS']]
+            ps_old_file = ps_file.replace(var_dict['PS'],'PS_old')
+            run_cmd(f'cp {ps_file} {ps_old_file} ',verbose,shell=True)
 
         file_list = get_adj_file_list(var_dict.values(),file_dict)
 
