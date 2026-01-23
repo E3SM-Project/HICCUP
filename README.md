@@ -197,64 +197,23 @@ must follow the surface adjustment.
 
 ### Running a Hindcast
 
-After using HICCUP to generate the atmosphere and SST/ice files, an E3SM 
-hindcast can be run by following the steps to run a typical "F-compset" run, 
-using the compsets such as FC5AV1C-L. The initialization data needs to be copied 
-to the scratch space of the machine to ensure they are accessible to the compute 
-nodes. 
-
-The atmospheric initial condition file is specified by editing the "user_nl_eam"
-file found in the case directory to include:
-  
-  ncdata = < path to hiccup atmos initial condition file >
-
-The SST file and start date values also need to be specified by modifying the 
-env_run.xml file in the case directory. The preferred method for doing this is 
-to use the xmlchange command from the case directory as in the example below:
-
-  ```
-  ./xmlchange SSTICE_DATA_FILENAME=<path to SST file>
-  ./xmlchange RUN_STARTDATE=2016-08-01
-  ./xmlchange SSTICE_YEAR_ALIGN=2016
-  ./xmlchange SSTICE_YEAR_START=2016
-  ./xmlchange SSTICE_YEAR_END=2017
-  ```
-
-If using a python script to run the hindcast, here's a snippet of code that 
-does the modifications described above:
-
-  ```python
-  ################################################
-  # python code to setup hindcast files
-  ################################################
-  iyr,imn,idy = 2016,8,1
-  init_date = f'{iyr}-{imn:02d}-{idy:02d}'
-  init_file_atm = f'<path-to-hiccup-data>/HICCUP.atm_era5.{init_date}.ne30np4.L72.nc'
-  init_file_sst = f'<path-to-hiccup-data>/HICCUP.sst_noaa.{init_date}.nc'
-  os.chdir(case_directory)
-  os.system(f'./xmlchange RUN_STARTDATE={init_date}')
-  os.system(f'./xmlchange SSTICE_DATA_FILENAME={init_file_sst}')
-  os.system(f'./xmlchange SSTICE_YEAR_ALIGN={iyr}')
-  os.system(f'./xmlchange SSTICE_YEAR_START={iyr}')
-  os.system(f'./xmlchange SSTICE_YEAR_END={iyr+1}')
-
-  file = open('user_nl_eam','a') 
-  file.write(f' ncdata = \'{init_file_atm}\'\n')
-  file.close()
-  ################################################
-  ################################################
-  ```
+See the [wiki article here](https://github.com/E3SM-Project/HICCUP/wiki/Running-a-Hindcast-with-HICCUP-Initial-Conditions)
 
 --------------------------------------------------------------------------------
 
 ### Plotting Initial Condition Data
 
+#### ncvis
+
+The [ncvis](https://github.com/SEATStandards/ncvis) tool is a great way to visualize unstructured data, and can help provide a sanity check of HICCUP generated initial condition data.
+
+#### PyNGL
+
 A plotting script is also included (plot.sanity_check.py), but it requires 
 PyNGL (https://www.pyngl.ucar.edu/) to be installed in the python environment.
 This was done becase PyNGL has excellent support for plotting data on 
 unstructured grids. However, PyNGL has been put into "maintenance mode", so in 
-the future we need to change these scripts to use MatPlotLib https://matplotlib.org/ 
-or GeoCAT (https://geocat.ucar.edu/).
+the future we need to change these scripts to use an alternative.
 
 --------------------------------------------------------------------------------
 
@@ -278,7 +237,9 @@ coarse 2 degree grid in order to simplify the calculation of global metrics.
 
 ### Testing
 
-For simple testing of HICCUP functionality the repo includes low-resolution test data from ERA5 and NOAA in the `test_data` folder. These files are used by the `test_scripts/test.*` to exercise the typical HICCUP workflow for generating model input data from observation data and reanalysis. There are also remapping scripts that can be used to regenerate the low-res test data. A unit test script `unit_test.state_adjustment.py` is also provided to directly test the surface adjustment routines, and hopefully more unit tests will be added in the future. 
+For simple testing of HICCUP functionality the repo includes low-resolution test data from ERA5 and NOAA in the `test_data` folder. These files are used by the `test_scripts/test.*` to exercise the typical HICCUP workflow for generating model input data from observation data and reanalysis. There are also remapping scripts that can be used to regenerate the low-res test data.
+
+To run all unit tests simply type `python test_scripts/unit_test_all.py`. 
 
 --------------------------------------------------------------------------------
 
