@@ -32,7 +32,6 @@ parser.add_option('--output-root', dest='output_root', default='./',  help='Outp
 if opts.start_date is None: raise ValueError(f'{clr.RED}start date was not specified{clr.END}')
 # if opts.final_date is None: raise ValueError(f'{clr.RED}final date was not specified{clr.END}')
 if opts.final_date is None: opts.final_date = opts.start_date
-if opts.final_date is None: opts.final_date = opts.start_date
 if opts.final_hour is None: opts.final_hour = opts.start_hour
 #---------------------------------------------------------------------------------------------------
 # build list of dates and times from input arguments
