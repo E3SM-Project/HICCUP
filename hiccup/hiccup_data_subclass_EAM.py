@@ -131,6 +131,9 @@ class EAM(hiccup_data):
                         self.atm_var_name_dict_np.update({key:key})
                     if ds.sizes['ncol']==ncol_size_pg:
                         self.atm_var_name_dict_pg.update({key:key})
+            # just forget about the pg variables
+            self.atm_var_name_dict = self.atm_var_name_dict_np.copy()
+            self.sfc_var_name_dict = {'PHIS':'PHIS'}
 
         if self.target_model=='EAMXX':
             self.atm_var_name_dict = {}
