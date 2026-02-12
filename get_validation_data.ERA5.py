@@ -24,7 +24,7 @@ parser.add_option('--start-date',  dest='start_date',  default=None,  help='date
 parser.add_option('--final-date',  dest='final_date',  default=None,  help='date of last file [yyyymmdd] (optional)')
 parser.add_option('--start-hour',  dest='start_hour',  default='00',  help='UTC hour of first file (default=00Z)')
 parser.add_option('--final-hour',  dest='final_hour',  default=None,  help='UTC hour of last file (default=00Z)')
-parser.add_option('--data-freq',   dest='data_freq',   default='1h',  help='frequency of data files (default=24h)')
+parser.add_option('--data-freq',   dest='data_freq',   default='3h',  help='frequency of data files (default=3h)')
 parser.add_option('--output-root', dest='output_root', default='./',  help='Output path for data files (default is PWD)')
 (opts, args) = parser.parse_args()
 #---------------------------------------------------------------------------------------------------
