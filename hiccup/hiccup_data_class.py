@@ -1100,8 +1100,10 @@ class hiccup_data(object):
             ds_data = ds_data.rename(var_dict)
             for var in var_dict.values():
                 if var in self.atm_var_name_dict.keys():
-                    ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
-            ds_data.close()
+                    ds_data[var].to_netcdf(f"{file_dict[var]}.tmp",format=hiccup_atm_nc_format,mode='w')
+        for var in var_dict.values():
+            if var in self.atm_var_name_dict.keys():
+                run_cmd(f"mv {file_dict[var]}.tmp {file_dict[var]}", verbose)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
@@ -1140,8 +1142,9 @@ class hiccup_data(object):
                 # Convert mass mixing ratio to molecular/volume mixing ratio
                 ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
                 ds_data[O3_name].attrs['units'] = 'mol/mol'
-                ds_data.to_netcdf(file_dict[O3_name],format=hiccup_atm_nc_format,mode='a')
+                ds_data.to_netcdf(f"{file_dict[O3_name]}.tmp", format=hiccup_atm_nc_format, mode='a')
                 ds_data.close()
+                run_cmd(f"mv {file_dict[O3_name]}.tmp {file_dict[O3_name]}")
                 if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
