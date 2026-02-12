@@ -665,7 +665,7 @@ class hiccup_data(object):
         check_dependency('ncks')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and updat the hiccup_data object
+        # create a copy with modified metadata and update the hiccup_data object
         self.check_file_FillValue('sfc_file')
         self.check_file_FillValue('atm_file')
 
