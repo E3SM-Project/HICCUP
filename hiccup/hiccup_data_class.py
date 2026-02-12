@@ -622,8 +622,6 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def check_file_FillValue(self,file_att):
-        check_dependency('ncatted')
     def check_file_FillValue(self,file_att,verbose=None):
         check_dependency('ncatted')
         if verbose is None: verbose = self.verbose
