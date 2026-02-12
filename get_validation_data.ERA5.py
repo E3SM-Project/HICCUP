@@ -116,6 +116,7 @@ for t in datetime_list:
     #---------------------------------------------------------------------------
     # atmosphere pressure level variables
     for v,var in enumerate(prs_short_list):
+        output_file_plv_tmp = output_file_plv.replace('.nc',f'.{var}.nc')
         server.retrieve('reanalysis-era5-pressure-levels',{
             'product_type'  : 'reanalysis',
             'format'        : 'netcdf',
@@ -126,10 +127,11 @@ for t in datetime_list:
             'year'          : yr,
             'pressure_level': prs_lev_list[v],
             'variable'      : [prs_era5_list[v]],
-        }, output_file_plv)
+        }, output_file_plv_tmp)
 
     # single-level variables
     for v,var in enumerate(sfc_short_list):
+        output_file_sfc_tmp = output_file_sfc.replace('.nc',f'.{var}.nc')
         server.retrieve('reanalysis-era5-single-levels',{
             'product_type'  : 'reanalysis',
             'format'        : 'netcdf',
@@ -139,5 +141,5 @@ for t in datetime_list:
             'month'         : mn,
             'year'          : yr,
             'variable'      : [sfc_era5_list[v]],
-        }, output_file_sfc)
+        }, output_file_sfc_tmp)
 # --------------------------------------------------------------------------------------------------
