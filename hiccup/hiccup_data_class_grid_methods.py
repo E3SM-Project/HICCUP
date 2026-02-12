@@ -1,6 +1,8 @@
 # ------------------------------------------------------------------------------
 # Methods for populating grid information for a hiccup_data object
 # ------------------------------------------------------------------------------
+import re
+import xarray as xr
 def get_src_grid_ne(self):
     """
     Return number of elements of source grid (if starting from model data)
