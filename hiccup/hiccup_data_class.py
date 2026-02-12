@@ -624,13 +624,19 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def check_file_FillValue(self,file_att):
         check_dependency('ncatted')
+    def check_file_FillValue(self,file_att,verbose=None):
+        check_dependency('ncatted')
+        if verbose is None: verbose = self.verbose
         if hasattr(self, file_att):
             file_original_name = getattr(self, file_att)
-            if file_original_name is None:
-                return
             file_modified_name = file_original_name.replace('.nc','.modified.nc')
             # update the _FillValue metadata for all variables
-            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}')
+            run_cmd(
+                f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
+                verbose,
+                prepend_line=False,
+                shell=True,
+            )
             # update the hiccup_data attribute with the modified file name
             setattr(self, file_att, file_modified_name)
     # --------------------------------------------------------------------------
