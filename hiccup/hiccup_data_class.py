@@ -622,6 +622,16 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
+    def check_file_FillValue(self,file_att):
+        check_dependency('ncatted')
+        if hasattr(self, file_att):
+            file_original_name = getattr(self, file_att)
+            file_modified_name = file_original_name.replace('.nc','.modified.nc')
+            # update the _FillValue metadata for all variables
+            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}')
+            # update the hiccup_data attribute with the modified file name
+            setattr(self, file_att, file_modified_name)
+    # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None):
         """  
         Horizontally remap data and combine into single file 
@@ -645,6 +655,11 @@ class hiccup_data(object):
 
         check_dependency('ncremap')
         check_dependency('ncks')
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata and updat the hiccup_data object
+        self.check_file_FillValue('sfc_file')
+        self.check_file_FillValue('atm_file')
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
@@ -686,15 +701,6 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def check_file_FillValue(self,file_att):
-        if hasattr(self, file_att):
-            file_original_name = getattr(self, file_att)
-            file_modified_name = file_original_name.replace('.nc','.modified.nc')
-            # update the _FillValue metadata for all variables
-            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}')
-            # update the hiccup_data attribute with the modified file name
-            setattr(self, file_att, file_modified_name)
-    # --------------------------------------------------------------------------
     def remap_horizontal_multifile(self,file_dict,verbose=None):
         """  
         Horizontally remap data into seperate files for each variable
@@ -714,7 +720,7 @@ class hiccup_data(object):
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
-        # check that input file has valid _FillValue (i.e. not NaN) and if not
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
         # create a copy with modified metadata and updat the hiccup_data object
         self.check_file_FillValue('sfc_file')
         self.check_file_FillValue('atm_file')
@@ -761,6 +767,10 @@ class hiccup_data(object):
         if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
         check_dependency('ncremap')
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata and updat the hiccup_data object
+        self.check_file_FillValue('atm_file')
 
         # Horzontally remap atmosphere and surface data to individual files
         for var,tmp_file_name in file_dict.items():
