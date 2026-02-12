@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from time import perf_counter
-from hiccup.hiccup_data_class import hiccup_sst_nc_format
+from hiccup.hiccup_data_class import xarray_sst_nc_format
 from hiccup.hiccup_data_class import hdr_pad
 from hiccup.hiccup_data_class import ncremap_file_fmt
 from hiccup.hiccup_utilities import check_dependency
@@ -213,7 +213,7 @@ def sstice_slice_and_remap(self,output_file_name,
         if var not in [self.sst_name,self.ice_name] and var not in ds_out.coords : 
             ds_out = ds_out.drop_vars(var)
     # write out to temporary file
-    ds_out.to_netcdf(sstice_tmp_file_name,format=hiccup_sst_nc_format)
+    ds_out.to_netcdf(sstice_tmp_file_name,format=xarray_sst_nc_format)
     ds_out.close()
 
     # Replace nan values with missing_value to avoid remapping issues
@@ -221,7 +221,7 @@ def sstice_slice_and_remap(self,output_file_name,
         missing_value = 1e36
         # ds = xr.open_dataset(sstice_tmp_file_name).load()
         # ds[self.sst_name] = ds[self.sst_name].where( ds[self.sst_name].values != np.nan, missing_value )
-        # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_sst_nc_format)
+        # ds.to_netcdf(sstice_tmp_file_name,format=xarray_sst_nc_format)
         # ds.close()
         cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
         run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True,prepend_line=False)
@@ -232,7 +232,7 @@ def sstice_slice_and_remap(self,output_file_name,
     #     missing_value = 1e36
     #     # ds = xr.open_dataset(sstice_tmp_file_name).load()
     #     # ds.fillna(value=missing_value)
-    #     # ds.to_netcdf(sstice_tmp_file_name,format=hiccup_sst_nc_format)
+    #     # ds.to_netcdf(sstice_tmp_file_name,format=xarray_sst_nc_format)
     #     # ds.close()
     #     cmd = f'ncatted -h -O -a   xxxx,o,f,{missing_value} {sstice_tmp_file_name}'
     #     run_cmd(cmd.replace('xxxx',   f'_FillValue,{self.sst_name}'),verbose,shell=True,prepend_line=False)
@@ -410,7 +410,7 @@ def sstice_adjustments(self, output_file_name, verbose=None):
     ds.to_netcdf(output_file_name
                 ,unlimited_dims=['time'] 
                 ,encoding={'time':{'dtype':'float64'}}
-                ,format=hiccup_sst_nc_format
+                ,format=xarray_sst_nc_format
                 )
     ds.close()
 

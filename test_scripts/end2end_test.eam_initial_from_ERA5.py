@@ -65,11 +65,11 @@ file_dict = hiccup_data.get_multifile_dict(timestamp=999)
 # Make sure files are "unpacked" (may take awhile, so only do it if you need to)
 # hiccup_data.unpack_data_files()
 # ------------------------------------------------------------------------------
-# Create grid description files needed for the mapping file
-hiccup_data.create_src_grid_file()
-hiccup_data.create_dst_grid_file()
-# Create mapping file
-hiccup_data.create_map_file()
+# # Create grid description files needed for the mapping file
+# hiccup_data.create_src_grid_file()
+# hiccup_data.create_dst_grid_file()
+# # Create mapping file
+# hiccup_data.create_map_file()
 # ------------------------------------------------------------------------------
 # Horizontally regrid the data
 hiccup_data.remap_horizontal_multifile(file_dict=file_dict)
