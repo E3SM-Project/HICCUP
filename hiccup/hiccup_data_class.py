@@ -663,7 +663,7 @@ class hiccup_data(object):
         check_dependency('ncks')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and updat the hiccup_data object
+        # create a copy with modified metadata and update the hiccup_data object
         self.check_file_FillValue('sfc_file')
         self.check_file_FillValue('atm_file')
 
@@ -727,7 +727,7 @@ class hiccup_data(object):
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and updat the hiccup_data object
+        # create a copy with modified metadata and update the hiccup_data object
         self.check_file_FillValue('sfc_file')
         self.check_file_FillValue('atm_file')
 
@@ -775,7 +775,7 @@ class hiccup_data(object):
         check_dependency('ncremap')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and updat the hiccup_data object
+        # create a copy with modified metadata and update the hiccup_data object
         self.check_file_FillValue('atm_file')
 
         # Horzontally remap atmosphere and surface data to individual files
