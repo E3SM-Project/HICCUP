@@ -810,7 +810,7 @@ class hiccup_data(object):
         return 
     # --------------------------------------------------------------------------
     def surface_adjustment_multifile(self,file_dict,verbose=None,
-                                    adj_TS=True,adj_PS=True,adj_T_eam=False):
+                                    adj_TS=False,adj_PS=True,adj_T_eam=False):
         """
         Perform surface temperature and pressure adjustments 
         using a multifile xarray dataset
