@@ -32,18 +32,26 @@ print_memory_usage = False
 # see http://nco.sourceforge.net/nco.html#hdr_pad
 hdr_pad = 100000
 
-# override the xarray default netcdf format of 
+# override the xarray default format for each new file created or modified
 # NETCDF4 to avoid file permission issue
 # NETCDF4 / NETCDF4_CLASSIC / NETCDF3_64BIT
-hiccup_sst_nc_format = 'NETCDF3_64BIT'
-hiccup_atm_nc_format = 'NETCDF4'
+xarray_sst_nc_format = 'NETCDF4'
+xarray_atm_nc_format = 'NETCDF4'
 
-# set the ncremap file type 
+# set the ncremap file type for each new file created or modified
 # netcdf4 / netcdf4_classic / 64bit_data / 64bit_offset
-ncremap_file_fmt = '64bit_data'
+ncremap_file_fmt = 'netcdf4'
+
+# this format is used by NCO in combine_files as the final output format
+final_file_fmt = '64bit_data'
 
 # log file for Tempest output
 tempest_log_file = 'TempestRemap.log'
+
+# accept new default to avoid this warning:
+# FutureWarning: In a future version of xarray the default value for compat
+# will change from compat='no_conflicts' to compat='override'
+xr.set_options(use_new_combine_kwarg_defaults=True)
 
 # ------------------------------------------------------------------------------
 # open_mfdataset preprocessing - remove redundant PS variable from datasets
@@ -176,6 +184,13 @@ class hiccup_data(object):
         if self.atm_file is not None: self.ds_atm = xr.open_dataset(self.atm_file)
         if self.sfc_file is not None: self.ds_sfc = xr.open_dataset(self.sfc_file)
     # --------------------------------------------------------------------------
+    # Import grid methods
+    from hiccup.hiccup_data_class_grid_methods import get_src_grid_ne
+    from hiccup.hiccup_data_class_grid_methods import get_src_grid_npg
+    from hiccup.hiccup_data_class_grid_methods import get_dst_grid_ne
+    from hiccup.hiccup_data_class_grid_methods import get_dst_grid_npg
+    from hiccup.hiccup_data_class_grid_methods import get_dst_grid_ncol
+    # --------------------------------------------------------------------------
     # Import SST/sea-ice methods
     from hiccup.hiccup_data_class_sstice_methods import get_sst_file
     from hiccup.hiccup_data_class_sstice_methods import sstice_create_src_grid_file
@@ -240,72 +255,6 @@ class hiccup_data(object):
                     str_out += f'{indent}{key:{fmt_key_len}}:  {attribute}\n'
 
         return str_out
-    # --------------------------------------------------------------------------
-    def get_src_grid_ne(self):
-        """
-        Return number of elements of source grid (if starting from model data)
-        """
-        if hasattr(self, 'src_horz_grid_np'):
-            if self.src_horz_grid_np is None: return
-            result = re.search('ne(.*)np', self.src_horz_grid_np)
-            return result.group(1) if result else 0
-        else:
-            raise AttributeError('src_horz_grid_np attribute not found!')
-    # --------------------------------------------------------------------------
-    def get_src_grid_npg(self):
-        """
-        Return number of FV physgrid cells (npg) of source grid (if starting from model data)
-        """
-        if hasattr(self, 'src_horz_grid_pg'):
-            if self.src_horz_grid_pg is None: return
-            result = re.search('pg(.*)', self.src_horz_grid_pg)
-            return result.group(1) if result else 0
-        else:
-            raise AttributeError('src_horz_grid_pg attribute not found!')
-    # --------------------------------------------------------------------------
-    def get_dst_grid_ne(self):
-        """
-        Return number of elements of target model grid
-        """
-        if hasattr(self, 'dst_horz_grid'):
-            if self.dst_horz_grid is None: return
-            if 'np4' in self.dst_horz_grid:
-                result = re.search('ne(.*)np', self.dst_horz_grid)
-            if 'pg' in self.dst_horz_grid:
-                result = re.search('ne(.*)pg', self.dst_horz_grid)
-            return result.group(1) if result else 0
-        else:
-            raise AttributeError('dst_horz_grid attribute not found!')
-    # --------------------------------------------------------------------------
-    def get_dst_grid_npg(self):
-        """
-        Return number of FV physgrid cells (npg) of target model grid
-        """
-        if hasattr(self, 'dst_horz_grid_pg'):
-            if self.dst_horz_grid_pg is None: return
-            result = re.search('pg(.*)', self.dst_horz_grid_pg)
-            return result.group(1) if result else 0
-        elif hasattr(self, 'dst_horz_grid'):
-            result = re.search('pg(.*)', self.dst_horz_grid)
-            return result.group(1) if result else 0
-        else:
-            raise AttributeError('dst_horz_grid_pg and dst_horz_grid attributes not found!')
-    # --------------------------------------------------------------------------
-    def get_dst_grid_ncol(self):
-        """
-        Return ncol for destination grid
-        """
-        if self.RRM_grid:
-            # use map file to determine ncol
-            if self.map_file is None : raise ValueError('get_dst_grid_ncol: ncol cannot be determined')
-            ds_grid = xr.open_dataset(self.map_file)
-            ncol = int(ds_grid['n_b'].values)
-        else:
-            ne  = int(self.get_dst_grid_ne())
-            npg = int(self.get_dst_grid_npg())
-            if npg==0: ncol = int(ne*ne*6*9+2)
-            if npg>0 : ncol = int(ne*ne*6*npg)
-        return ncol
     # --------------------------------------------------------------------------
     def get_chunks(self,ncol_only=True):
         """
@@ -638,8 +587,9 @@ class hiccup_data(object):
                 # For ERA5 the time dimension changed to "valid_time" after CDS upgrade
                 # changing this within rename_vars_special doesn't work for some reason, so just do it here
                 if 'valid_time' in ds.dims : ds = ds.rename({'valid_time':'time'})
-            ds.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
-            ds.close()
+                ds.to_netcdf(f'{file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds.close()
+            run_cmd(f'mv {file_name}.hiccup_tmp {file_name}',verbose)
 
         # Reset the level variable name 
         if new_lev_name is not None: self.lev_name = new_lev_name
@@ -672,6 +622,19 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
+    def check_file_FillValue(self,file_att,verbose=None):
+        check_dependency('ncatted')
+        if verbose is None: verbose = self.verbose
+        if hasattr(self, file_att):
+            file_original_name = getattr(self, file_att)
+            if file_original_name is None: return
+            file_modified_name = file_original_name.replace('.nc','.modified.nc')
+            # update the _FillValue metadata for all variables
+            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
+                    verbose, prepend_line=False, shell=True,)
+            # update the hiccup_data attribute with the modified file name
+            setattr(self, file_att, file_modified_name)
+    # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None):
         """  
         Horizontally remap data and combine into single file 
@@ -695,6 +658,11 @@ class hiccup_data(object):
 
         check_dependency('ncremap')
         check_dependency('ncks')
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata and update the hiccup_data object
+        self.check_file_FillValue('sfc_file')
+        self.check_file_FillValue('atm_file')
 
         # Horzontally remap atmosphere data
         var_list = ','.join(self.atm_var_name_dict.values())
@@ -755,6 +723,11 @@ class hiccup_data(object):
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata and update the hiccup_data object
+        self.check_file_FillValue('sfc_file')
+        self.check_file_FillValue('atm_file')
+
         # Horzontally remap atmosphere and surface data to individual files
         for var,tmp_file_name in file_dict.items():
             if var in self.sfc_var_name_dict.keys(): 
@@ -774,7 +747,6 @@ class hiccup_data(object):
             cmd += f' --map_file={self.map_file}'
             cmd += f' --in_file={in_file}'
             cmd += f' --out_file={tmp_file_name}'
-            # cmd += f' --var_lst={in_var},{lat_var},{lon_var}'
             cmd += f' --var_lst={in_var_list}'
             cmd += f' --fl_fmt={ncremap_file_fmt}'
             run_cmd(cmd,verbose,shell=True)
@@ -798,6 +770,10 @@ class hiccup_data(object):
         if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
 
         check_dependency('ncremap')
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata and update the hiccup_data object
+        self.check_file_FillValue('atm_file')
 
         # Horzontally remap atmosphere and surface data to individual files
         for var,tmp_file_name in file_dict.items():
@@ -825,8 +801,9 @@ class hiccup_data(object):
                 if 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
                 if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
                 if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
-            ds.to_netcdf(tmp_file_name,format=hiccup_atm_nc_format,mode='w')
-            ds.close()
+                ds.to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
@@ -884,13 +861,15 @@ class hiccup_data(object):
         # Adjust surface temperature to match new surface height
         if adj_TS:
             if self.do_timers: timer_start_adj = perf_counter()
+            tmp_file_name = file_dict[var_dict['TS']]
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 ds_data = hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose,
                                                           verbose_indent=self.verbose_indent )
-            ds_data = ds_data.rename(var_dict)
-            ds_data[var_dict['TS']].to_netcdf(file_dict[var_dict['TS']],format=hiccup_atm_nc_format,mode='a')
-            ds_data.close()
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['TS']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature')
             if print_memory_usage: self.print_mem_usage(msg='after adj_TS')
 
@@ -899,6 +878,7 @@ class hiccup_data(object):
         # Adjust surface pressure to match new surface height
         if adj_PS:
             if self.do_timers: timer_start_adj = perf_counter()
+            tmp_file_name = file_dict[var_dict['PS']]
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
@@ -906,9 +886,10 @@ class hiccup_data(object):
                 ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
                                                        lev_coord_name=self.lev_name, hybrid_lev=self.src_hybrid_lev,
                                                        verbose=verbose, verbose_indent=self.verbose_indent )
-            ds_data = ds_data.rename(var_dict)
-            ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=hiccup_atm_nc_format,mode='a')
-            ds_data.close()
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['PS']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure')
             if print_memory_usage: self.print_mem_usage(msg='after adj_PS')
 
@@ -918,6 +899,7 @@ class hiccup_data(object):
             if self.target_model=='EAM'  : var_dict = {'T':'T',    'PS':'PS'}
             if self.target_model=='EAMXX': var_dict = {'T':'T_mid','PS':'ps'}
             file_list = get_adj_file_list(var_dict.values(),file_dict)
+            tmp_file_name = file_dict[var_dict['T']]
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
@@ -928,9 +910,10 @@ class hiccup_data(object):
                 print()
                 print_stat((ds_data['T']-da_old),name='T diff from interpolation')
                 print()
-            ds_data = ds_data.rename(var_dict)
-            ds_data[var_dict['T']].to_netcdf(file_dict[var_dict['T']],format=hiccup_atm_nc_format,mode='a')
-            ds_data.close()
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['T']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             run_cmd(self.verbose_indent+f'rm {ps_old_file}',verbose,shell=True)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_temperature_eam')
             if print_memory_usage: self.print_mem_usage(msg='after adj_T_eam')
@@ -1072,9 +1055,10 @@ class hiccup_data(object):
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
             tmp_file_name = file_dict[var_dict['Q']]
-            ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=hiccup_atm_nc_format,mode='a')
+            ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
             ds_data.close()
-            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+        run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
@@ -1100,8 +1084,10 @@ class hiccup_data(object):
             ds_data = ds_data.rename(var_dict)
             for var in var_dict.values():
                 if var in self.atm_var_name_dict.keys():
-                    ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
+                    ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
             ds_data.close()
+        for var in var_dict.values():
+            run_cmd(f'mv {file_dict[var]}.hiccup_tmp {file_dict[var]}',verbose)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
@@ -1136,12 +1122,13 @@ class hiccup_data(object):
                 if self.do_timers: timer_start_adj = perf_counter()
                 if self.target_model=='EAM'  : O3_name = 'O3'
                 if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
-                ds_data = xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks())
-                # Convert mass mixing ratio to molecular/volume mixing ratio
-                ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
-                ds_data[O3_name].attrs['units'] = 'mol/mol'
-                ds_data.to_netcdf(file_dict[O3_name],format=hiccup_atm_nc_format,mode='a')
-                ds_data.close()
+                with xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                    # Convert mass mixing ratio to molecular/volume mixing ratio
+                    ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
+                    ds_data[O3_name].attrs['units'] = 'mol/mol'
+                    ds_data.to_netcdf(f'{file_dict[O3_name]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                    ds_data.close()
+                run_cmd(f'mv {file_dict[O3_name]}.hiccup_tmp {file_dict[O3_name]}',verbose)
                 if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
@@ -1170,13 +1157,14 @@ class hiccup_data(object):
             ds_data = hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed,
                                                       verbose=False, verbose_indent=self.verbose_indent )
             ds_data.compute()
-
-        # Write perturbed data back to the individual data files
+            # Write perturbed data back to the individual data files
+            for var in var_list:
+                if var in self.atm_var_name_dict.keys():
+                    ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            ds_data.close()
         for var in var_list:
-            if var in self.atm_var_name_dict.keys():
-                ds_data[var].to_netcdf(file_dict[var],format=hiccup_atm_nc_format,mode='a')
+            run_cmd(f'mv {file_dict[var]}.hiccup_tmp {file_dict[var]}',verbose)
 
-        ds_data.close()
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
@@ -1298,8 +1286,9 @@ class hiccup_data(object):
             with xr.open_dataset(file_name) as ds_data:
                 ds_data.load()
                 self.add_time_date_variables(ds_data,verbose=False,do_timers=False)
-            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w',encoding=time_encoding_dict)
-            ds_data.close()
+                ds_data.to_netcdf(f'{file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w',encoding=time_encoding_dict)
+                ds_data.close()
+            run_cmd(f'mv {file_name}.hiccup_tmp {file_name}',verbose)
             # run_cmd(f'ncdump {file_name} -v time | tail | grep "time =" ',verbose,shell=True)
             # run_cmd(f'ncdump {file_name} -h | grep "time:units" ',verbose,shell=True)
         if self.do_timers: self.print_timer(timer_start)
@@ -1340,9 +1329,9 @@ class hiccup_data(object):
                 # ds_data['time'].attrs['calendar'] = 'noleap'
                 # ds_data['time'].attrs['bounds'] = 'time_bnds'
                 # ds_data['time_bnds'].attrs['long_name'] = 'time interval endpoints'
-
-            ds_data.to_netcdf(file_name,format=hiccup_atm_nc_format,mode='w')
-            ds_data.close()
+                ds_data.to_netcdf(f'{file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds_data.close()
+            run_cmd(f'mv {file_name}.hiccup_tmp {file_name}',verbose)
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
@@ -1496,7 +1485,11 @@ class hiccup_data(object):
             
 
         # make sure time dimension is "unlimited"
-        cmd = f'ncks -O --fl_fmt={ncremap_file_fmt}'
+        cmd = f'ncks -O'
+        if final_file_fmt is not None:
+            cmd += f' --fl_fmt={final_file_fmt}'
+        else:
+            cmd += f' --fl_fmt={ncremap_file_fmt}'
         cmd+= f' --mk_rec_dmn time'
         cmd+= f' {output_file_name} {output_file_name} '
         run_cmd(cmd,verbose,prepend_line=False)
