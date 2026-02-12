@@ -626,6 +626,8 @@ class hiccup_data(object):
         check_dependency('ncatted')
         if hasattr(self, file_att):
             file_original_name = getattr(self, file_att)
+            if file_original_name is None:
+                return
             file_modified_name = file_original_name.replace('.nc','.modified.nc')
             # update the _FillValue metadata for all variables
             run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}')
