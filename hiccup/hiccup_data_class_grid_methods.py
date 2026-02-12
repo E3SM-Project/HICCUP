@@ -58,8 +58,8 @@ def get_dst_grid_ncol(self):
     if self.RRM_grid:
         # use map file to determine ncol
         if self.map_file is None : raise ValueError('get_dst_grid_ncol: ncol cannot be determined')
-        ds_grid = xr.open_dataset(self.map_file)
-        ncol = int(ds_grid['n_b'].values)
+        with xr.open_dataset(self.map_file) as ds_grid:
+            ncol = int(ds_grid['n_b'].values)
     else:
         ne  = int(self.get_dst_grid_ne())
         npg = int(self.get_dst_grid_npg())
