@@ -587,8 +587,9 @@ class hiccup_data(object):
                 # For ERA5 the time dimension changed to "valid_time" after CDS upgrade
                 # changing this within rename_vars_special doesn't work for some reason, so just do it here
                 if 'valid_time' in ds.dims : ds = ds.rename({'valid_time':'time'})
-            ds.to_netcdf(file_name,format=xarray_atm_nc_format,mode='w')
-            ds.close()
+                ds.to_netcdf(f'{file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds.close()
+            run_cmd(f'mv {file_name}.hiccup_tmp {file_name}',verbose)
 
         # Reset the level variable name 
         if new_lev_name is not None: self.lev_name = new_lev_name
@@ -787,8 +788,9 @@ class hiccup_data(object):
                 if 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
                 if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
                 if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
-            ds.to_netcdf(tmp_file_name,format=xarray_atm_nc_format,mode='w')
-            ds.close()
+                ds.to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
@@ -846,13 +848,15 @@ class hiccup_data(object):
         # Adjust surface temperature to match new surface height
         if adj_TS:
             if self.do_timers: timer_start_adj = perf_counter()
+            tmp_file_name = file_dict[var_dict['TS']]
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
                 ds_data = hsa.adjust_surface_temperature( ds_data, ds_topo, verbose=verbose,
                                                           verbose_indent=self.verbose_indent )
-            ds_data = ds_data.rename(var_dict)
-            ds_data[var_dict['TS']].to_netcdf(file_dict[var_dict['TS']],format=xarray_atm_nc_format,mode='a')
-            ds_data.close()
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['TS']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_temperature')
             if print_memory_usage: self.print_mem_usage(msg='after adj_TS')
 
@@ -861,6 +865,7 @@ class hiccup_data(object):
         # Adjust surface pressure to match new surface height
         if adj_PS:
             if self.do_timers: timer_start_adj = perf_counter()
+            tmp_file_name = file_dict[var_dict['PS']]
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
@@ -868,9 +873,10 @@ class hiccup_data(object):
                 ds_data = hsa.adjust_surface_pressure( ds_data, ds_topo, pressure_var_name=self.lev_name,
                                                        lev_coord_name=self.lev_name, hybrid_lev=self.src_hybrid_lev,
                                                        verbose=verbose, verbose_indent=self.verbose_indent )
-            ds_data = ds_data.rename(var_dict)
-            ds_data[var_dict['PS']].to_netcdf(file_dict[var_dict['PS']],format=xarray_atm_nc_format,mode='a')
-            ds_data.close()
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['PS']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_surface_pressure')
             if print_memory_usage: self.print_mem_usage(msg='after adj_PS')
 
@@ -880,6 +886,7 @@ class hiccup_data(object):
             if self.target_model=='EAM'  : var_dict = {'T':'T',    'PS':'PS'}
             if self.target_model=='EAMXX': var_dict = {'T':'T_mid','PS':'ps'}
             file_list = get_adj_file_list(var_dict.values(),file_dict)
+            tmp_file_name = file_dict[var_dict['T']]
             with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks(),
                                    preprocess=partial_drop_ps) as ds_data:
                 ds_data = ds_data.rename(dict((val,key) for key,val in var_dict.items()))
@@ -890,9 +897,10 @@ class hiccup_data(object):
                 print()
                 print_stat((ds_data['T']-da_old),name='T diff from interpolation')
                 print()
-            ds_data = ds_data.rename(var_dict)
-            ds_data[var_dict['T']].to_netcdf(file_dict[var_dict['T']],format=xarray_atm_nc_format,mode='a')
-            ds_data.close()
+                ds_data = ds_data.rename(var_dict)
+                ds_data[var_dict['T']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
             run_cmd(self.verbose_indent+f'rm {ps_old_file}',verbose,shell=True)
             if self.do_timers: self.print_timer(timer_start_adj,caller='adjust_temperature_eam')
             if print_memory_usage: self.print_mem_usage(msg='after adj_T_eam')
@@ -1135,13 +1143,14 @@ class hiccup_data(object):
             ds_data = hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed,
                                                       verbose=False, verbose_indent=self.verbose_indent )
             ds_data.compute()
-
-        # Write perturbed data back to the individual data files
+            # Write perturbed data back to the individual data files
+            for var in var_list:
+                if var in self.atm_var_name_dict.keys():
+                    ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            ds_data.close()
         for var in var_list:
-            if var in self.atm_var_name_dict.keys():
-                ds_data[var].to_netcdf(file_dict[var],format=xarray_atm_nc_format,mode='a')
+            run_cmd(f'mv {file_dict[var]}.hiccup_tmp {file_dict[var]}',verbose)
 
-        ds_data.close()
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
@@ -1263,8 +1272,9 @@ class hiccup_data(object):
             with xr.open_dataset(file_name) as ds_data:
                 ds_data.load()
                 self.add_time_date_variables(ds_data,verbose=False,do_timers=False)
-            ds_data.to_netcdf(file_name,format=xarray_atm_nc_format,mode='w',encoding=time_encoding_dict)
-            ds_data.close()
+                ds_data.to_netcdf(f'{file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w',encoding=time_encoding_dict)
+                ds_data.close()
+            run_cmd(f'mv {file_name}.hiccup_tmp {file_name}',verbose)
             # run_cmd(f'ncdump {file_name} -v time | tail | grep "time =" ',verbose,shell=True)
             # run_cmd(f'ncdump {file_name} -h | grep "time:units" ',verbose,shell=True)
         if self.do_timers: self.print_timer(timer_start)
@@ -1305,9 +1315,9 @@ class hiccup_data(object):
                 # ds_data['time'].attrs['calendar'] = 'noleap'
                 # ds_data['time'].attrs['bounds'] = 'time_bnds'
                 # ds_data['time_bnds'].attrs['long_name'] = 'time interval endpoints'
-
-            ds_data.to_netcdf(file_name,format=xarray_atm_nc_format,mode='w')
-            ds_data.close()
+                ds_data.to_netcdf(f'{file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds_data.close()
+            run_cmd(f'mv {file_name}.hiccup_tmp {file_name}',verbose)
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
