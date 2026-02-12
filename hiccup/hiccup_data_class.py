@@ -622,23 +622,16 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def check_file_FillValue(self,file_att):
-        check_dependency('ncatted')
     def check_file_FillValue(self,file_att,verbose=None):
         check_dependency('ncatted')
         if verbose is None: verbose = self.verbose
         if hasattr(self, file_att):
             file_original_name = getattr(self, file_att)
-            if file_original_name is None:
-                return
+            if file_original_name is None: return
             file_modified_name = file_original_name.replace('.nc','.modified.nc')
             # update the _FillValue metadata for all variables
-            run_cmd(
-                f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
-                verbose,
-                prepend_line=False,
-                shell=True,
-            )
+            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
+                    verbose, prepend_line=False, shell=True,)
             # update the hiccup_data attribute with the modified file name
             setattr(self, file_att, file_modified_name)
     # --------------------------------------------------------------------------
@@ -1063,6 +1056,7 @@ class hiccup_data(object):
             ds_data = ds_data.rename(var_dict)
             tmp_file_name = file_dict[var_dict['Q']]
             ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            ds_data.close()
         run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
 
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
