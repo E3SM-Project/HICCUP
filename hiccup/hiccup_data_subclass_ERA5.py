@@ -1,7 +1,4 @@
-import os
-import numpy as np
-import xarray as xr
-from time import perf_counter
+from hiccup.hiccup_data_class_common import *
 from hiccup.hiccup_data_class import hiccup_data
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
