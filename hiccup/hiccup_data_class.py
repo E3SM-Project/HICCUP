@@ -17,7 +17,7 @@ from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ex
 from hiccup.hiccup_data_class_timer_methods import print_timer_summary as print_timer_summary_ext
 from hiccup.hiccup_data_class_memory_methods import print_mem_usage as print_mem_usage_ext
 # ------------------------------------------------------------------------------
-from hiccup.hiccup_constants import *
+from hiccup.hiccup_constants import MW_dryair, MW_ozone
 # ------------------------------------------------------------------------------
 enable_chunks = True
 ncol_chunk_size = 'auto'
