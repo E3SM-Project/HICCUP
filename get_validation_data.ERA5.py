@@ -26,6 +26,8 @@ parser.add_option('--start-hour',  dest='start_hour',  default='00',  help='UTC 
 parser.add_option('--final-hour',  dest='final_hour',  default=None,  help='UTC hour of last file (default=00Z)')
 parser.add_option('--data-freq',   dest='data_freq',   default='3h',  help='frequency of data files (default=3h)')
 parser.add_option('--output-root', dest='output_root', default='./',  help='Output path for data files (default is PWD)')
+parser.add_option('--all-plev',    dest='all_plev', action='store_true', default=False,  help='Switch to request a larger list of pressure levels')
+
 (opts, args) = parser.parse_args()
 #---------------------------------------------------------------------------------------------------
 # check that input arguments are valid
@@ -73,7 +75,7 @@ lev_all = [   '1',  '2',  '3',  '5',  '7', '10', '20', '30', '50', '70','100','1
 # --------------------------------------------------------------------------------------------------
 # build list of variables
 
-if True:
+if opts.all_plev:
     add_var('prs','Z','geopotential',        lev=lev_all)
     add_var('prs','T','temperature',         lev=lev_all)
     add_var('prs','Q','specific_humidity',   lev=lev_all)
