@@ -620,6 +620,8 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def check_file_FillValue(self,file_att,verbose=None):
+        check_dependency('ncdump')
+        check_dependency('grep')
         check_dependency('ncatted')
         if verbose is None: verbose = self.verbose
         if hasattr(self, file_att):
