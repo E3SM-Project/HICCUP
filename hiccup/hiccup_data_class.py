@@ -442,8 +442,8 @@ class hiccup_data(object):
         # define file list to be returned
         tmp_file_dict = {}
 
-        if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
-        if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
+        lat_var = self.atm_var_name_dict['lat'] if 'lat' in self.atm_var_name_dict else None
+        lon_var = self.atm_var_name_dict['lon'] if 'lon' in self.atm_var_name_dict else None
 
         var_dict_all = self.atm_var_name_dict.copy()
         var_dict_all.update(self.sfc_var_name_dict)
@@ -1426,10 +1426,12 @@ class hiccup_data(object):
             if self.target_model=='EAMXX-nudging':
                 ds_out['p_mid'] = ( ds_out['PS']*ds_out['hybm'] + 1e5*ds_out['hyam'] ).astype(ds_out['U'].dtype)
 
+            # as of Nov 2025 we cannot use "ncol_d" as a dimension - so change it to "ncol"
+            if self.target_model=='EAMXX':
+                if 'ncol_d' in ds_out.dims:
+                    ds_out = ds_out.rename_dims({'ncol_d':'ncol'})
+
             if permute_dimensions:
-                if 'ncol' in permute_dim_list and 'ncol_d' in ds_out.dims:
-                    for d,dim in enumerate(permute_dim_list):
-                        if dim=='ncol': permute_dim_list[d] = 'ncol_d'
                 ds_out = ds_out.transpose(permute_dim_list[0],
                                           permute_dim_list[1],
                                           permute_dim_list[2],
