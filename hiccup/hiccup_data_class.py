@@ -4,7 +4,7 @@
 # NOTE: Variable name dictionaries are defined with the key as the model's 
 # variable name and the value as the reanalysis data variable name
 # ------------------------------------------------------------------------------
-from hiccup.hiccup_data_class_common import __all__
+from hiccup.hiccup_data_class_common import *
 # ------------------------------------------------------------------------------
 import hiccup.hiccup_state_adjustment as hsa
 from hiccup.hiccup_utilities import check_dependency
@@ -628,10 +628,10 @@ class hiccup_data(object):
             file_original_name = getattr(self, file_att)
             if file_original_name is None: return
             # Check if any variable has NaN as _FillValue
-            cmd = f'ncdump -h {file_original_name} | grep "_FillValue = NaN"'
-            result = sp.run(cmd,shell=True, capture_output=True, text=True)
-            # Only modify if NaN _FillValue is found (grep returns 0 if match found)
-            if result.returncode == 0:
+            result = sp.run(f'ncdump -h {file_original_name}',
+                            shell=True, capture_output=True, check=True, text=True)
+            # Only modify if NaN _FillValue is found
+            if "_FillValue = NaN" in result.stdout:
                 file_modified_name = file_original_name.replace('.nc','.modified.nc')
                 if verbose:
                     msg  = f'{tcolor.RED}input file contains NaN _FillValue{tcolor.ENDC} =>  {file_original_name}\n'
