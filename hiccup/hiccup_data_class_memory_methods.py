@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 # Methods for monitoring memory usage
 # ------------------------------------------------------------------------------
-from hiccup.hiccup_data_class_common import *
+from hiccup.hiccup_data_class_common import __all__
 from hiccup.hiccup_utilities import tcolor
 # ------------------------------------------------------------------------------
 def get_mem_usage():

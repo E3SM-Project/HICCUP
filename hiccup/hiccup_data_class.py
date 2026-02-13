@@ -4,7 +4,7 @@
 # NOTE: Variable name dictionaries are defined with the key as the model's 
 # variable name and the value as the reanalysis data variable name
 # ------------------------------------------------------------------------------
-from hiccup.hiccup_data_class_common import *
+from hiccup.hiccup_data_class_common import __all__
 # ------------------------------------------------------------------------------
 import hiccup.hiccup_state_adjustment as hsa
 from hiccup.hiccup_utilities import check_dependency
