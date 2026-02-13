@@ -1,4 +1,4 @@
-from hiccup.hiccup_data_class_common import __all__
+from hiccup.hiccup_data_class_common import *
 from hiccup.hiccup_data_class import hiccup_data
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd

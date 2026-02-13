@@ -1,4 +1,4 @@
-from hiccup.hiccup_data_class_common import __all__
+from hiccup.hiccup_data_class_common import *
 from hiccup.hiccup_data_class import xarray_sst_nc_format
 from hiccup.hiccup_data_class import hdr_pad
 from hiccup.hiccup_data_class import ncremap_file_fmt

@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 # Methods for populating grid information for a hiccup_data object
 # ------------------------------------------------------------------------------
-from hiccup.hiccup_data_class_common import __all__
+from hiccup.hiccup_data_class_common import *
 # ------------------------------------------------------------------------------
 def get_src_grid_ne(self):
     """
