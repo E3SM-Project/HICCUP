@@ -4,9 +4,7 @@
 # NOTE: Variable name dictionaries are defined with the key as the model's 
 # variable name and the value as the reanalysis data variable name
 # ------------------------------------------------------------------------------
-import os, re, sys, datetime, numpy as np, xarray as xr, pandas as pd
-from time import perf_counter
-from functools import partial
+from hiccup.hiccup_data_class_common import *
 # ------------------------------------------------------------------------------
 import hiccup.hiccup_state_adjustment as hsa
 from hiccup.hiccup_utilities import check_dependency
@@ -19,8 +17,7 @@ from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ex
 from hiccup.hiccup_data_class_timer_methods import print_timer_summary as print_timer_summary_ext
 from hiccup.hiccup_data_class_memory_methods import print_mem_usage as print_mem_usage_ext
 # ------------------------------------------------------------------------------
-from hiccup.hiccup_constants import MW_dryair
-from hiccup.hiccup_constants import MW_ozone
+from hiccup.hiccup_constants import *
 # ------------------------------------------------------------------------------
 enable_chunks = True
 ncol_chunk_size = 'auto'
@@ -628,12 +625,22 @@ class hiccup_data(object):
         if hasattr(self, file_att):
             file_original_name = getattr(self, file_att)
             if file_original_name is None: return
-            file_modified_name = file_original_name.replace('.nc','.modified.nc')
-            # update the _FillValue metadata for all variables
-            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
-                    verbose, prepend_line=False, shell=True,)
-            # update the hiccup_data attribute with the modified file name
-            setattr(self, file_att, file_modified_name)
+            # Check if any variable has NaN as _FillValue
+            cmd = f'ncdump -h {file_original_name} | grep "_FillValue = NaN"'
+            result = sp.run(cmd,shell=True, capture_output=True, text=True)
+            # Only modify if NaN _FillValue is found (grep returns 0 if match found)
+            if result.returncode == 0:
+                file_modified_name = file_original_name.replace('.nc','.modified.nc')
+                if verbose:
+                    msg  = f'{tcolor.RED}input file contains NaN _FillValue{tcolor.ENDC} =>  {file_original_name}\n'
+                    msg += f'{tcolor.RED}a modified version will be created{tcolor.ENDC} =>  {file_modified_name}'
+                    print(f'\n{self.verbose_indent}{msg}')
+                # update the _FillValue metadata for all variables
+                run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
+                        verbose, prepend_line=False, shell=True,)
+                # update the hiccup_data attribute with the modified file name
+                setattr(self, file_att, file_modified_name)
+            return
     # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None):
         """  

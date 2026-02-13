@@ -1,8 +1,7 @@
 # ------------------------------------------------------------------------------
 # Methods for populating grid information for a hiccup_data object
 # ------------------------------------------------------------------------------
-import re
-import xarray as xr
+from hiccup.hiccup_data_class_common import *
 # ------------------------------------------------------------------------------
 def get_src_grid_ne(self):
     """

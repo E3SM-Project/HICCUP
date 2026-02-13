@@ -1,5 +1,4 @@
-import sys
-from time import perf_counter
+from hiccup.hiccup_data_class_common import *
 from hiccup.hiccup_utilities import tcolor
 timer_start_total = None
 timer_msg_all = []
