@@ -15,8 +15,9 @@ import pandas as pd
 from time import perf_counter
 from functools import partial
 
-# Explicitly define what gets imported with 'from hiccup_data_class_common import *'
-# to prevent namespace pollution and make it clear which symbols are available.
+# Explicitly define what gets imported with
+# 'from hiccup.hiccup_data_class_common import *' to prevent namespace
+# pollution and make it clear which symbols are available.
 __all__ = [
     'os',
     're',
