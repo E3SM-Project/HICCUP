@@ -631,11 +631,12 @@ class hiccup_data(object):
             result = sp.run(f'ncdump -h {file_original_name}',
                             shell=True, capture_output=True, check=True, text=True)
             # Only modify if NaN _FillValue is found
-            if "_FillValue = NaN" in result.stdout:
+            if '_FillValue = NaN' in result.stdout:
                 file_modified_name = file_original_name.replace('.nc','.modified.nc')
                 if verbose:
-                    msg  = f'{tcolor.RED}input file contains NaN _FillValue{tcolor.ENDC} =>  {file_original_name}\n'
-                    msg += f'{tcolor.RED}a modified version will be created{tcolor.ENDC} =>  {file_modified_name}'
+                    msg  = f'{tcolor.RED}input file contains NaN _FillValue, a modified version will be created{tcolor.ENDC}\n'
+                    msg += f'  original =>  {file_original_name}\n'
+                    msg += f'  modified =>  {file_modified_name}\n'
                     print(f'\n{self.verbose_indent}{msg}')
                 # update the _FillValue metadata for all variables
                 run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
