@@ -403,13 +403,13 @@ def sstice_adjustments(self, output_file_name, verbose=None):
     ds['lon'].attrs = {'long_name':'longitude','units':'degrees_east'}
 
     # Write back to final file
-    ds.to_netcdf(output_file_name
-                ,unlimited_dims=['time'] 
-                ,encoding={'time':{'dtype':'float64'}}
-                ,format=xarray_sst_nc_format
-                )
+    ds.to_netcdf(f'{output_file_name}.hiccup_tmp',
+                 unlimited_dims=['time'], encoding={'time':{'dtype':'float64'}},
+                 format=xarray_sst_nc_format, mode='w')
     ds.close()
+    run_cmd(f'mv {output_file_name}.hiccup_tmp {output_file_name}',verbose)
 
+    # Edit attributes
     run_cmd(f'ncatted --hst -a calendar,time,m,c,\'365_day\' {output_file_name}',
             verbose,prepend_line=False,shell=True)
 
