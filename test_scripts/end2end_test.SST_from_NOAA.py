@@ -49,12 +49,17 @@ file_dict = hiccup_data.get_multifile_dict(timestamp=999)
 # ------------------------------------------------------------------------------
 # create grid and mapping files
 overwrite = False
+
 hiccup_data.sstice_create_src_grid_file(force_overwrite=overwrite)
 hiccup_data.sstice_create_dst_grid_file(force_overwrite=overwrite)
 hiccup_data.sstice_create_map_file(force_overwrite=overwrite)
+
 # Remap the sst/ice data after time slicing and combining (if necessary)
-hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,
-                                   time_slice_method='initial')
+hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,time_slice_method='initial')
+
+# Repeat the remapping with "use_all" to issues with this option
+hiccup_data.sstice_slice_and_remap(output_file_name=output_sst_file_name,time_slice_method='use_all')
+
 # Rename the variables and remove unnecessary variables and attributes
 hiccup_data.sstice_rename_vars(output_file_name=output_sst_file_name)
 # Adjust final SST/ice data to fill in missing values and limit ice fraction
