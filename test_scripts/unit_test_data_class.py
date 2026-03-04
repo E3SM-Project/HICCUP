@@ -2,9 +2,10 @@
 #===================================================================================================
 # Unit testing for hiccup_data_class module
 #===================================================================================================
-import unittest, numpy as np, xarray as xr
+import unittest, numpy as np, xarray as xr, pandas as pd
 from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer
+from hiccup.hiccup_utilities import compare_version, parse_version
 from hiccup import hiccup
 
 verbose_default = False # local verbosity default
@@ -22,9 +23,13 @@ class hiccup_data_class_test_case(unittest.TestCase):
     self.hiccup_data_NOAA = hiccup.create_hiccup_data( src_data_name='NOAA',
                                                        sst_file='test_data/HICCUP_TEST.NOAA.sst.nc',
                                                        ice_file='test_data/HICCUP_TEST.NOAA.ice.nc')
+    self.hiccup_data_CAMS = hiccup.create_hiccup_data( src_data_name='CAMS',
+                                                       atm_file='test_data/HICCUP_TEST.CAMS.atm.low-res.nc',
+                                                       sfc_file='test_data/HICCUP_TEST.CAMS.sfc.low-res.nc')
     self.obj_list = []
     self.obj_list.append(self.hiccup_data_ERA5)
     self.obj_list.append(self.hiccup_data_NOAA)
+    self.obj_list.append(self.hiccup_data_CAMS)
   # ----------------------------------------------------------------------------
   def test_hiccup_data_class_print(self):
     """ 
@@ -111,6 +116,135 @@ class hiccup_data_class_test_case(unittest.TestCase):
       if num_vars>0: num_vars = num_vars-2 # subtract 2 for lat/lon coords
       self.assertTrue(len(file_dict)==num_vars)
     print_timer(timer_start,caller='test_hiccup_data_class_get_multifile_dict')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_get_dst_grid_ne(self):
+    """
+    test that get_dst_grid_ne correctly parses ne value from grid name strings
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    for grid_name, expected_ne in [('ne30np4','30'), ('ne120np4','120'), ('ne30pg2','30'), ('ne256pg2','256')]:
+      obj.dst_horz_grid = grid_name
+      self.assertEqual(obj.get_dst_grid_ne(), expected_ne,
+                       msg=f'get_dst_grid_ne failed for dst_horz_grid={grid_name!r}')
+    print_timer(timer_start,caller='test_hiccup_data_class_get_dst_grid_ne')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_get_dst_grid_npg(self):
+    """
+    test that get_dst_grid_npg correctly parses npg value from grid name strings
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    # When dst_horz_grid_pg is explicitly set, it should take precedence
+    for pg_str, expected_npg in [('pg2','2'), ('pg3','3')]:
+      obj.dst_horz_grid_pg = pg_str
+      self.assertEqual(obj.get_dst_grid_npg(), expected_npg,
+                       msg=f'get_dst_grid_npg failed for dst_horz_grid_pg={pg_str!r}')
+    # When dst_horz_grid_pg is absent, fall back to dst_horz_grid parsing
+    del obj.dst_horz_grid_pg
+    obj.dst_horz_grid = 'ne30pg2'
+    self.assertEqual(obj.get_dst_grid_npg(), '2')
+    obj.dst_horz_grid = 'ne30np4'
+    self.assertEqual(obj.get_dst_grid_npg(), 0)  # no 'pg' in string -> returns 0
+    print_timer(timer_start,caller='test_hiccup_data_class_get_dst_grid_npg')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_get_dst_grid_ncol(self):
+    """
+    test that get_dst_grid_ncol returns correct column count for np4 and pg grids
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    del obj.dst_horz_grid_pg  # use dst_horz_grid as fallback for npg parsing
+    # np4 grid: ncol = ne^2 * 6 * 9 + 2
+    obj.dst_horz_grid = 'ne30np4'
+    self.assertEqual(obj.get_dst_grid_ncol(), 30*30*6*9+2)
+    # pg2 grid: ncol = ne^2 * 6 * npg
+    obj.dst_horz_grid = 'ne30pg2'
+    self.assertEqual(obj.get_dst_grid_ncol(), 30*30*6*2)
+    print_timer(timer_start,caller='test_hiccup_data_class_get_dst_grid_ncol')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_get_chunks(self):
+    """
+    test that get_chunks returns a dict with the expected dimension keys
+    """
+    timer_start = perf_counter()
+    chunks_ncol = self.hiccup_data_ERA5.get_chunks(ncol_only=True)
+    self.assertIsInstance(chunks_ncol, dict)
+    self.assertIn('ncol', chunks_ncol)
+    chunks_all = self.hiccup_data_ERA5.get_chunks(ncol_only=False)
+    self.assertIsInstance(chunks_all, dict)
+    self.assertIn('ncol', chunks_all)
+    self.assertIn('lev', chunks_all)
+    print_timer(timer_start,caller='test_hiccup_data_class_get_chunks')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_check_file_vars_missing(self):
+    """
+    test that check_file_vars_impl raises ValueError when a required variable is absent
+    """
+    timer_start = perf_counter()
+    ds = xr.Dataset({'existing_var': xr.DataArray([1, 2, 3])})
+    var_name_dict = {'MODEL_VAR': 'missing_src_var'}
+    self.assertRaises(ValueError, self.hiccup_data_ERA5.check_file_vars_impl,
+                      ds, var_name_dict, 'fake_file.nc')
+    print_timer(timer_start,caller='test_hiccup_data_class_check_file_vars_missing')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_add_time_date_variables(self):
+    """
+    test that add_time_date_variables adds the expected time/date variables
+    """
+    timer_start = perf_counter()
+    time_values = pd.date_range('2020-06-15 12:00', periods=1)
+    ds = xr.Dataset({'T': xr.DataArray(np.zeros((1,4)), dims=['time','ncol'])},
+                    coords={'time': time_values})
+    self.hiccup_data_ERA5.add_time_date_variables(ds)
+    expected_vars = ['date','datesec','ndcur','nscur','nsteph',
+                     'nbdate','ndbase','nsbase','nbsec','time_bnds']
+    for var in expected_vars:
+      self.assertIn(var, ds.variables, msg=f'{var!r} not found in dataset after add_time_date_variables')
+    # date should encode YYYYMMDD
+    self.assertEqual(int(ds['date'].values[0]), 20200615)
+    # datesec should reflect the seconds-of-day (12:00 = 43200 seconds)
+    self.assertEqual(int(ds['datesec'].values[0]), 0)  # seconds component only
+    print_timer(timer_start,caller='test_hiccup_data_class_add_time_date_variables')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_get_multifile_dict_eam(self):
+    """
+    test that get_multifile_dict_eam returns one entry per variable with .nc paths
+    """
+    timer_start = perf_counter()
+    var_dict = {'T': 't', 'Q': 'q', 'U': 'u', 'V': 'v'}
+    file_dict = self.hiccup_data_ERA5.get_multifile_dict_eam(var_dict, timestamp=999)
+    self.assertEqual(len(file_dict), len(var_dict))
+    for key in var_dict:
+      self.assertIn(key, file_dict)
+      self.assertTrue(file_dict[key].endswith('.nc'),
+                      msg=f'Expected .nc path for key {key!r}, got {file_dict[key]!r}')
+    print_timer(timer_start,caller='test_hiccup_data_class_get_multifile_dict_eam')
+  # ----------------------------------------------------------------------------
+  def test_parse_version(self):
+    """
+    test that parse_version correctly parses version strings with and without suffixes
+    """
+    timer_start = perf_counter()
+    main, suffix = parse_version('5.3.1')
+    self.assertEqual(main, (5, 3, 1))
+    main, suffix = parse_version('5.3.1-alpha09')
+    self.assertEqual(main, (5, 3, 1))
+    self.assertEqual(suffix[1], 9)  # alpha suffix with numeric part 9
+    print_timer(timer_start,caller='test_parse_version')
+  # ----------------------------------------------------------------------------
+  def test_compare_version(self):
+    """
+    test that compare_version correctly identifies whether version >= required_version
+    """
+    timer_start = perf_counter()
+    self.assertTrue( compare_version('5.3.1', required_version='5.3.1'))   # equal
+    self.assertTrue( compare_version('5.4.0', required_version='5.3.1'))   # newer minor
+    self.assertTrue( compare_version('6.0.0', required_version='5.3.1'))   # newer major
+    self.assertFalse(compare_version('5.2.0', required_version='5.3.1'))   # older minor
+    self.assertFalse(compare_version('4.9.9', required_version='5.3.1'))   # older major
+    self.assertFalse(compare_version('5.3.1-alpha09', required_version='5.3.1'))  # alpha < release
+    print_timer(timer_start,caller='test_compare_version')
 #===============================================================================
 if __name__ == '__main__':
     unittest.main()
