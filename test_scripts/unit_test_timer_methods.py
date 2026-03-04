@@ -4,7 +4,7 @@
 #===================================================================================================
 import unittest
 from unittest.mock import patch
-from time import perf_counter, sleep
+from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer, print_timer_summary
 
 verbose_default = False # local verbosity default
