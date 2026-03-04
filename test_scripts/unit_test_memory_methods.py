@@ -11,7 +11,7 @@ from hiccup.hiccup_data_class_memory_methods import get_mem_usage, print_mem_usa
 verbose_default = False # local verbosity default
 
 #===============================================================================
-class MemoryMethodsTestCase(unittest.TestCase):
+class memory_methods_test_case(unittest.TestCase):
   """
   Tests for hiccup_data_class_memory_methods.py
   """
