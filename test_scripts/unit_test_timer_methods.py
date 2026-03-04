@@ -84,6 +84,16 @@ class timer_methods_test_case(unittest.TestCase):
     self.assertTrue(msg.startswith('test'))
     print_timer(timer_start, caller='test_print_timer_default_indent')
   # ----------------------------------------------------------------------------
+  def test_print_timer_indent(self):
+    """
+    test that default indent is two spaces (newline + two spaces in printed output)
+    """
+    timer_start = perf_counter()
+    # The msg itself (before color/newline) should start with the caller padded string
+    msg = print_timer(perf_counter()-1, caller='test', use_color=False, indent=' ')
+    self.assertTrue(msg.startswith(' test'))
+    print_timer(timer_start, caller='test_print_timer_indent')
+  # ----------------------------------------------------------------------------
   def test_print_timer_color_adds_escape_codes(self):
     """
     test that use_color=True adds ANSI escape codes and use_color=False does not
