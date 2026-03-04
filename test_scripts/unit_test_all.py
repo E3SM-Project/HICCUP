@@ -6,6 +6,7 @@ import unit_test_data_class
 import unit_test_state_adjustment
 import unit_test_memory_methods
 import unit_test_timer_methods
+import unit_test_utilities
 
 timer_start = perf_counter()
 
@@ -17,6 +18,7 @@ suite_list.append( loader.loadTestsFromModule(unit_test_data_class) )
 suite_list.append( loader.loadTestsFromModule(unit_test_state_adjustment) )
 suite_list.append( loader.loadTestsFromModule(unit_test_memory_methods) )
 suite_list.append( loader.loadTestsFromModule(unit_test_timer_methods) )
+suite_list.append( loader.loadTestsFromModule(unit_test_utilities) )
 
 for suite in suite_list: runner.run(suite)
 
