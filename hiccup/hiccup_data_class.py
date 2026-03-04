@@ -48,7 +48,11 @@ tempest_log_file = 'TempestRemap.log'
 # accept new default to avoid this warning:
 # FutureWarning: In a future version of xarray the default value for compat
 # will change from compat='no_conflicts' to compat='override'
-xr.set_options(use_new_combine_kwarg_defaults=True)
+# (option may not exist in newer xarray versions where it became the default)
+try:
+    xr.set_options(use_new_combine_kwarg_defaults=True)
+except ValueError:
+    pass
 
 # ------------------------------------------------------------------------------
 # open_mfdataset preprocessing - remove redundant PS variable from datasets
