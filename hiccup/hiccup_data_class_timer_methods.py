@@ -7,7 +7,7 @@ def print_timer(timer_start,indent=None,use_color=True,caller=None,print_msg=Tru
     """
     Print the final timer result based on input start time
     """
-    if indent is None: indent = '  '
+    if indent is None: indent = '' # no indent by default
     # if caller is not provider get name of parent routine
     if caller is None: caller = sys._getframe(1).f_code.co_name
     # calculate elapsed time
@@ -17,7 +17,7 @@ def print_timer(timer_start,indent=None,use_color=True,caller=None,print_msg=Tru
     if etime>60       : time_str += f' ({(etime/60):4.1f} min)'
     # if etime>(2*3600) : time_str += f' ({(etime/3600):.1f} hr)'
     # create the timer result message
-    msg = f'{caller:40} elapsed time: {time_str}'
+    msg = f'{indent}{caller:40} elapsed time: {time_str}'
     # Apply color
     if use_color : msg = tcolor.YELLOW + msg + tcolor.ENDC
     # print the message
