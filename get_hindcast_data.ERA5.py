@@ -123,7 +123,6 @@ for t in datetime_list:
   # land model data
   if get_lnd:
       server.retrieve('reanalysis-era5-land',{
-        'product_type'  : ['reanalysis'],
         'data_format'   : 'netcdf',
         'time'          : [hr_min],
         'day'           : [dy],
