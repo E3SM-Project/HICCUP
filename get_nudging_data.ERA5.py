@@ -60,7 +60,7 @@ for t in datetime_list:
 get_atm = True
 get_sfc = True
 
-# loop over batches - set by --batch_mode argument
+# loop over batches - set by --batch-mode argument
 for key, times in batches.items():
     yr = times[0].strftime("%Y")
     mn = times[0].strftime("%m")
