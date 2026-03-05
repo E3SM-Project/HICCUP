@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # Script for downloading ERA5 pressure level and surface data
 # links to CDS web interface:
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels
+#   https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels
+#   https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels
 # A list of available variables can also be found in the ERA5 documentation:
 #   https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+# NOTE: requires cdsapi >= 0.7.0 and updated ~/.cdsapirc with personal access token
 #-----------------------------------------------------------------------------
 import os
 import cdsapi
@@ -33,13 +34,13 @@ output_file_lnd = output_path+f'/HICCUP_TEST.ERA5.lnd.nc'
 # atmossphere pressure level data
 if get_plv:
   server.retrieve('reanalysis-era5-pressure-levels',{
-      'product_type'  : 'reanalysis',
+      'product_type'  : ['reanalysis'],
       'pressure_level': plev,
-      'time'          : time,
-      'day'           : dy,
-      'month'         : mn,
-      'year'          : yr,
-      'format'        : 'netcdf',
+      'time'          : [time],
+      'day'           : [dy],
+      'month'         : [mn],
+      'year'          : [yr],
+      'data_format'   : 'netcdf',
       'variable'      : [ 'temperature',
                           'specific_humidity',
                           'geopotential',
@@ -53,39 +54,35 @@ if get_plv:
 #-------------------------------------------------------------------------------
 # model level data
 if get_mlv:
+    # reanalysis-era5-complete uses MARS directly and requires MARS-style parameters:
+    #   date as YYYY-MM-DD, type/stream instead of product_type, and MARS param codes
+    #   param codes: 130=T, 133=Q, 129=Z, 131=U, 132=V, 203=O3, 246=CIWC, 247=CLWC
     server.retrieve('reanalysis-era5-complete',{
-        'product_type'  : 'reanalysis',
-        # 'pressure_level': mlev,
-        'levtype': 'ml', 
+        'class'         : 'ea',
+        'expver'        : '1',
+        'stream'        : 'oper',
+        'type'          : 'an',
+        'levtype'       : 'ml',
+        'levelist'      : '1/to/137',
+        'date'          : f'{yr}-{mn}-{dy}',
         'time'          : time,
-        'day'           : dy,
-        'month'         : mn,
-        'year'          : yr,
-        'format'        : 'netcdf',
-        'variable'      : [ 'temperature',
-                            'specific_humidity',
-                            'geopotential',
-                            'u_component_of_wind',
-                            'v_component_of_wind',
-                            'ozone_mass_mixing_ratio',
-                            'specific_cloud_ice_water_content',
-                            'specific_cloud_liquid_water_content',
-                          ],
+        'param'         : '130/133/129/131/132/203/246/247',
+        'data_format'   : 'netcdf',
     }, output_file_mlv)
 #-------------------------------------------------------------------------------
 # surface data
 if get_sfc:
   server.retrieve('reanalysis-era5-single-levels',{
-      'product_type'  : 'reanalysis',
+      'product_type'  : ['reanalysis'],
       # 'time'          : time_list,
       # 'day'           : dy_list,
       # 'month'         : mn_list,
       # 'year'          : yr_list,
-      'time'          : time,
-      'day'           : dy,
-      'month'         : mn,
-      'year'          : yr,
-      'format'        : 'netcdf',
+      'time'          : [time],
+      'day'           : [dy],
+      'month'         : [mn],
+      'year'          : [yr],
+      'data_format'   : 'netcdf',
       'variable'      : [ 'surface_pressure',
                           'skin_temperature',
                           'sea_surface_temperature',
@@ -114,11 +111,11 @@ if get_sfc:
 # land model data
 if get_lnd:
   server.retrieve('reanalysis-era5-land',{
-          'format': 'netcdf',
-          'time'          : time,
-          'day'           : dy,
-          'month'         : mn,
-          'year'          : yr,
+          'data_format'   : 'netcdf',
+          'time'          : [time],
+          'day'           : [dy],
+          'month'         : [mn],
+          'year'          : [yr],
           'variable': [
                         'leaf_area_index_high_vegetation',
                         'leaf_area_index_low_vegetation',

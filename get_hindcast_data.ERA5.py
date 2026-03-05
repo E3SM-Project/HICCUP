@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 #---------------------------------------------------------------------------------------------------
 # links to CDS web interface:
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels
+#   https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels
+#   https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels
 # A list of available variables can also be found in the ERA5 documentation:
 #   https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+# NOTE: requires cdsapi >= 0.7.0 and updated ~/.cdsapirc with personal access token
 #---------------------------------------------------------------------------------------------------
 import os, cdsapi, datetime, pandas as pd
 server = cdsapi.Client()
@@ -77,13 +78,13 @@ for t in datetime_list:
   # atmossphere pressure level data
   if get_atm:
       server.retrieve('reanalysis-era5-pressure-levels',{
-        'product_type'  : 'reanalysis',
-        'format'        : 'netcdf',
+        'product_type'  : ['reanalysis'],
+        'data_format'   : 'netcdf',
         'pressure_level': lev,
-        'time'          : hr_min,
-        'day'           : dy,
-        'month'         : mn,
-        'year'          : yr,
+        'time'          : [hr_min],
+        'day'           : [dy],
+        'month'         : [mn],
+        'year'          : [yr],
         'variable'      : ['temperature'
                           ,'specific_humidity'
                           ,'geopotential'
@@ -98,12 +99,12 @@ for t in datetime_list:
   # surface data
   if get_sfc:
       server.retrieve('reanalysis-era5-single-levels',{
-        'product_type'  : 'reanalysis',
-        'format'        : 'netcdf',
-        'time'          : hr_min,
-        'day'           : dy,
-        'month'         : mn,
-        'year'          : yr,
+        'product_type'  : ['reanalysis'],
+        'data_format'   : 'netcdf',
+        'time'          : [hr_min],
+        'day'           : [dy],
+        'month'         : [mn],
+        'year'          : [yr],
         'variable'      : ['surface_pressure'
                           ,'skin_temperature'
                           ,'sea_surface_temperature'
@@ -122,12 +123,12 @@ for t in datetime_list:
   # land model data
   if get_lnd:
       server.retrieve('reanalysis-era5-land',{
-        'product_type'  : 'reanalysis',
-        'format'        : 'netcdf',
-        'time'          : hr_min,
-        'day'           : dy,
-        'month'         : mn,
-        'year'          : yr,
+        'product_type'  : ['reanalysis'],
+        'data_format'   : 'netcdf',
+        'time'          : [hr_min],
+        'day'           : [dy],
+        'month'         : [mn],
+        'year'          : [yr],
         'variable'      : ['leaf_area_index_high_vegetation'
                           ,'leaf_area_index_low_vegetation'
                           ,'skin_reservoir_content'

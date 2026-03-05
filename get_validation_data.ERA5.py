@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 #---------------------------------------------------------------------------------------------------
 # links to CDS web interface:
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels
+#   https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels
+#   https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels
 # A list of available variables can also be found in the ERA5 documentation:
 #   https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+# NOTE: requires cdsapi >= 0.7.0 and updated ~/.cdsapirc with personal access token
 #---------------------------------------------------------------------------------------------------
 import os, cdsapi, datetime, pandas as pd
 server = cdsapi.Client()
@@ -119,13 +120,13 @@ for t in datetime_list:
     for v,var in enumerate(prs_short_list):
         output_file_plv_tmp = output_file_plv.replace('.nc',f'.{var}.nc')
         server.retrieve('reanalysis-era5-pressure-levels',{
-            'product_type'  : 'reanalysis',
-            'format'        : 'netcdf',
+            'product_type'  : ['reanalysis'],
+            'data_format'   : 'netcdf',
             'time'          : hr_mn_list,
-            # 'time'          : hr_min,
-            'day'           : dy,
-            'month'         : mn,
-            'year'          : yr,
+            # 'time'          : [hr_min],
+            'day'           : [dy],
+            'month'         : [mn],
+            'year'          : [yr],
             'pressure_level': prs_lev_list[v],
             'variable'      : [prs_era5_list[v]],
         }, output_file_plv_tmp)
@@ -134,13 +135,13 @@ for t in datetime_list:
     for v,var in enumerate(sfc_short_list):
         output_file_sfc_tmp = output_file_sfc.replace('.nc',f'.{var}.nc')
         server.retrieve('reanalysis-era5-single-levels',{
-            'product_type'  : 'reanalysis',
-            'format'        : 'netcdf',
+            'product_type'  : ['reanalysis'],
+            'data_format'   : 'netcdf',
             'time'          : hr_mn_list,
-            # 'time'          : hr_min,
-            'day'           : dy,
-            'month'         : mn,
-            'year'          : yr,
+            # 'time'          : [hr_min],
+            'day'           : [dy],
+            'month'         : [mn],
+            'year'          : [yr],
             'variable'      : [sfc_era5_list[v]],
         }, output_file_sfc_tmp)
 # --------------------------------------------------------------------------------------------------

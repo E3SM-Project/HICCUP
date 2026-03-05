@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-# Script for downloading ERA5 pressure level and surface data
-# links to CDS web interface:
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels
-#   https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels
-# A list of available variables can also be found in the ERA5 documentation:
-#   https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+# Script for downloading CAMS reanalysis and ERA5 surface data for testing
+# See the CAMS data documentation for more information:
+#   https://confluence.ecmwf.int/display/CKB/CAMS%3A+Reanalysis+data+documentation
+# NOTE: requires cdsapi >= 0.7.0
+# ~/.adsapirc should contain:
+#   url: https://ads.atmosphere.copernicus.eu/api
+#   key: <your-personal-access-token>
 #-----------------------------------------------------------------------------
 import os, yaml, cdsapi, datetime, pandas as pd
 #-----------------------------------------------------------------------------
@@ -30,10 +31,10 @@ if get_atm:
     ads_server.retrieve('cams-global-reanalysis-eac4',{
         'type'          : 'an',
         'stream'        : 'oper',
-        'format'        : 'netcdf',
+        'data_format'   : 'netcdf',
         'grid'          : [0.75, 0.75],
         'pressure_level': lev,
-        'time'          : time,
+        'time'          : [time],
         'date': f'{yr}-{mn}-{dy}/{yr}-{mn}-{dy}',
         'variable'      : ['dust_aerosol_0.03-0.55um_mixing_ratio'
                           ,'dust_aerosol_0.55-0.9um_mixing_ratio'
@@ -46,13 +47,13 @@ if get_atm:
 if get_sfc:
     cds_server = cdsapi.Client()
     cds_server.retrieve('reanalysis-era5-single-levels',{
-        'product_type'  : 'reanalysis',
+        'product_type'  : ['reanalysis'],
         'grid'          : [0.75, 0.75],
-        'time'          : time,
-        'day'           : dy,
-        'month'         : mn,
-        'year'          : yr,
-        'format'        : 'netcdf',
+        'time'          : [time],
+        'day'           : [dy],
+        'month'         : [mn],
+        'year'          : [yr],
+        'data_format'   : 'netcdf',
         'variable'      : ['surface_pressure'],
     }, output_file_sfc)
     del cds_server
