@@ -36,6 +36,9 @@ parser.add_option('--output-root', dest='output_root', default='./',   help='Out
 # check that input arguments are valid
 if opts.start_date is None: raise ValueError(f'{clr.RED}initialization date was not specified{clr.END}')
 if opts.final_date is None: opts.final_date = opts.start_date
+valid_batch_modes = ['month', 'day']
+if opts.batch_mode not in valid_batch_modes:
+    raise ValueError(f'{clr.RED}invalid --batch-mode value: {opts.batch_mode!r} (choose from: {valid_batch_modes}){clr.END}')
 #---------------------------------------------------------------------------------------------------
 # build list of dates and times from input arguments
 beg_date = datetime.datetime.strptime(f'{opts.start_date} {opts.start_hour}', '%Y%m%d %H')
