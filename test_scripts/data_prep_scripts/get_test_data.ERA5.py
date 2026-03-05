@@ -31,7 +31,7 @@ output_file_mlv = output_path+f'/HICCUP_TEST.ERA5.mlv.nc'
 output_file_sfc = output_path+f'/HICCUP_TEST.ERA5.sfc.nc'
 output_file_lnd = output_path+f'/HICCUP_TEST.ERA5.lnd.nc'
 #-------------------------------------------------------------------------------
-# atmossphere pressure level data
+# atmosphere pressure level data
 if get_plv:
   server.retrieve('reanalysis-era5-pressure-levels',{
       'product_type'  : ['reanalysis'],
