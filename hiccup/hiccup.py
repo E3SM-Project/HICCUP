@@ -138,6 +138,11 @@ def create_hiccup_data( src_data_name,
                             verbose_indent=verbose_indent,
                           )
 
+            # Unconditional guard: raise early if input_file_list is needed but empty
+            all_var_dicts = {**obj.atm_var_name_dict, **obj.sfc_var_name_dict}
+            if len(all_var_dicts) > 0 and len(obj.input_file_list) == 0:
+                raise ValueError(f'input_file_list is required for {src_data_name} but was not provided')
+
             # Check input files for required variables (also builds _var_to_file_map)
             if check_input_files: obj.check_file_vars()
 
