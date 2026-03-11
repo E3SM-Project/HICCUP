@@ -11,8 +11,7 @@ class NOAA(hiccup_data):
     def is_name_for(cls,src_data_name) : return src_data_name == 'NOAA'
     def __init__( self, name,
                   target_model=None,
-                  atm_file=None,
-                  sfc_file=None,
+                  input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
                   output_dir=None,
@@ -31,10 +30,9 @@ class NOAA(hiccup_data):
                   verbose=False,
                   verbose_indent='',
                 ):
-        super().__init__(   
+        super().__init__(
                           target_model=target_model,
-                          atm_file=atm_file,
-                          sfc_file=sfc_file,
+                          input_file_list=input_file_list,
                           dst_horz_grid=dst_horz_grid,
                           dst_vert_grid=dst_vert_grid,
                           output_dir=output_dir,

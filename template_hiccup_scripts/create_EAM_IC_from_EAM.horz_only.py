@@ -67,8 +67,7 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='EAM',
                                         target_model='EAM', # options: EAM / EAMXX
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
-                                        atm_file=src_eami_file,
-                                        sfc_file=src_eami_file,
+                                        input_file_list=[src_eami_file],
                                         topo_file=topo_file_name,
                                         output_dir=f'{output_root}/files_init',
                                         grid_dir=f'{output_root}/files_grid',
@@ -78,7 +77,7 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='EAM',
 
 # Print some informative stuff
 print('\n  Input Files')
-print(f'    input atm file:  {hiccup_data.atm_file}')
+print(f'    input file:      {hiccup_data.input_file_list[0]}')
 print(f'    input topo file: {hiccup_data.topo_file}')
 print('\n  Output files')
 print(f'    output atm file: {dst_eami_file}')

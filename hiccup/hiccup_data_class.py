@@ -83,8 +83,7 @@ class hiccup_data(object):
     # from hiccup import hiccup_sst_methods
     def __init__( self,
                   target_model=None,
-                  atm_file=None,
-                  sfc_file=None,
+                  input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
                   output_dir=None,
@@ -103,12 +102,11 @@ class hiccup_data(object):
                   verbose=False,
                   verbose_indent='',
                 ):
-        
+
         if target_model is None: raise ValueError('target_model can not be None')
 
         self.target_model = target_model
-        self.atm_file = atm_file
-        self.sfc_file = sfc_file
+        self.input_file_list = input_file_list if input_file_list is not None else []
         self.topo_file = topo_file
         self.atm_var_name_dict = {}
         self.sfc_var_name_dict = {}
@@ -130,6 +128,7 @@ class hiccup_data(object):
         self.sstice_nlon_src = None
         self.sstice_nlat_dst = None
         self.sstice_nlon_dst = None
+        self._var_to_file_map = {}
 
         self.RRM_grid  = RRM_grid  if RRM_grid  is not None else False
         self.do_timers = do_timers if do_timers is not None else True
@@ -141,8 +140,6 @@ class hiccup_data(object):
         self.src_horz_grid_np   = None
         self.src_horz_grid_pg   = None
         self.dst_horz_grid_pg   = None
-        self.ds_atm             = None
-        self.ds_sfc             = None
         self.timer_start_total  = None
         self.timer_msg_all      = None
         self.memory_rss_max     = None
@@ -163,27 +160,22 @@ class hiccup_data(object):
         self.tmp_dir = tmp_dir
 
         # Check if sst/ice dataset is supported
-        # if self.sstice_name not in [None,'NOAA']: 
+        # if self.sstice_name not in [None,'NOAA']:
         #     err_msg = f'sstice_name={self.sstice_name} is not currently supported'
-        #     if self.sstice_name=='ERA5': 
+        #     if self.sstice_name=='ERA5':
         #         err_msg += ' due to an issue handling missing values during remapping'
         #     raise ValueError(err_msg)
-            
-        # set input variable names for SST and sea ice 
+
+        # set input variable names for SST and sea ice
         if self.sstice_name=='NOAA': self.sst_name,self.ice_name = 'sst','icec'
         if self.sstice_name=='ERA5': self.sst_name,self.ice_name = 'sst','siconc'
 
         # Check that input files exist
         if check_input_files:
-            for file_name in [self.atm_file,self.sfc_file,self.sst_file
-                             ,self.ice_file,self.topo_file]:
+            for file_name in self.input_file_list + [self.sst_file,self.ice_file,self.topo_file]:
                 if file_name is not None:
                     if not os.path.exists(file_name):
                         raise ValueError(f'input file does not exist: {file_name}')
-
-        # Load input files into xarray datasets
-        if self.atm_file is not None: self.ds_atm = xr.open_dataset(self.atm_file)
-        if self.sfc_file is not None: self.ds_sfc = xr.open_dataset(self.sfc_file)
     # --------------------------------------------------------------------------
     # Import grid methods
     from hiccup.hiccup_data_class_grid_methods import get_src_grid_ne
@@ -274,18 +266,51 @@ class hiccup_data(object):
         return chunks
     # --------------------------------------------------------------------------
     def check_file_vars(self):
-        """ 
+        """
         Check input files for required variables
         """
-        if self.ds_atm is not None: 
-            self.check_file_vars_impl(self.ds_atm,
-                                      self.atm_var_name_dict,
-                                      self.atm_file)
-        if self.ds_sfc is not None:
-            self.check_file_vars_impl(self.ds_sfc,
-                                      self.sfc_var_name_dict,
-                                      self.sfc_file)
+        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
+        if len(all_var_dicts) == 0:
+            return
+        if len(self.input_file_list) == 0:
+            raise ValueError('input_file_list is empty but variable dictionaries are non-empty')
+        self._build_var_to_file_map()
         return
+    # --------------------------------------------------------------------------
+    def _build_var_to_file_map(self):
+        """Map each target variable name to the source file that contains it."""
+        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
+        self._var_to_file_map = {}
+        for target_var, src_var in all_var_dicts.items():
+            for file_path in self.input_file_list:
+                ds = xr.open_dataset(file_path, decode_times=False)
+                if src_var in ds:
+                    self._var_to_file_map[target_var] = file_path
+                    break
+            if target_var not in self._var_to_file_map:
+                raise KeyError(f'Required variable {src_var!r} not found in any input file')
+    # --------------------------------------------------------------------------
+    def check_input_times(self, target_time):
+        """Verify target_time exists in all input files that have a time dimension."""
+        target = pd.Timestamp(target_time)
+        for file_path in self.input_file_list:
+            ds = xr.open_dataset(file_path, decode_times=False)
+            if 'time' not in ds.dims: continue
+            times = xr.coding.times.decode_cf(ds)['time'].values
+            times_pd = pd.DatetimeIndex(times)
+            if target not in times_pd:
+                raise ValueError(
+                    f'{tcolor.RED}target_time {target} not found in {file_path}\n'
+                    f'  Available times: {times_pd}{tcolor.ENDC}')
+    # --------------------------------------------------------------------------
+    def _get_time_index(self, file_path, target_time):
+        """Return integer time index of target_time in file_path."""
+        ds = xr.open_dataset(file_path, decode_times=False)
+        times = xr.coding.times.decode_cf(ds)['time'].values
+        times_pd = pd.DatetimeIndex(times)
+        target = pd.Timestamp(target_time)
+        idx = times_pd.get_loc(target)
+        return idx
     # --------------------------------------------------------------------------
     def check_file_vars_impl(self, ds, var_name_dict, file_name):
         """
@@ -315,9 +340,8 @@ class hiccup_data(object):
 
         check_dependency('ncpdq')
 
-        for f in [ self.atm_file, self.sfc_file, 
-                   self.sst_file, self.ice_file,
-                   self.sstice_combined_file ]:
+        for f in self.input_file_list + [ self.sst_file, self.ice_file,
+                                          self.sstice_combined_file ]:
             if f is not None :
                 run_cmd(f'ncpdq -U --ovr {f} {f}',verbose,prepend_line=False)
         if self.do_timers: self.print_timer(timer_start)
@@ -623,35 +647,33 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def check_file_FillValue(self,file_att,verbose=None):
+    def check_file_FillValue(self,file_path,verbose=None):
+        """Check for NaN _FillValue; return path to (possibly modified) file."""
         check_dependency('ncdump')
         check_dependency('grep')
         check_dependency('ncatted')
         if verbose is None: verbose = self.verbose
-        if hasattr(self, file_att):
-            file_original_name = getattr(self, file_att)
-            if file_original_name is None: return
-            # Check if any variable has NaN as _FillValue
-            result = sp.run(f'ncdump -h {file_original_name}',
-                            shell=True, capture_output=True, check=True, text=True)
-            # Only modify if NaN _FillValue is found
-            if '_FillValue = NaN' in result.stdout:
-                file_modified_name = file_original_name.replace('.nc','.modified.nc')
-                if verbose:
-                    msg  = f'{tcolor.RED}input file contains NaN _FillValue, a modified version will be created{tcolor.ENDC}\n'
-                    msg += f'  original =>  {file_original_name}\n'
-                    msg += f'  modified =>  {file_modified_name}\n'
-                    print(f'\n{self.verbose_indent}{msg}')
-                # update the _FillValue metadata for all variables
-                run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_original_name} {file_modified_name}',
-                        verbose, prepend_line=False, shell=True,)
-                # update the hiccup_data attribute with the modified file name
-                setattr(self, file_att, file_modified_name)
-            return
+        if file_path is None: return file_path
+        # Check if any variable has NaN as _FillValue
+        result = sp.run(f'ncdump -h {file_path}',
+                        shell=True, capture_output=True, check=True, text=True)
+        # Only modify if NaN _FillValue is found
+        if '_FillValue = NaN' in result.stdout:
+            file_modified_name = file_path.replace('.nc','.modified.nc')
+            if verbose:
+                msg  = f'{tcolor.RED}input file contains NaN _FillValue, a modified version will be created{tcolor.ENDC}\n'
+                msg += f'  original =>  {file_path}\n'
+                msg += f'  modified =>  {file_modified_name}\n'
+                print(f'\n{self.verbose_indent}{msg}')
+            # update the _FillValue metadata for all variables
+            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_path} {file_modified_name}',
+                    verbose, prepend_line=False, shell=True,)
+            return file_modified_name
+        return file_path
     # --------------------------------------------------------------------------
-    def remap_horizontal(self,output_file_name,verbose=None):
-        """  
-        Horizontally remap data and combine into single file 
+    def remap_horizontal(self,output_file_name,verbose=None,target_time=None):
+        """
+        Horizontally remap data and combine into single file
         """
         if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
@@ -659,67 +681,67 @@ class hiccup_data(object):
         if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
-        if self.atm_file is None: raise ValueError('atm_file cannot be None!')
-        if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
-
-        # Define temporary files that will be deleted at the end
-        atm_tmp_file_name = f'{self.tmp_dir}/tmp_atm_data.nc'
-        sfc_tmp_file_name = f'{self.tmp_dir}/tmp_sfc_data.nc'
-
-        # Remove temporary files if they exist
-        if os.path.isfile(atm_tmp_file_name): run_cmd(f'rm {atm_tmp_file_name} ',verbose)
-        if os.path.isfile(sfc_tmp_file_name): run_cmd(f'rm {sfc_tmp_file_name} ',verbose)
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
 
         check_dependency('ncremap')
         check_dependency('ncks')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and update the hiccup_data object
-        self.check_file_FillValue('sfc_file')
-        self.check_file_FillValue('atm_file')
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
 
-        # Horzontally remap atmosphere data
-        var_list = ','.join(self.atm_var_name_dict.values())
-        cmd =  f'ncremap'
-        cmd += f' --map_file={self.map_file} '
-        cmd += f' --in_file={self.atm_file} '
-        cmd += f' --out_file={atm_tmp_file_name} '
-        cmd += f' --var_lst={var_list} '
-        cmd += f' --fl_fmt={ncremap_file_fmt} '
-        run_cmd(cmd,verbose)
+        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
-        # Horzontally remap surface data
-        var_list = ','.join(self.sfc_var_name_dict.values())
-        cmd =  f'ncremap'
-        cmd += f' --map_file={self.map_file} '
-        cmd += f' --in_file={self.sfc_file} '
-        cmd += f' --out_file={sfc_tmp_file_name} '
-        cmd += f' --var_lst={var_list} '
-        cmd += f' --fl_fmt={ncremap_file_fmt} '
-        run_cmd(cmd,verbose)
+        # Group target variables by their source file
+        file_to_vars = {}
+        for target_var, src_var in all_var_dicts.items():
+            in_file = self._var_to_file_map.get(target_var)
+            if in_file not in file_to_vars:
+                file_to_vars[in_file] = []
+            file_to_vars[in_file].append(src_var)
 
         # Remove output file if it already exists
         if os.path.isfile(output_file_name): run_cmd(f'rm {output_file_name} ',verbose)
 
+        tmp_files = []
+        for idx, (in_file, src_vars) in enumerate(file_to_vars.items()):
+            tmp_file_name = f'{self.tmp_dir}/tmp_remap_{idx}.nc'
+            if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name} ',verbose)
+            tmp_files.append(tmp_file_name)
+            var_list = ','.join(src_vars)
+            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}'
+            if target_time is not None:
+                ds_tmp = xr.open_dataset(in_file, decode_times=False)
+                if 'time' in ds_tmp.dims:
+                    t_idx = self._get_time_index(in_file, target_time)
+                    nco_opt += f' -d time,{t_idx}'
+            cmd  = f'ncremap'
+            cmd += f" --nco_opt='{nco_opt}' "
+            cmd += f' --map_file={self.map_file} '
+            cmd += f' --in_file={in_file} '
+            cmd += f' --out_file={tmp_file_name} '
+            cmd += f' --var_lst={var_list} '
+            cmd += f' --fl_fmt={ncremap_file_fmt} '
+            run_cmd(cmd,verbose,shell=True)
+
         if verbose: print(f'\n{self.verbose_indent}Combining temporary remapped files...')
 
-        # Add atmosphere temporary file data into the final output file
-        run_cmd(f'ncks -A --hdr_pad={hdr_pad} {atm_tmp_file_name} {output_file_name} ',
-                verbose,prepend_line=False)
-
-        # Add surface temporary file data into the final output file
-        run_cmd(f'ncks -A --hdr_pad={hdr_pad} {sfc_tmp_file_name} {output_file_name} ',
-                verbose,prepend_line=False)
+        for tmp_file_name in tmp_files:
+            run_cmd(f'ncks -A --hdr_pad={hdr_pad} {tmp_file_name} {output_file_name} ',
+                    verbose,prepend_line=False)
 
         # delete the temporary files
-        run_cmd(f'rm {sfc_tmp_file_name} {atm_tmp_file_name} ',verbose,prepend_line=False)
+        run_cmd(f'rm {" ".join(tmp_files)} ',verbose,prepend_line=False)
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def remap_horizontal_multifile(self,file_dict,verbose=None):
-        """  
+    def remap_horizontal_multifile(self,file_dict,verbose=None,target_time=None):
+        """
         Horizontally remap data into seperate files for each variable
         This approach was developed specifically for very fine grids like ne1024
         """
@@ -729,8 +751,7 @@ class hiccup_data(object):
         if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
-        if self.atm_file is None: raise ValueError('atm_file cannot be None!')
-        if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
 
         check_dependency('ncremap')
 
@@ -738,26 +759,37 @@ class hiccup_data(object):
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and update the hiccup_data object
-        self.check_file_FillValue('sfc_file')
-        self.check_file_FillValue('atm_file')
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
 
-        # Horzontally remap atmosphere and surface data to individual files
+        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
+
+        # Cache time indices per file to avoid re-opening the same file
+        time_idx_cache = {}
+
+        # Horizontally remap atmosphere and surface data to individual files
         for var,tmp_file_name in file_dict.items():
-            if var in self.sfc_var_name_dict.keys(): 
-                in_var = self.sfc_var_name_dict[var]
-                in_file = self.sfc_file
-            if var in self.atm_var_name_dict.keys(): 
-                in_var = self.atm_var_name_dict[var]
-                in_file = self.atm_file
+            in_file = self._var_to_file_map[var]
+            in_var  = all_var_dicts[var]
             # Remove temporary files if they exist
             if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
             # Remap the data
             in_var_list = f'{in_var}'
             if 'lat' in self.atm_var_name_dict: in_var_list += f',{lat_var}'
             if 'lon' in self.atm_var_name_dict: in_var_list += f',{lon_var}'
+            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}'
+            if target_time is not None:
+                if in_file not in time_idx_cache:
+                    ds_tmp = xr.open_dataset(in_file, decode_times=False)
+                    if 'time' in ds_tmp.dims:
+                        time_idx_cache[in_file] = self._get_time_index(in_file, target_time)
+                if in_file in time_idx_cache:
+                    nco_opt += f' -d time,{time_idx_cache[in_file]}'
             cmd  = f'ncremap'
-            cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
+            cmd += f" --nco_opt='{nco_opt}' "
             cmd += f' --map_file={self.map_file}'
             cmd += f' --in_file={in_file}'
             cmd += f' --out_file={tmp_file_name}'
@@ -767,10 +799,10 @@ class hiccup_data(object):
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
-        return 
+        return
     # --------------------------------------------------------------------------
-    def remap_horizontal_multifile_eam(self,file_dict,verbose=None):
-        """  
+    def remap_horizontal_multifile_eam(self,file_dict,verbose=None,target_time=None):
+        """
         Horizontally remap data into seperate files for each variable
         This approach was developed specifically for very fine grids like ne1024
         """
@@ -780,25 +812,38 @@ class hiccup_data(object):
         if verbose: print(f'\n{self.verbose_indent}Horizontally remapping the multi-file data to temporary files...')
 
         if self.map_file is None: raise ValueError('map_file cannot be None!')
-        if self.atm_file is None: raise ValueError('atm_file cannot be None!')
-        if self.sfc_file is None: raise ValueError('sfc_file cannot be None!')
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
 
         check_dependency('ncremap')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata and update the hiccup_data object
-        self.check_file_FillValue('atm_file')
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
 
-        # Horzontally remap atmosphere and surface data to individual files
+        # Cache time indices per file
+        time_idx_cache = {}
+
+        # Horizontally remap atmosphere and surface data to individual files
         for var,tmp_file_name in file_dict.items():
             in_var = var
-            in_file = self.atm_file
+            in_file = self._var_to_file_map.get(var, self.input_file_list[0])
             # Remove temporary files if they exist
             if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
             # Remap the data
             in_var_list = f'{in_var}'
+            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}'
+            if target_time is not None:
+                if in_file not in time_idx_cache:
+                    ds_tmp = xr.open_dataset(in_file, decode_times=False)
+                    if 'time' in ds_tmp.dims:
+                        time_idx_cache[in_file] = self._get_time_index(in_file, target_time)
+                if in_file in time_idx_cache:
+                    nco_opt += f' -d time,{time_idx_cache[in_file]}'
             cmd  = f'ncremap'
-            cmd += f" --nco_opt='-O --no_tmp_fl --hdr_pad={hdr_pad}' "
+            cmd += f" --nco_opt='{nco_opt}' "
             cmd += f' --map_file={self.map_file}'
             cmd += f' --in_file={in_file}'
             cmd += f' --out_file={tmp_file_name}'
@@ -1318,7 +1363,11 @@ class hiccup_data(object):
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Editing time and date variables...')
 
-        ds_in = xr.open_dataset(self.atm_file)
+        time_src_file = next(
+            f for f in self.input_file_list
+            if 'time' in xr.open_dataset(f, decode_times=False).dims
+        )
+        ds_in = xr.open_dataset(time_src_file)
 
         time_vars = []
         time_vars.append('date')

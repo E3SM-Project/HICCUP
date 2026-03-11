@@ -48,8 +48,8 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
                                         target_model='EAMXX',
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
-                                        atm_file=f'{data_root}/ERA5.atm.{init_date}.nc',
-                                        sfc_file=f'{data_root}/ERA5.sfc.{init_date}.nc',
+                                        input_file_list=[f'{data_root}/ERA5.atm.{init_date}.nc',
+                                                         f'{data_root}/ERA5.sfc.{init_date}.nc'],
                                         sstice_name='NOAA',
                                         sst_file=f'{data_root}/sst.day.mean.{init_year}.nc',
                                         ice_file=f'{data_root}/icec.day.mean.{init_year}.nc',
@@ -64,8 +64,7 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
 
 # Print some informative stuff
 print('\n  Input Files')
-print(f'    input atm files: {hiccup_data.atm_file}')
-print(f'    input sfc files: {hiccup_data.sfc_file}')
+print(f'    input files:     {hiccup_data.input_file_list}')
 print(f'    input sst files: {hiccup_data.sst_file}')
 print(f'    input ice files: {hiccup_data.ice_file}')
 print(f'    input topo file: {hiccup_data.topo_file}')
