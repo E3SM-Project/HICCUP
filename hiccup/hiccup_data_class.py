@@ -752,6 +752,7 @@ class hiccup_data(object):
                 if 'time' in ds_tmp.dims:
                     t_idx = self._get_time_index(in_file, target_time)
                     nco_opt += f' -d time,{t_idx}'
+                ds_tmp.close()
             cmd  = f'ncremap'
             cmd += f" --nco_opt='{nco_opt}' "
             cmd += f' --map_file={self.map_file} '
@@ -820,6 +821,7 @@ class hiccup_data(object):
                     ds_tmp = xr.open_dataset(in_file, decode_times=False)
                     if 'time' in ds_tmp.dims:
                         time_idx_cache[in_file] = self._get_time_index(in_file, target_time)
+                    ds_tmp.close()
                 if in_file in time_idx_cache:
                     nco_opt += f' -d time,{time_idx_cache[in_file]}'
             cmd  = f'ncremap'
@@ -874,6 +876,7 @@ class hiccup_data(object):
                     ds_tmp = xr.open_dataset(in_file, decode_times=False)
                     if 'time' in ds_tmp.dims:
                         time_idx_cache[in_file] = self._get_time_index(in_file, target_time)
+                    ds_tmp.close()
                 if in_file in time_idx_cache:
                     nco_opt += f' -d time,{time_idx_cache[in_file]}'
             cmd  = f'ncremap'

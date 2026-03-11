@@ -58,8 +58,9 @@ class ERA5(hiccup_data):
         self.lev_name = None
         for fp in self.input_file_list:
             ds = xr.open_dataset(fp, decode_times=False)
-            if 'pressure_level' in ds.coords: self.lev_name = 'pressure_level'; break
-            if 'level'          in ds.coords: self.lev_name = 'level'; break
+            if 'pressure_level' in ds.coords: self.lev_name = 'pressure_level'; ds.close(); break
+            if 'level'          in ds.coords: self.lev_name = 'level';           ds.close(); break
+            ds.close()
         if len(self.input_file_list) > 0 and self.lev_name is None:
             raise ValueError('ERA5 subclass: lev_name cannot be set from input data coordinates')
 
@@ -140,10 +141,12 @@ class ERA5(hiccup_data):
             if lat_var in _ds and lon_var in _ds:
                 _ds_grid = _ds
                 break
+            _ds.close()
         if _ds_grid is None:
             raise ValueError('ERA5 subclass: could not find lat/lon in any input file')
         self.src_nlat = len( _ds_grid[lat_var].values )
         self.src_nlon = len( _ds_grid[lon_var].values )
+        _ds_grid.close()
 
         self.src_horz_grid = f'{self.src_nlat}x{self.src_nlon}'
         self.src_grid_file = f'{self.grid_dir}/scrip_{self.src_data_name}_{self.src_horz_grid}.nc'
