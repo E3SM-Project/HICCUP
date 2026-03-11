@@ -278,17 +278,52 @@ class hiccup_data(object):
         return
     # --------------------------------------------------------------------------
     def _build_var_to_file_map(self):
-        """Map each target variable name to the source file that contains it."""
-        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
+        """Map each target variable name to the source file that contains it.
+
+        For surface variables (sfc_var_name_dict), prefer a file where the source
+        variable has no vertical dimension.  This prevents accidentally picking up a
+        3-D version of a variable (e.g. ERA5 geopotential 'z' on pressure levels)
+        when a 2-D surface version exists in a different file in the list.
+        Atmospheric variables use a simple first-match search.
+        """
+        vertical_dim_names = {'pressure_level', 'level', 'plev', 'lev', 'nlev', 'ilev'}
+
+        # Open every file once and cache the datasets
+        _ds_cache = {}
+        for fp in self.input_file_list:
+            _ds_cache[fp] = xr.open_dataset(fp, decode_times=False)
+
         self._var_to_file_map = {}
-        for target_var, src_var in all_var_dicts.items():
-            for file_path in self.input_file_list:
-                ds = xr.open_dataset(file_path, decode_times=False)
-                if src_var in ds:
-                    self._var_to_file_map[target_var] = file_path
+
+        # Atmospheric variables: first file that contains the source variable wins
+        for target_var, src_var in self.atm_var_name_dict.items():
+            for fp in self.input_file_list:
+                if src_var in _ds_cache[fp]:
+                    self._var_to_file_map[target_var] = fp
                     break
             if target_var not in self._var_to_file_map:
                 raise KeyError(f'Required variable {src_var!r} not found in any input file')
+
+        # Surface variables: prefer a file where the source variable is 2-D
+        # (i.e. lacks any recognised vertical dimension)
+        for target_var, src_var in self.sfc_var_name_dict.items():
+            chosen = None
+            for fp in self.input_file_list:
+                if src_var not in _ds_cache[fp]:
+                    continue
+                var_dims = set(_ds_cache[fp][src_var].dims)
+                if not var_dims.intersection(vertical_dim_names):
+                    chosen = fp
+                    break
+            # Fallback: accept any file that contains the variable (even with vertical dims)
+            if chosen is None:
+                for fp in self.input_file_list:
+                    if src_var in _ds_cache[fp]:
+                        chosen = fp
+                        break
+            if chosen is None:
+                raise KeyError(f'Required variable {src_var!r} not found in any input file')
+            self._var_to_file_map[target_var] = chosen
     # --------------------------------------------------------------------------
     def check_input_times(self, target_time):
         """Verify target_time exists in all input files that have a time dimension."""
@@ -650,7 +685,6 @@ class hiccup_data(object):
     def check_file_FillValue(self,file_path,verbose=None):
         """Check for NaN _FillValue; return path to (possibly modified) file."""
         check_dependency('ncdump')
-        check_dependency('grep')
         check_dependency('ncatted')
         if verbose is None: verbose = self.verbose
         if file_path is None: return file_path
@@ -1081,12 +1115,12 @@ class hiccup_data(object):
                 ds.close(); ds_ps.close()
                 run_cmd(f'mv {tmp_file_name} {file_name}',verbose=False)
 
-                # Do the vertical interpolation for this file
-                self.remap_vertical(input_file_name=file_name,
-                                   output_file_name=file_name,
-                                   vert_file_name=vert_file_name,
-                                   vert_remap_var_list=[var],
-                                   ps_name=ps_var_name)
+                # # Do the vertical interpolation for this file
+                # self.remap_vertical(input_file_name=file_name,
+                #                    output_file_name=file_name,
+                #                    vert_file_name=vert_file_name,
+                #                    vert_remap_var_list=[var],
+                #                    ps_name=ps_var_name)
         
         # Re-set do_timers to previous value
         self.do_timers = prev_do_timers
