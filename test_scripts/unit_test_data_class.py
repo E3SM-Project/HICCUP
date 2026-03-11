@@ -18,14 +18,14 @@ class hiccup_data_class_test_case(unittest.TestCase):
   # ----------------------------------------------------------------------------
   def setUp(self):
     self.hiccup_data_ERA5 = hiccup.create_hiccup_data( src_data_name='ERA5',
-                                                       input_file_list=['test_data/HICCUP_TEST.ERA5.atm.low-res.nc',
-                                                                        'test_data/HICCUP_TEST.ERA5.sfc.low-res.nc'])
+                                                       input_file_list=['../test_data/HICCUP_TEST.ERA5.atm.low-res.nc',
+                                                                        '../test_data/HICCUP_TEST.ERA5.sfc.low-res.nc'])
     self.hiccup_data_NOAA = hiccup.create_hiccup_data( src_data_name='NOAA',
-                                                       sst_file='test_data/HICCUP_TEST.NOAA.sst.nc',
-                                                       ice_file='test_data/HICCUP_TEST.NOAA.ice.nc')
+                                                       sst_file='../test_data/HICCUP_TEST.NOAA.sst.nc',
+                                                       ice_file='../test_data/HICCUP_TEST.NOAA.ice.nc')
     self.hiccup_data_CAMS = hiccup.create_hiccup_data( src_data_name='CAMS',
-                                                       input_file_list=['test_data/HICCUP_TEST.CAMS.atm.low-res.nc',
-                                                                        'test_data/HICCUP_TEST.CAMS.sfc.low-res.nc'])
+                                                       input_file_list=['../test_data/HICCUP_TEST.CAMS.atm.low-res.nc',
+                                                                        '../test_data/HICCUP_TEST.CAMS.sfc.low-res.nc'])
     self.obj_list = []
     self.obj_list.append(self.hiccup_data_ERA5)
     self.obj_list.append(self.hiccup_data_NOAA)
