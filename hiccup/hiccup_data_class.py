@@ -1115,12 +1115,12 @@ class hiccup_data(object):
                 ds.close(); ds_ps.close()
                 run_cmd(f'mv {tmp_file_name} {file_name}',verbose=False)
 
-                # # Do the vertical interpolation for this file
-                # self.remap_vertical(input_file_name=file_name,
-                #                    output_file_name=file_name,
-                #                    vert_file_name=vert_file_name,
-                #                    vert_remap_var_list=[var],
-                #                    ps_name=ps_var_name)
+                # Do the vertical interpolation for this file
+                self.remap_vertical(input_file_name=file_name,
+                                   output_file_name=file_name,
+                                   vert_file_name=vert_file_name,
+                                   vert_remap_var_list=[var],
+                                   ps_name=ps_var_name)
         
         # Re-set do_timers to previous value
         self.do_timers = prev_do_timers
