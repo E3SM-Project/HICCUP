@@ -11,8 +11,7 @@ class ERA5(hiccup_data):
     def is_name_for(cls,src_data_name) : return src_data_name == 'ERA5'
     def __init__( self, src_data_name,
                   target_model=None,
-                  atm_file=None,
-                  sfc_file=None,
+                  input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
                   output_dir=None,
@@ -31,10 +30,9 @@ class ERA5(hiccup_data):
                   verbose=False,
                   verbose_indent='',
                 ):
-        super().__init__(   
+        super().__init__(
                           target_model=target_model,
-                          atm_file=atm_file,
-                          sfc_file=sfc_file,
+                          input_file_list=input_file_list,
                           dst_horz_grid=dst_horz_grid,
                           dst_vert_grid=dst_vert_grid,
                           output_dir=output_dir,
@@ -58,11 +56,13 @@ class ERA5(hiccup_data):
         self.new_lev_name = 'plev'
         # set vertical coordinate name to accommodate old and new names from CDS upgrade
         self.lev_name = None
-        if self.atm_file is not None:
-            if 'pressure_level' in self.ds_atm.coords: self.lev_name = 'pressure_level'
-            if 'level'          in self.ds_atm.coords: self.lev_name = 'level'
-            if self.lev_name is None:
-                raise ValueError('ERA5 subclass: lev_name cannot be set from input data coordinates')
+        for fp in self.input_file_list:
+            ds = xr.open_dataset(fp, decode_times=False)
+            if 'pressure_level' in ds.coords: self.lev_name = 'pressure_level'; ds.close(); break
+            if 'level'          in ds.coords: self.lev_name = 'level';           ds.close(); break
+            ds.close()
+        if len(self.input_file_list) > 0 and self.lev_name is None:
+            raise ValueError('ERA5 subclass: lev_name cannot be set from input data coordinates')
 
         # set flag to indicate whether source data uses hybrid vertical coordinate
         self.src_hybrid_lev = False
@@ -132,8 +132,21 @@ class ERA5(hiccup_data):
                 self.dst_grid_file_np = f'{self.grid_dir}/exodus_ne{dst_ne}.g'
                 self.dst_grid_file_pg = f'{self.grid_dir}/scrip_{ self.dst_horz_grid_pg}.nc'
 
-        self.src_nlat = len( self.ds_atm[ self.atm_var_name_dict['lat'] ].values )
-        self.src_nlon = len( self.ds_atm[ self.atm_var_name_dict['lon'] ].values )
+        lat_var = self.atm_var_name_dict['lat']
+        lon_var = self.atm_var_name_dict['lon']
+        # find the first input file that contains lat/lon to determine grid size
+        _ds_grid = None
+        for fp in self.input_file_list:
+            _ds = xr.open_dataset(fp, decode_times=False)
+            if lat_var in _ds and lon_var in _ds:
+                _ds_grid = _ds
+                break
+            _ds.close()
+        if _ds_grid is None:
+            raise ValueError('ERA5 subclass: could not find lat/lon in any input file')
+        self.src_nlat = len( _ds_grid[lat_var].values )
+        self.src_nlon = len( _ds_grid[lon_var].values )
+        _ds_grid.close()
 
         self.src_horz_grid = f'{self.src_nlat}x{self.src_nlon}'
         self.src_grid_file = f'{self.grid_dir}/scrip_{self.src_data_name}_{self.src_horz_grid}.nc'

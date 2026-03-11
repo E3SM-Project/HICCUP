@@ -48,8 +48,8 @@ topo_file_name = '/global/cfs/cdirs/e3sm/inputdata/atm/cam/topo/USGS-gtopo30_ne3
 # and variable name dictionaries for mapping between naming conventions.
 # This also checks input files for required variables
 hiccup_data = hdc.create_hiccup_data(name='ERA5'
-                                    ,atm_file=f'{data_root}/ERA5.atm.{init_date}.00.nc'
-                                    ,sfc_file=f'{data_root}/ERA5.sfc.{init_date}.00.nc'
+                                    ,input_file_list=[f'{data_root}/ERA5.atm.{init_date}.00.nc',
+                                                      f'{data_root}/ERA5.sfc.{init_date}.00.nc']
                                     ,sstice_name='NOAA'
                                     ,sst_file=f'{data_root}/sst.day.mean.{init_year}.nc'
                                     ,ice_file=f'{data_root}/icec.day.mean.{init_year}.nc'
@@ -65,8 +65,7 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
 # ------------------------------------------------------------------------------
 # Print some informative stuff
 print('\n  Input Files')
-print(f'    input atm files: {hiccup_data.atm_file}')
-print(f'    input sfc files: {hiccup_data.sfc_file}')
+print(f'    input files:     {hiccup_data.input_file_list}')
 print(f'    input sst files: {hiccup_data.sst_file}')
 print(f'    input ice files: {hiccup_data.ice_file}')
 print(f'    input topo file: {hiccup_data.topo_file}')

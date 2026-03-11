@@ -18,14 +18,14 @@ class hiccup_data_class_test_case(unittest.TestCase):
   # ----------------------------------------------------------------------------
   def setUp(self):
     self.hiccup_data_ERA5 = hiccup.create_hiccup_data( src_data_name='ERA5',
-                                                       atm_file='test_data/HICCUP_TEST.ERA5.atm.low-res.nc',
-                                                       sfc_file='test_data/HICCUP_TEST.ERA5.sfc.low-res.nc')
+                                                       input_file_list=['../test_data/HICCUP_TEST.ERA5.atm.low-res.nc',
+                                                                        '../test_data/HICCUP_TEST.ERA5.sfc.low-res.nc'])
     self.hiccup_data_NOAA = hiccup.create_hiccup_data( src_data_name='NOAA',
-                                                       sst_file='test_data/HICCUP_TEST.NOAA.sst.nc',
-                                                       ice_file='test_data/HICCUP_TEST.NOAA.ice.nc')
+                                                       sst_file='../test_data/HICCUP_TEST.NOAA.sst.nc',
+                                                       ice_file='../test_data/HICCUP_TEST.NOAA.ice.nc')
     self.hiccup_data_CAMS = hiccup.create_hiccup_data( src_data_name='CAMS',
-                                                       atm_file='test_data/HICCUP_TEST.CAMS.atm.low-res.nc',
-                                                       sfc_file='test_data/HICCUP_TEST.CAMS.sfc.low-res.nc')
+                                                       input_file_list=['../test_data/HICCUP_TEST.CAMS.atm.low-res.nc',
+                                                                        '../test_data/HICCUP_TEST.CAMS.sfc.low-res.nc'])
     self.obj_list = []
     self.obj_list.append(self.hiccup_data_ERA5)
     self.obj_list.append(self.hiccup_data_NOAA)
@@ -48,8 +48,7 @@ class hiccup_data_class_test_case(unittest.TestCase):
     attr_list = []
     attr_list.append('src_data_name')
     attr_list.append('target_model')
-    attr_list.append('atm_file')
-    attr_list.append('sfc_file')
+    attr_list.append('input_file_list')
     attr_list.append('topo_file')
     attr_list.append('atm_var_name_dict')
     attr_list.append('sfc_var_name_dict')
@@ -245,6 +244,53 @@ class hiccup_data_class_test_case(unittest.TestCase):
     self.assertFalse(compare_version('4.9.9', required_version='5.3.1'))   # older major
     self.assertFalse(compare_version('5.3.1-alpha09', required_version='5.3.1'))  # alpha < release
     print_timer(timer_start,caller='test_compare_version')
+  # ----------------------------------------------------------------------------
+  def test_build_var_to_file_map_prefers_2d_for_sfc_vars(self):
+    """
+    Verify that _build_var_to_file_map routes sfc variables to a file where the
+    source variable has no vertical dimension, even when a same-named 3-D variable
+    exists in an earlier file.
+
+    ERA5 test data: both atm and sfc files contain 'z', but the atm copy has a
+    pressure_level dimension while the sfc copy is 2-D.  PHIS/phis must map to
+    the sfc file so that the surface-adjustment step does not pick up 3-D data.
+    """
+    timer_start = perf_counter()
+    import xarray as xr, os
+
+    obj = self.hiccup_data_ERA5   # ERA5/EAM object from setUp
+
+    # Confirm 'z' is present in both files
+    atm_file = obj.input_file_list[0]
+    sfc_file = obj.input_file_list[1]
+    ds_atm = xr.open_dataset(atm_file, decode_times=False)
+    ds_sfc = xr.open_dataset(sfc_file, decode_times=False)
+    self.assertIn('z', ds_atm, msg='test precondition: z must exist in atm file')
+    self.assertIn('z', ds_sfc, msg='test precondition: z must exist in sfc file')
+    self.assertTrue(
+      any(d in {'pressure_level','level','plev','lev'} for d in ds_atm['z'].dims),
+      msg='test precondition: z in atm file must have a vertical dimension')
+    self.assertFalse(
+      any(d in {'pressure_level','level','plev','lev'} for d in ds_sfc['z'].dims),
+      msg='test precondition: z in sfc file must NOT have a vertical dimension')
+
+    # The map must route PHIS (src='z') to the sfc file, not the atm file
+    self.assertIn('PHIS', obj._var_to_file_map,
+                  msg='PHIS must be present in _var_to_file_map')
+    self.assertEqual(
+      os.path.abspath(obj._var_to_file_map['PHIS']),
+      os.path.abspath(sfc_file),
+      msg='PHIS must map to sfc file (2-D z), not atm file (3-D z on pressure levels)')
+
+    # Atmospheric variable T must still map to the atm file
+    self.assertIn('T', obj._var_to_file_map,
+                  msg='T must be present in _var_to_file_map')
+    self.assertEqual(
+      os.path.abspath(obj._var_to_file_map['T']),
+      os.path.abspath(atm_file),
+      msg='T must map to atm file')
+
+    print_timer(timer_start,caller='test_build_var_to_file_map_prefers_2d_for_sfc_vars')
 #===============================================================================
 if __name__ == '__main__':
     unittest.main()

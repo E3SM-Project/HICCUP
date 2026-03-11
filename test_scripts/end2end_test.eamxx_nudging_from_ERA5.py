@@ -32,8 +32,8 @@ hiccup_data = hiccup.create_hiccup_data( src_data_name='ERA5',
                                          target_model='EAMXX-nudging',
                                          dst_horz_grid=dst_horz_grid,
                                          dst_vert_grid=dst_vert_grid,
-                                         atm_file=f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc',
-                                         sfc_file=f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res.nc',
+                                         input_file_list=[f'{data_root}/HICCUP_TEST.ERA5.atm.low-res.nc',
+                                                          f'{data_root}/HICCUP_TEST.ERA5.sfc.low-res.nc'],
                                          topo_file=topo_file,
                                          grid_dir=data_tmp,
                                          map_dir=data_tmp,
@@ -44,8 +44,7 @@ hiccup_data = hiccup.create_hiccup_data( src_data_name='ERA5',
 
 # Print some informative stuff
 print('\n  Input Files')
-print(f'    input atm files: {hiccup_data.atm_file}')
-print(f'    input sfc files: {hiccup_data.sfc_file}')
+print(f'    input files:     {hiccup_data.input_file_list}')
 print(f'    input topo file: {hiccup_data.topo_file}')
 print('\n  Output files')
 print(f'    output atm file: {output_atm_file_name}')

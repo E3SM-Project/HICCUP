@@ -80,8 +80,8 @@ for t in datetime_list:
                                             target_model='EAMXX-nudging',
                                             dst_horz_grid=dst_horz_grid,
                                             dst_vert_grid=dst_vert_grid,
-                                            atm_file=src_atm_file,
-                                            sfc_file=src_sfc_file,
+                                            input_file_list=[src_atm_file,
+                                                             src_sfc_file],
                                             topo_file=None,
                                             output_dir=dst_data_root,
                                             grid_dir=dst_data_root,
@@ -93,8 +93,7 @@ for t in datetime_list:
     # Print some informative stuff
     if verbose:
         print('\n  Input Files')
-        print(f'    input atm files: {hiccup_data.atm_file}')
-        print(f'    input sfc files: {hiccup_data.sfc_file}')
+        print(f'    input files:     {hiccup_data.input_file_list}')
         print('\n  Output files')
         print(f'    output atm file: {output_atm_file_name}')
 

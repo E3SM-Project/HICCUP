@@ -15,8 +15,7 @@ class EAM(hiccup_data):
     def is_name_for(cls,src_data_name) : return src_data_name == 'EAM'
     def __init__( self, name,
                   target_model=None,
-                  atm_file=None,
-                  sfc_file=None,
+                  input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
                   output_dir=None,
@@ -35,10 +34,9 @@ class EAM(hiccup_data):
                   verbose=False,
                   verbose_indent='',
                 ):
-        super().__init__(   
+        super().__init__(
                           target_model=target_model,
-                          atm_file=atm_file,
-                          sfc_file=sfc_file,
+                          input_file_list=input_file_list,
                           dst_horz_grid=dst_horz_grid,
                           dst_vert_grid=dst_vert_grid,
                           output_dir=output_dir,
@@ -71,6 +69,7 @@ class EAM(hiccup_data):
         self.dst_horz_grid_pg = self.dst_horz_grid.replace('np4',f'pg{self.npg}')
 
         # Determine source grid from input atmosphere file
+        atm_file = self.input_file_list[0] if self.input_file_list else None
         ds = xr.open_dataset(atm_file)
 
         if check_input_files:
@@ -107,7 +106,7 @@ class EAM(hiccup_data):
         # Atmospheric variables - need separate treatment for np4 and pgN data
         self.atm_var_name_dict_np = {}
         self.atm_var_name_dict_pg = {}
-        ds = xr.open_dataset(self.atm_file)
+        ds = xr.open_dataset(atm_file)
 
         # check that dimension sizes are consistent
         if 'ncol' in ds.dims:

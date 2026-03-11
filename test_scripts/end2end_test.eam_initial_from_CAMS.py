@@ -29,8 +29,8 @@ output_cams_file_name = f'{data_tmp}/HICCUP_TEST_OUTPUT.atm_cams.{dst_horz_grid}
 hiccup_data = hiccup.create_hiccup_data( src_data_name='CAMS',
                                          dst_horz_grid=dst_horz_grid,
                                          dst_vert_grid=dst_vert_grid,
-                                         atm_file=f'{data_root}/HICCUP_TEST.CAMS.atm.low-res.nc',
-                                         sfc_file=f'{data_root}/HICCUP_TEST.CAMS.sfc.low-res.nc',
+                                         input_file_list=[f'{data_root}/HICCUP_TEST.CAMS.atm.low-res.nc',
+                                                          f'{data_root}/HICCUP_TEST.CAMS.sfc.low-res.nc'],
                                          grid_dir=data_tmp,
                                          map_dir=data_tmp,
                                          tmp_dir=data_tmp,
@@ -40,8 +40,7 @@ hiccup_data = hiccup.create_hiccup_data( src_data_name='CAMS',
 
 # Print some informative stuff
 print('\n  Input Files')
-print(f'    input CAMS atm file: {hiccup_data.atm_file}')
-print(f'    input CAMS sfc file: {hiccup_data.sfc_file}')
+print(f'    input CAMS files:    {hiccup_data.input_file_list}')
 print('\n  Output files')
 print(f'    output CAMS file: {output_cams_file_name}')
 

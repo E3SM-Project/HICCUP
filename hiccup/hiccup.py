@@ -90,8 +90,7 @@ def create_hiccup_data( src_data_name,
                         target_model=default_target_model,
                         dst_horz_grid=None,
                         dst_vert_grid=None,
-                        atm_file=None,
-                        sfc_file=None,
+                        input_file_list=None,
                         output_dir=default_output_dir,
                         grid_dir=default_grid_dir,
                         map_dir=default_map_dir,
@@ -107,8 +106,8 @@ def create_hiccup_data( src_data_name,
                         check_input_files=True,
                         RRM_grid=False,
                       ):
-    """ 
-    Create HICCUP data class object, check for required input variables and 
+    """
+    Create HICCUP data class object, check for required input variables and
     create specified output directories if they do not exist
     """
     global hiccup_verbose,hiccup_verbose_indent
@@ -120,8 +119,7 @@ def create_hiccup_data( src_data_name,
             # Create the object
             obj = subclass( src_data_name,
                             target_model=target_model,
-                            atm_file=atm_file,
-                            sfc_file=sfc_file,
+                            input_file_list=input_file_list,
                             sstice_name=sstice_name,
                             sst_file=sst_file,
                             ice_file=ice_file,
@@ -140,7 +138,12 @@ def create_hiccup_data( src_data_name,
                             verbose_indent=verbose_indent,
                           )
 
-            # Check input files for for required variables
+            # Unconditional guard: raise early if input_file_list is needed but empty
+            all_var_dicts = {**obj.atm_var_name_dict, **obj.sfc_var_name_dict}
+            if len(all_var_dicts) > 0 and len(obj.input_file_list) == 0:
+                raise ValueError(f'input_file_list is required for {src_data_name} but was not provided')
+
+            # Check input files for required variables (also builds _var_to_file_map)
             if check_input_files: obj.check_file_vars()
 
             # Create the output, grid, and map folders if they do not exist
