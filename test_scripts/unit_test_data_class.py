@@ -2,13 +2,19 @@
 #===================================================================================================
 # Unit testing for hiccup_data_class module
 #===================================================================================================
-import unittest, numpy as np, xarray as xr, pandas as pd
+import os, tempfile, unittest
+import numpy as np, xarray as xr, pandas as pd
 from time import perf_counter
+from unittest.mock import patch
 from hiccup.hiccup_data_class_timer_methods import print_timer
+from hiccup.hiccup_data_class import _drop_ps, get_adj_file_list
 from hiccup.hiccup_utilities import compare_version, parse_version
 from hiccup import hiccup
 
 verbose_default = False # local verbosity default
+
+# Resolve test_data path relative to this file so tests run from any directory
+TEST_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test_data')
 
 #===============================================================================
 class hiccup_data_class_test_case(unittest.TestCase):
@@ -18,14 +24,14 @@ class hiccup_data_class_test_case(unittest.TestCase):
   # ----------------------------------------------------------------------------
   def setUp(self):
     self.hiccup_data_ERA5 = hiccup.create_hiccup_data( src_data_name='ERA5',
-                                                       input_file_list=['../test_data/HICCUP_TEST.ERA5.atm.low-res.nc',
-                                                                        '../test_data/HICCUP_TEST.ERA5.sfc.low-res.nc'])
+                                                       input_file_list=[f'{TEST_DATA}/HICCUP_TEST.ERA5.atm.low-res.nc',
+                                                                        f'{TEST_DATA}/HICCUP_TEST.ERA5.sfc.low-res.nc'])
     self.hiccup_data_NOAA = hiccup.create_hiccup_data( src_data_name='NOAA',
-                                                       sst_file='../test_data/HICCUP_TEST.NOAA.sst.nc',
-                                                       ice_file='../test_data/HICCUP_TEST.NOAA.ice.nc')
+                                                       sst_file=f'{TEST_DATA}/HICCUP_TEST.NOAA.sst.nc',
+                                                       ice_file=f'{TEST_DATA}/HICCUP_TEST.NOAA.ice.nc')
     self.hiccup_data_CAMS = hiccup.create_hiccup_data( src_data_name='CAMS',
-                                                       input_file_list=['../test_data/HICCUP_TEST.CAMS.atm.low-res.nc',
-                                                                        '../test_data/HICCUP_TEST.CAMS.sfc.low-res.nc'])
+                                                       input_file_list=[f'{TEST_DATA}/HICCUP_TEST.CAMS.atm.low-res.nc',
+                                                                        f'{TEST_DATA}/HICCUP_TEST.CAMS.sfc.low-res.nc'])
     self.obj_list = []
     self.obj_list.append(self.hiccup_data_ERA5)
     self.obj_list.append(self.hiccup_data_NOAA)
@@ -291,6 +297,180 @@ class hiccup_data_class_test_case(unittest.TestCase):
       msg='T must map to atm file')
 
     print_timer(timer_start,caller='test_build_var_to_file_map_prefers_2d_for_sfc_vars')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_str_content(self):
+    """
+    verify __str__ output contains key attribute names and object header
+    """
+    timer_start = perf_counter()
+    s = self.hiccup_data_ERA5.__str__()
+    self.assertIn('HICCUP data object', s)
+    self.assertIn('src_data_name', s)
+    self.assertIn('ERA5', s)
+    self.assertIn('atm_var_name_dict', s)
+    self.assertIn('sfc_var_name_dict', s)
+    print_timer(timer_start, caller='test_hiccup_data_class_str_content')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_init_error_target_model_none(self):
+    """
+    verify that target_model=None raises ValueError
+    """
+    timer_start = perf_counter()
+    self.assertRaises(
+      ValueError,
+      hiccup.create_hiccup_data,
+      'ERA5',
+      target_model=None,
+      input_file_list=[f'{TEST_DATA}/HICCUP_TEST.ERA5.atm.low-res.nc',
+                       f'{TEST_DATA}/HICCUP_TEST.ERA5.sfc.low-res.nc'])
+    print_timer(timer_start, caller='test_hiccup_data_class_init_error_target_model_none')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_init_error_missing_file(self):
+    """
+    verify that a non-existent input file raises ValueError when check_input_files=True
+    """
+    timer_start = perf_counter()
+    self.assertRaises(
+      ValueError,
+      hiccup.create_hiccup_data,
+      'ERA5',
+      input_file_list=[f'{TEST_DATA}/HICCUP_TEST.ERA5.atm.low-res.nc',
+                       '/nonexistent/file.nc'],
+      check_input_files=True)
+    print_timer(timer_start, caller='test_hiccup_data_class_init_error_missing_file')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_init_error_no_input_files(self):
+    """
+    verify that an empty input_file_list raises ValueError for ERA5 (which has var dicts)
+    """
+    timer_start = perf_counter()
+    self.assertRaises(
+      ValueError,
+      hiccup.create_hiccup_data,
+      'ERA5',
+      input_file_list=[])
+    print_timer(timer_start, caller='test_hiccup_data_class_init_error_no_input_files')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_check_file_vars_populates_map(self):
+    """
+    verify _var_to_file_map is populated after check_file_vars()
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    obj.check_file_vars()
+    self.assertIsInstance(obj._var_to_file_map, dict)
+    self.assertGreater(len(obj._var_to_file_map), 0)
+    # every key in the combined var dicts (except lat/lon) should be mapped
+    all_vars = {**obj.atm_var_name_dict, **obj.sfc_var_name_dict}
+    for var in all_vars:
+      if var not in ('lat', 'lon'):
+        self.assertIn(var, obj._var_to_file_map,
+                      msg=f'Expected {var!r} in _var_to_file_map')
+    print_timer(timer_start, caller='test_hiccup_data_class_check_file_vars_populates_map')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_get_multifile_dict_prefix_logic(self):
+    """
+    verify atm vars get tmp_atm_data prefix, sfc vars get tmp_sfc_data prefix,
+    and lat/lon coords are excluded from the dict
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    file_dict = obj.get_multifile_dict(timestamp=999)
+    lat_var = obj.atm_var_name_dict.get('lat')
+    lon_var = obj.atm_var_name_dict.get('lon')
+    # lat and lon should never appear as keys
+    self.assertNotIn('lat', file_dict)
+    self.assertNotIn('lon', file_dict)
+    for key, path in file_dict.items():
+      if key in obj.sfc_var_name_dict and key not in obj.atm_var_name_dict:
+        self.assertIn('tmp_sfc_data', path,
+                      msg=f'sfc var {key!r} expected tmp_sfc_data prefix, got {path!r}')
+      elif key in obj.atm_var_name_dict and obj.atm_var_name_dict[key] not in [lat_var, lon_var]:
+        self.assertIn('tmp_atm_data', path,
+                      msg=f'atm var {key!r} expected tmp_atm_data prefix, got {path!r}')
+    print_timer(timer_start, caller='test_hiccup_data_class_get_multifile_dict_prefix_logic')
+  # ----------------------------------------------------------------------------
+  def test_drop_ps_helper(self):
+    """
+    verify _drop_ps removes PS from non-PS files and keeps it in the PS file
+    """
+    timer_start = perf_counter()
+    ps_path = '/fake/ps.nc'
+    t_path  = '/fake/t.nc'
+    file_dict = {'PS': ps_path, 'T': t_path}
+    # Dataset sourced from PS file — PS must be kept
+    ds_ps = xr.Dataset({'PS': xr.DataArray([1.0]), 'T': xr.DataArray([2.0])})
+    ds_ps.encoding['source'] = ps_path
+    # Dataset sourced from T file — PS must be dropped
+    ds_t = xr.Dataset({'PS': xr.DataArray([1.0]), 'T': xr.DataArray([2.0])})
+    ds_t.encoding['source'] = t_path
+    with patch('hiccup.hiccup_data_class.os.path.samefile', side_effect=lambda a, b: a == b):
+      result_ps = _drop_ps(ds_ps, file_dict)
+      result_t  = _drop_ps(ds_t,  file_dict)
+    self.assertIn('PS', result_ps, msg='PS must be kept in the PS file dataset')
+    self.assertNotIn('PS', result_t, msg='PS must be dropped from the T file dataset')
+    print_timer(timer_start, caller='test_drop_ps_helper')
+  # ----------------------------------------------------------------------------
+  def test_get_adj_file_list_helper(self):
+    """
+    verify get_adj_file_list returns only the files whose keys appear in var_list
+    """
+    timer_start = perf_counter()
+    file_dict = {'T': '/tmp/t.nc', 'Q': '/tmp/q.nc', 'PS': '/tmp/ps.nc', 'U': '/tmp/u.nc'}
+    result = get_adj_file_list(['Q', 'PS'], file_dict)
+    self.assertEqual(result, ['/tmp/q.nc', '/tmp/ps.nc'])
+    # empty var_list returns empty list
+    self.assertEqual(get_adj_file_list([], file_dict), [])
+    print_timer(timer_start, caller='test_get_adj_file_list_helper')
+  # ----------------------------------------------------------------------------
+  def test_surface_adjustment_multifile_error_guard(self):
+    """
+    verify adj_T_eam=True with adj_PS=False raises ValueError
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    self.assertRaises(ValueError, obj.surface_adjustment_multifile,
+                      {}, adj_T_eam=True, adj_PS=False)
+    print_timer(timer_start, caller='test_surface_adjustment_multifile_error_guard')
+  # ----------------------------------------------------------------------------
+  def test_atmos_state_adjustment_multifile_adjust_wtr_empty(self):
+    """
+    verify early return when no cloud water files are in file_dict
+    """
+    timer_start = perf_counter()
+    # file_dict with no CLDLIQ/CLDICE/qc/qi keys -> get_adj_file_list returns []
+    obj = self.hiccup_data_ERA5
+    obj.atmos_state_adjustment_multifile_adjust_wtr(file_dict={})  # should not raise
+    print_timer(timer_start, caller='test_atmos_state_adjustment_multifile_adjust_wtr_empty')
+  # ----------------------------------------------------------------------------
+  def test_check_input_times_and_get_time_index(self):
+    """
+    verify check_input_times passes for a present time, raises for an absent one,
+    and _get_time_index returns the correct integer index
+    """
+    timer_start = perf_counter()
+    # build a tiny temp netCDF with a proper 'time' dimension
+    tmp = tempfile.NamedTemporaryFile(suffix='.nc', delete=False)
+    tmp.close()
+    try:
+      time_vals = pd.date_range('2008-10-01', periods=3, freq='6h')
+      ds = xr.Dataset({'T': xr.DataArray(np.zeros((3, 4)), dims=['time', 'ncol'])},
+                      coords={'time': time_vals})
+      ds.to_netcdf(tmp.name)
+      ds.close()
+      obj = self.hiccup_data_ERA5
+      obj.input_file_list = [tmp.name]
+      # happy path — time is in the file
+      obj.check_input_times('2008-10-01')
+      # error path — time is absent
+      self.assertRaises(ValueError, obj.check_input_times, '2020-01-01')
+      # _get_time_index returns correct indices
+      self.assertEqual(obj._get_time_index(tmp.name, '2008-10-01 00:00'), 0)
+      self.assertEqual(obj._get_time_index(tmp.name, '2008-10-01 06:00'), 1)
+      self.assertEqual(obj._get_time_index(tmp.name, '2008-10-01 12:00'), 2)
+    finally:
+      os.remove(tmp.name)
+    print_timer(timer_start, caller='test_check_input_times_and_get_time_index')
 #===============================================================================
 if __name__ == '__main__':
     unittest.main()

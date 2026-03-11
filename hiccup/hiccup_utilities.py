@@ -1,5 +1,6 @@
 # This module contains some useful utility routines used in hiccup_data_class.py
 import os, sys, re, shutil, subprocess as sp
+import numpy as np
 verbose_default = False # local verbosity default
 # ------------------------------------------------------------------------------
 # class for terminal colors
@@ -116,8 +117,8 @@ def chk_finite(x,name=None):
   check the input data for inf values
   input data should be a xarray DataArray 
   """
-  inf_cnt = x.where( xr.ufuncs.isinf(x) ).count().values
-  nan_cnt = x.where( xr.ufuncs.isnan(x) ).count().values
+  inf_cnt = np.isinf(x).sum().values
+  nan_cnt = np.isnan(x).sum().values
   if inf_cnt>0 or nan_cnt>0: 
     err_msg = '  '
     if name is not None: err_msg += f'{name}:  '
