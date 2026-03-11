@@ -331,7 +331,7 @@ class hiccup_data(object):
         for file_path in self.input_file_list:
             ds = xr.open_dataset(file_path, decode_times=False)
             if 'time' not in ds.dims: continue
-            times = xr.coding.times.decode_cf(ds)['time'].values
+            times = xr.decode_cf(ds)['time'].values
             times_pd = pd.DatetimeIndex(times)
             if target not in times_pd:
                 raise ValueError(
@@ -341,7 +341,7 @@ class hiccup_data(object):
     def _get_time_index(self, file_path, target_time):
         """Return integer time index of target_time in file_path."""
         ds = xr.open_dataset(file_path, decode_times=False)
-        times = xr.coding.times.decode_cf(ds)['time'].values
+        times = xr.decode_cf(ds)['time'].values
         times_pd = pd.DatetimeIndex(times)
         target = pd.Timestamp(target_time)
         idx = times_pd.get_loc(target)
