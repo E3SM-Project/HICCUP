@@ -1,0 +1,36 @@
+cff-version: 1.0.0
+title: "HICCUP: Hindcast Initial Condition Creation Utility/Processor"
+message: "If you use this software, please cite it using the metadata below."
+type: software
+authors:
+  - family-names: Hannah
+    given-names: Walter
+    orcid: "https://orcid.org/0000-0002-4811-1928"
+    affiliation: "Lawrence Livermore National Laboratory"
+repository-code: "https://github.com/E3SM-Project/HICCUP"
+url: "https://github.com/E3SM-Project/HICCUP"
+abstract: >
+  HICCUP is a tool for creating E3SM initial condition files from
+  reanalysis data, with a focus on modularity and portability. It
+  supports ERA5 and NOAA SST/sea-ice input data and handles horizontal
+  and vertical regridding to E3SM's native spectral element grids.
+  HICCUP also include various adjustment methods, such as a surface
+  pressure adjustment designed to reduce spurious gravity waves
+  eminating from the model's smoothed topography.
+keywords:
+  - atmospheric-science
+  - climate-model
+  - earth-system-model
+  - atmospheric-model
+  - E3SM
+  - EAM
+  - EAMxx
+  - SCREAM
+  - initial-conditions
+  - hindcast
+  - reanalysis
+  - ERA5
+  - NOAA-SST
+license: BSD-3-Clause
+version: "1.0.0"
+date-released: "2026-03-16"
