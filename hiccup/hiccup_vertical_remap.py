@@ -152,16 +152,29 @@ def remap_vertical_py(input_file, output_file, vert_file,
   """
   vertically remap fields in input_file onto the hybrid grid defined by vert_file
   and write the result to output_file
+
+  supported source layouts (auto-detected):
+    - EAM / EAMxx hybrid:  hyam, hybm, P0, and ps_name present
+    - ECMWF IFS hybrid:    hyam (in Pa), hybm, and lnsp present (no P0)
+    - pure pressure level: only the lev_name coordinate (e.g. ERA5 plev in Pa)
+  surface pressure is taken from ps_name when available, else derived as exp(lnsp);
+  in either case the resolved value is written to the output as ps_name
+
   parameters
-    input_file   path to source dataset (must contain ps_name and lev_name)
+    input_file   path to source dataset; must contain lev_name plus a recognized layout
+                 (see above) and either ps_name or lnsp for surface pressure
     output_file  path to write remapped dataset
     vert_file    target vertical grid file (must contain hyam, hybm; P0 optional)
-    ps_name      name of surface pressure variable in input_file (default 'PS')
+    ps_name      name of surface pressure variable in input_file (default 'PS');
+                 also the name used for surface pressure in the output
     var_list     list of variables to remap; if None, remap every var with lev_name in dims
     lev_name     name of source vertical dim (default 'lev')
     mode         'log_pressure' (default) or 'linear_pressure'
     extrap       'constant' (default, clamp) or 'linear' (slope from end pair)
     chunks       dict passed to xr.open_dataset; lev_name is forced to -1 if absent
+    nc_output_format  netCDF format string passed through to xarray's to_netcdf()
+                      (default 'NETCDF4'); set to 'NETCDF3_64BIT' etc. when downstream
+                      tools require an older format
     verbose      print progress
   """
   if mode not in ('log_pressure','linear_pressure'):
