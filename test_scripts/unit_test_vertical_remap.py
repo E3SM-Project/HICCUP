@@ -392,6 +392,47 @@ class remap_vertical_end_to_end_test_case(unittest.TestCase):
       np.testing.assert_array_equal(ds_out['hybi'].values, self.ds_vert['hybi'].values)
     print_timer(timer_start, caller='test_target_hybrid_coefs_carried_over')
   # ------------------------------------------------------------------------
+  def test_explicit_chunks_produce_correct_output(self):
+    """
+    explicit horizontal chunking should still produce correct output;
+    proves the dask-parallelized interp path works end-to-end
+    """
+    timer_start = perf_counter()
+    remap_vertical_py(self.src_file, self.out_file, self.vert_file, ps_name='PS',
+                      lev_name='lev', chunks={'ncol': 2, 'time': 1})
+    with xr.open_dataset(self.out_file) as ds_out:
+      hyam = ds_out['hyam'].values
+      hybm = ds_out['hybm'].values
+      ps   = ds_out['PS'].values
+      p_tgt = hyam[None, :, None]*1.0e5 + hybm[None, :, None]*ps[:, None, :]
+      T_exp = 250.0 + 30.0*np.log(p_tgt/1.0e5)
+      T_got = ds_out['T'].transpose('time', 'lev', 'ncol').values
+      np.testing.assert_allclose(T_got, T_exp, rtol=1e-10, atol=1e-10)
+    print_timer(timer_start, caller='test_explicit_chunks_produce_correct_output')
+  # ------------------------------------------------------------------------
+  def test_default_chunks_chunk_horizontal_dims(self):
+    """
+    when chunks=None, the input dataset should be opened with dask backing on
+    every dim (lev_name forced to -1) - regression against an earlier default
+    that left non-lev dims as a single chunk
+    """
+    timer_start = perf_counter()
+    # build a wider source so 'auto' has something to bite into
+    wide_src = os.path.join(self.tmpdir, 'wide_src.nc')
+    _write_source_dataset(wide_src, ncol=64, ntime=4, nlev_src=20)
+    out = os.path.join(self.tmpdir, 'wide_out.nc')
+    remap_vertical_py(wide_src, out, self.vert_file, ps_name='PS', lev_name='lev')
+    # confirm correctness on the wider grid
+    with xr.open_dataset(out) as ds_out:
+      hyam = ds_out['hyam'].values
+      hybm = ds_out['hybm'].values
+      ps   = ds_out['PS'].values
+      p_tgt = hyam[None, :, None]*1.0e5 + hybm[None, :, None]*ps[:, None, :]
+      T_exp = 250.0 + 30.0*np.log(p_tgt/1.0e5)
+      T_got = ds_out['T'].transpose('time', 'lev', 'ncol').values
+      np.testing.assert_allclose(T_got, T_exp, rtol=1e-10, atol=1e-10)
+    print_timer(timer_start, caller='test_default_chunks_chunk_horizontal_dims')
+  # ------------------------------------------------------------------------
   def test_var_list_filters_remapped_fields(self):
     """
     explicit var_list should remap only the listed fields; other lev-bearing vars are dropped

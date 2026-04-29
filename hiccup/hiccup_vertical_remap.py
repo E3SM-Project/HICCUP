@@ -177,7 +177,10 @@ def remap_vertical_py(input_file, output_file, vert_file,
     lev_name     name of source vertical dim (default 'lev')
     mode         'log_pressure' (default) or 'linear_pressure'
     extrap       'constant' (default, clamp) or 'linear' (slope from end pair)
-    chunks       dict passed to xr.open_dataset; lev_name is forced to -1 if absent
+    chunks       dict passed to xr.open_dataset; lev_name is forced to -1 (full
+                 column required for interp). When None (default), every non-lev
+                 dim is set to 'auto' so dask picks reasonable chunk sizes for
+                 large unstructured grids; pass an explicit dict to override
     nc_output_format  netCDF format string passed through to xarray's to_netcdf()
                       (default 'NETCDF4'); set to 'NETCDF3_64BIT' etc. when downstream
                       tools require an older format
@@ -191,8 +194,13 @@ def remap_vertical_py(input_file, output_file, vert_file,
   same_in_out = os.path.abspath(input_file) == os.path.abspath(output_file)
   tmp_file = output_file + '.vrt_tmp.nc' if same_in_out else output_file
 
+  # build chunks: lev_name is always forced to -1 (full column needed for interp);
+  # when chunks is None, default every other dim to dask 'auto' so horizontal/time
+  # axes get reasonable chunk sizes instead of one giant chunk per dim
   if chunks is None:
-    chunks = {lev_name: -1}
+    with xr.open_dataset(input_file) as _ds_peek:
+      chunks = {d: 'auto' for d in _ds_peek.dims}
+    chunks[lev_name] = -1
   else:
     chunks = dict(chunks)
     chunks[lev_name] = -1
