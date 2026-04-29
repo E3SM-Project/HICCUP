@@ -73,7 +73,7 @@ def _compute_output_pressure(ds_vert, ps, out_lev_name):
   ps must already be aligned with the input dataset's non-vertical dims
   """
   if not {'hyam','hybm'}.issubset(ds_vert.variables.keys()):
-    raise ValueError('output_vertical_grid_file must contain hyam and hybm')
+    raise ValueError('ds_vert must contain hyam and hybm')
   p0 = ds_vert['P0'] if 'P0' in ds_vert.variables else _DEFAULT_P0
   hyam = ds_vert['hyam']
   hybm = ds_vert['hybm']
@@ -147,7 +147,8 @@ def _remap_field(field, p_in, p_out, in_lev_name, out_lev_name, mode, extrap):
 def remap_vertical_py(input_file, output_file, vert_file,
                       ps_name='PS', var_list=None, lev_name='lev',
                       mode='log_pressure', extrap='constant',
-                      chunks=None, verbose=False):
+                      chunks=None, nc_output_format='NETCDF4',
+                      verbose=False):
   """
   vertically remap fields in input_file onto the hybrid grid defined by vert_file
   and write the result to output_file
@@ -236,7 +237,7 @@ def remap_vertical_py(input_file, output_file, vert_file,
     if out_lev_name != out_lev_name_native:
       ds_out = ds_out.rename({out_lev_name: out_lev_name_native})
 
-    ds_out.to_netcdf(tmp_file, mode='w')
+    ds_out.to_netcdf(tmp_file, mode='w', format=nc_output_format)
 
   if same_in_out:
     os.replace(tmp_file, output_file)
