@@ -11,6 +11,7 @@ from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_stat
+from hiccup.hiccup_vertical_remap import remap_vertical_py
 # ------------------------------------------------------------------------------
 # Import timer and memory monitoring methods
 from hiccup.hiccup_data_class_timer_methods import print_timer as print_timer_ext
@@ -1022,8 +1023,12 @@ class hiccup_data(object):
     def remap_vertical(self,input_file_name,output_file_name,
                        vert_file_name,ps_name='PS',vert_remap_var_list=None,
                        verbose=None):
-        """  
-        Vertically remap data and combine into single file 
+        """
+        Vertically remap data and combine into single file.
+        Delegates to the pure-Python implementation in
+        hiccup.hiccup_vertical_remap.remap_vertical_py(). The original NCO-based
+        implementation is preserved as remap_vertical_nco() and can be invoked
+        directly by an advanced user as a fallback.
         """
         print_memory_usage_loc = print_memory_usage
         current_func,parent_func = sys._getframe(0).f_code.co_name, sys._getframe(1).f_code.co_name
@@ -1032,6 +1037,39 @@ class hiccup_data(object):
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Vertically remapping the data...')
+
+        remap_vertical_py(
+            input_file=input_file_name,
+            output_file=output_file_name,
+            vert_file=vert_file_name,
+            ps_name=ps_name,
+            var_list=vert_remap_var_list,
+            lev_name=self.lev_name,
+            chunks=self.get_chunks(),
+            nc_output_format=xarray_atm_nc_format,
+            verbose=verbose,
+        )
+
+        if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage_loc: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
+        return
+    # --------------------------------------------------------------------------
+    def remap_vertical_nco(self,input_file_name,output_file_name,
+                           vert_file_name,ps_name='PS',vert_remap_var_list=None,
+                           verbose=None):
+        """
+        NCO-based vertical remap (legacy fallback).
+        Preserved verbatim so an advanced user can swap a call site from
+        remap_vertical() to remap_vertical_nco() if the Python path needs to be
+        bypassed for debugging. New code should use remap_vertical().
+        """
+        print_memory_usage_loc = print_memory_usage
+        current_func,parent_func = sys._getframe(0).f_code.co_name, sys._getframe(1).f_code.co_name
+        if parent_func==current_func+'_multifile': print_memory_usage_loc = False
+        if print_memory_usage_loc: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Vertically remapping the data (NCO)...')
 
         check_dependency('ncremap')
 
