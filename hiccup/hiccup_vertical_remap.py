@@ -24,34 +24,46 @@ _HYBRID_COEF_VARS = ('hyam', 'hybm', 'hyai', 'hybi', 'P0')
 # ---------------------------------------------------------------------------
 # pressure-on-grid helpers
 # ---------------------------------------------------------------------------
-def _compute_input_pressure(ds, lev_name, ps_name):
+def _resolve_surface_pressure(ds, ps_name):
+  """
+  return surface pressure as an xarray.DataArray named ps_name
+  prefers ds[ps_name]; falls back to exp(ds['lnsp']) for ECMWF IFS layout
+  raises ValueError if neither is available
+  """
+  if ps_name in ds.variables:
+    return ds[ps_name]
+  if 'lnsp' in ds.variables:
+    return np.exp(ds['lnsp'].squeeze(drop=True)).rename(ps_name)
+  raise ValueError(
+    f'input_file must contain surface pressure as {ps_name!r} or as lnsp'
+  )
+
+# ---------------------------------------------------------------------------
+def _compute_input_pressure(ds, lev_name, ps):
   """
   return an xarray.DataArray of pressure on the source vertical grid
-  detects three layouts in priority order:
-    1. hybrid sigma-pressure with PS  (EAM / EAMxx / post-rename ERA5 hybrid)
-    2. ECMWF IFS hybrid with lnsp     (raw ERA5 model levels)
-    3. pure pressure levels           (ERA5 plev / pressure_level after rename to Pa)
+  detects three layouts:
+    1. EAM / EAMxx hybrid: hyam, hybm, P0 present -> p = hyam*P0 + hybm*ps
+    2. ECMWF IFS hybrid:   hyam in Pa, lnsp present (no P0) -> p = hyam + hybm*ps
+    3. pure pressure levels: only the lev coord -> p = ds[lev_name]
+  ps must be the resolved surface pressure DataArray (see _resolve_surface_pressure)
   """
   variables = set(ds.variables.keys())
-  hybrid_pa = {'hyam','hybm'}.issubset(variables)
+  hybrid = {'hyam','hybm'}.issubset(variables)
 
-  if hybrid_pa and ps_name in variables:
-    # EAM / EAMxx hybrid: p = hyam*P0 + hybm*PS
-    p0 = ds['P0'] if 'P0' in variables else _DEFAULT_P0
-    return ds['hyam']*p0 + ds['hybm']*ds[ps_name]
+  if hybrid and 'P0' in variables:
+    return ds['hyam']*ds['P0'] + ds['hybm']*ps
 
-  if hybrid_pa and 'lnsp' in variables:
-    # ECMWF IFS layout: hyam already in Pa, surface pressure stored as ln(ps)
-    ps = np.exp(ds['lnsp'].squeeze(drop=True))
+  if hybrid and 'lnsp' in variables:
+    # IFS layout: hyam is already in Pa
     return ds['hyam'] + ds['hybm']*ps
 
   if lev_name in ds.coords or lev_name in ds.variables:
-    # pure pressure levels - broadcast 1D plev to a DataArray on lev_name
     return ds[lev_name].astype('float64')
 
   raise ValueError(
-    f'cannot infer source vertical grid for lev_name={lev_name!r}, ps_name={ps_name!r}; '
-    f'expected hybrid (hyam,hybm,{ps_name}) or pressure-level coordinate'
+    f'cannot infer source vertical grid for lev_name={lev_name!r}; '
+    f'expected hybrid (hyam,hybm,P0|lnsp) or pressure-level coordinate'
   )
 
 # ---------------------------------------------------------------------------
@@ -171,8 +183,8 @@ def remap_vertical_py(input_file, output_file, vert_file,
   with xr.open_dataset(input_file, chunks=chunks) as ds_in, \
        xr.open_dataset(vert_file) as ds_vert:
 
-    if ps_name not in ds_in.variables:
-      raise ValueError(f'input_file does not contain surface pressure variable {ps_name!r}')
+    # resolve surface pressure once (handles both PS and IFS lnsp layouts)
+    ps = _resolve_surface_pressure(ds_in, ps_name)
 
     out_lev_name_native = ds_vert['hyam'].dims[0]
     # if source and target use the same dim name, rename target internally so apply_ufunc
@@ -182,8 +194,8 @@ def remap_vertical_py(input_file, output_file, vert_file,
       out_lev_name = f'{lev_name}_target'
       ds_vert = ds_vert.rename({out_lev_name_native: out_lev_name})
 
-    p_in  = _compute_input_pressure(ds_in, lev_name, ps_name)
-    p_out = _compute_output_pressure(ds_vert, ds_in[ps_name], out_lev_name)
+    p_in  = _compute_input_pressure(ds_in, lev_name, ps)
+    p_out = _compute_output_pressure(ds_vert, ps, out_lev_name)
 
     # decide which fields get remapped; never remap the hybrid coefficients themselves -
     # those describe the vertical grid and are pulled from vert_file
@@ -199,8 +211,7 @@ def remap_vertical_py(input_file, output_file, vert_file,
     for v in _HYBRID_COEF_VARS:
       if v in ds_vert.variables:
         ds_out[v] = ds_vert[v]
-    if ps_name in ds_in.variables:
-      ds_out[ps_name] = ds_in[ps_name]
+    ds_out[ps_name] = ps
 
     # passthrough: any var without the source lev dim that isn't already in ds_out
     for v in ds_in.data_vars:
