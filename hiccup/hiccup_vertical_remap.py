@@ -112,7 +112,9 @@ def _interp_column(p_target, p_source, f_source, mode='log_pressure',
 
   y = np.interp(x, xp, fp)
 
-  if extrap == 'linear':
+  # linear extrapolation needs a slope from the last two source points; fall back
+  # to constant (np.interp's clamp) when the column has fewer than 2 levels
+  if extrap == 'linear' and xp.size >= 2:
     left = x < xp[0]
     if left.any():
       slope = (fp[1] - fp[0]) / (xp[1] - xp[0])
@@ -239,6 +241,11 @@ def remap_vertical_py(input_file, output_file, vert_file,
     for v in _HYBRID_COEF_VARS:
       if v in ds_vert.variables:
         ds_out[v] = ds_vert[v]
+    # always carry P0 in the output so the file is self-describing - if vert_file
+    # didn't provide one, record the default that was used in the pressure calc
+    if 'P0' not in ds_out.variables:
+      ds_out['P0'] = xr.DataArray(np.float64(_DEFAULT_P0),
+                                  attrs={'long_name': 'reference pressure', 'units': 'Pa'})
     ds_out[ps_name] = ps
 
     # passthrough: any var without the source lev dim that isn't already in ds_out

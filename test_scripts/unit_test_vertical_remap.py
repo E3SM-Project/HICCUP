@@ -155,6 +155,19 @@ class interp_column_test_case(unittest.TestCase):
     self.assertAlmostEqual(f_got[0], expected)
     print_timer(timer_start, caller='test_linear_extrapolation_uses_endpoint_slope')
   # ------------------------------------------------------------------------
+  def test_linear_extrapolation_falls_back_when_single_source_point(self):
+    """
+    a column with a single source level cannot define a slope; extrap='linear'
+    should fall back to constant (clamp) instead of raising IndexError
+    """
+    timer_start = perf_counter()
+    p_src = np.array([5.0e4])
+    f_src = np.array([42.0])
+    p_tgt = np.array([1.0e4, 5.0e4, 1.0e5])
+    f_got = _interp_column(p_tgt, p_src, f_src, mode='linear_pressure', extrap='linear')
+    np.testing.assert_array_equal(f_got, np.array([42.0, 42.0, 42.0]))
+    print_timer(timer_start, caller='test_linear_extrapolation_falls_back_when_single_source_point')
+  # ------------------------------------------------------------------------
   def test_handles_descending_source_pressure(self):
     """
     column ordered top-down (decreasing pressure) should give the same result as ascending
@@ -337,7 +350,7 @@ class compute_pressure_test_case(unittest.TestCase):
 # ===========================================================================
 class remap_vertical_end_to_end_test_case(unittest.TestCase):
   """
-  End-to-end tests that write fixtures, call remap_vertical(), and inspect the output
+  End-to-end tests that write fixtures, call remap_vertical_py(), and inspect the output
   """
   # ------------------------------------------------------------------------
   def setUp(self):
@@ -432,6 +445,21 @@ class remap_vertical_end_to_end_test_case(unittest.TestCase):
       T_got = ds_out['T'].transpose('time', 'lev', 'ncol').values
       np.testing.assert_allclose(T_got, T_exp, rtol=1e-10, atol=1e-10)
     print_timer(timer_start, caller='test_default_chunks_chunk_horizontal_dims')
+  # ------------------------------------------------------------------------
+  def test_p0_always_written_even_when_vert_file_lacks_it(self):
+    """
+    when vert_file has no P0, the output should still carry P0 with the default
+    used during pressure computation, so the output file is self-describing
+    """
+    timer_start = perf_counter()
+    no_p0_vert = os.path.join(self.tmpdir, 'vert_no_p0.nc')
+    self.ds_vert.drop_vars('P0').to_netcdf(no_p0_vert)
+    out = os.path.join(self.tmpdir, 'out_no_p0.nc')
+    remap_vertical_py(self.src_file, out, no_p0_vert, ps_name='PS', lev_name='lev')
+    with xr.open_dataset(out) as ds_out:
+      self.assertIn('P0', ds_out.variables)
+      self.assertEqual(float(ds_out['P0'].values), 1.0e5)
+    print_timer(timer_start, caller='test_p0_always_written_even_when_vert_file_lacks_it')
   # ------------------------------------------------------------------------
   def test_var_list_filters_remapped_fields(self):
     """
