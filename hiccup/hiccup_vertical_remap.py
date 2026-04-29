@@ -24,16 +24,22 @@ _HYBRID_COEF_VARS = ('hyam', 'hybm', 'hyai', 'hybi', 'P0')
 # ---------------------------------------------------------------------------
 # pressure-on-grid helpers
 # ---------------------------------------------------------------------------
-def _resolve_surface_pressure(ds, ps_name):
+def _resolve_surface_pressure(ds, ps_name, lev_name='lev'):
   """
   return surface pressure as an xarray.DataArray named ps_name
   prefers ds[ps_name]; falls back to exp(ds['lnsp']) for ECMWF IFS layout
   raises ValueError if neither is available
+  for the lnsp path, drops only the singleton vertical dim (lev_name) when
+  present - using a blanket squeeze() would also strip a singleton time dim
+  and misalign PS with the rest of the dataset for single-timestep inputs
   """
   if ps_name in ds.variables:
     return ds[ps_name]
   if 'lnsp' in ds.variables:
-    return np.exp(ds['lnsp'].squeeze(drop=True)).rename(ps_name)
+    lnsp = ds['lnsp']
+    if lev_name in lnsp.dims:
+      lnsp = lnsp.isel({lev_name: 0}, drop=True)
+    return np.exp(lnsp).rename(ps_name)
   raise ValueError(
     f'input_file must contain surface pressure as {ps_name!r} or as lnsp'
   )
@@ -198,7 +204,7 @@ def remap_vertical_py(input_file, output_file, vert_file,
        xr.open_dataset(vert_file) as ds_vert:
 
     # resolve surface pressure once (handles both PS and IFS lnsp layouts)
-    ps = _resolve_surface_pressure(ds_in, ps_name)
+    ps = _resolve_surface_pressure(ds_in, ps_name, lev_name=lev_name)
 
     out_lev_name_native = ds_vert['hyam'].dims[0]
     # if source and target use the same dim name, rename target internally so apply_ufunc

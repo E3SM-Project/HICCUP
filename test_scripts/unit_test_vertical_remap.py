@@ -276,6 +276,33 @@ class compute_pressure_test_case(unittest.TestCase):
       _resolve_surface_pressure(ds, 'PS')
     print_timer(timer_start, caller='test_resolve_surface_pressure_missing_raises')
   # ------------------------------------------------------------------------
+  def test_resolve_surface_pressure_preserves_singleton_time(self):
+    """
+    a single-timestep lnsp with a singleton vertical dim should have the lev dim
+    dropped but the time dim preserved (regression: blanket squeeze() would drop both)
+    """
+    timer_start = perf_counter()
+    ps_true = np.array([[1.0e5, 9.5e4]])  # shape (time=1, ncol=2)
+    lnsp = np.log(ps_true)[:, None, :]    # shape (time=1, lev=1, ncol=2)
+    ds = xr.Dataset({'lnsp': (('time', 'lev', 'ncol'), lnsp)})
+    ps = _resolve_surface_pressure(ds, 'PS', lev_name='lev')
+    self.assertEqual(ps.dims, ('time', 'ncol'))
+    self.assertEqual(ps.shape, (1, 2))
+    np.testing.assert_allclose(ps.values, ps_true, rtol=1e-12)
+    print_timer(timer_start, caller='test_resolve_surface_pressure_preserves_singleton_time')
+  # ------------------------------------------------------------------------
+  def test_resolve_surface_pressure_lnsp_without_lev_dim(self):
+    """
+    when lnsp has no vertical dim at all, it should be used as-is (no isel)
+    """
+    timer_start = perf_counter()
+    ps_true = np.array([1.0e5, 9.5e4])
+    ds = xr.Dataset({'lnsp': (('ncol',), np.log(ps_true))})
+    ps = _resolve_surface_pressure(ds, 'PS', lev_name='lev')
+    self.assertEqual(ps.dims, ('ncol',))
+    np.testing.assert_allclose(ps.values, ps_true, rtol=1e-12)
+    print_timer(timer_start, caller='test_resolve_surface_pressure_lnsp_without_lev_dim')
+  # ------------------------------------------------------------------------
   def test_output_pressure_uses_target_hybrid(self):
     """
     target pressure should be hyam*P0 + hybm*PS using the target file's coefs
