@@ -614,8 +614,6 @@ class hiccup_data(object):
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Renaming variables to match model variable names...')
 
-        check_dependency('ncrename')
-
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
@@ -1037,6 +1035,11 @@ class hiccup_data(object):
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
         if verbose: print(f'\n{self.verbose_indent}Vertically remapping the data...')
+
+        # update the level variable name - in case we're restarting after renaming
+        # if someone tries to skip the renaming the vertical remap should fail (I think)
+        if self.new_lev_name is not None and self.lev_name!=self.new_lev_name:
+            self.lev_name = self.new_lev_name
 
         remap_vertical_py(
             input_file=input_file_name,
