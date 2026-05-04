@@ -84,6 +84,17 @@ def get_default_topo_file_name(grid,topo_file_root=None):
 
     return f'{topo_file_root}/{topo_file_name}'
 # ------------------------------------------------------------------------------
+def verify_target_model(target_model):
+    """
+    Normalize and validate target_model name (only EAM or EAMXX)
+    """
+    if not isinstance(target_model, str):
+        raise ValueError(f'target_model must be a string => {target_model!r}')
+    normalized = target_model.upper()
+    if normalized not in ['EAM', 'EAMXX']:
+        raise ValueError(f'target_model is not valid => {target_model}')
+    return normalized
+# ------------------------------------------------------------------------------
 # Method for returning class object
 # ------------------------------------------------------------------------------
 def create_hiccup_data( src_data_name,
@@ -114,6 +125,8 @@ def create_hiccup_data( src_data_name,
     if verbose is None: verbose = hiccup_verbose
     if verbose_indent is None: verbose_indent = hiccup_verbose_indent
     hu.check_nco_version()
+    target_model = verify_target_model(target_model)
+    src_data_name = src_data_name.upper() # make sure src_data_name is uppercase
     for subclass in hdc.hiccup_data.__subclasses__():
         if subclass.is_name_for(src_data_name):
             # Create the object
