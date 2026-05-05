@@ -1637,6 +1637,9 @@ class hiccup_data(object):
         cmd+= f' {output_file_name} {output_file_name} '
         run_cmd(cmd,verbose,prepend_line=False)
 
+        # make sure the final output file inherits the group of the parent directory
+        hiccup.hiccup_utilities.inherit_group_from_dir(output_file_name)
+
         # Delete temp files
         if delete_files:
             if verbose: print(f'\n{self.verbose_indent}Deleting temporary files...')
@@ -1685,6 +1688,9 @@ class hiccup_data(object):
         run_cmd(f'ncatted -h -a history,global,o,c, {file_name} {file_name}.ncatted_tmp',
                 verbose,prepend_line=False)
         run_cmd(f'mv {file_name}.ncatted_tmp {file_name}',verbose)
+
+        # make sure the final output file inherits the group of the parent directory
+        hiccup.hiccup_utilities.inherit_group_from_dir(file_name)
 
         if self.do_timers: self.print_timer(timer_start,caller=f'clean_global_attributes_{method}')
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
