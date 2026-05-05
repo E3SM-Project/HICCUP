@@ -11,7 +11,8 @@ hiccup.hdc.print_memory_usage = True
 # local path for grid and mapping files
 hiccup_root  = os.getenv('HOME')+'/HICCUP'
 data_root    = f'{hiccup_root}/test_data'
-data_tmp     = f'{hiccup_root}/test_data_tmp'
+# data_tmp     = f'{hiccup_root}/test_data_tmp'
+data_tmp     = '/pscratch/sd/w/whannah/HICCUP/test_data_tmp' # use scratch to test file permission issues
 # ------------------------------------------------------------------------------
 
 os.makedirs(data_tmp, exist_ok=True)  # create temporary output data path if it doesn't exist

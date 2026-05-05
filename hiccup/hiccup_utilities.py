@@ -126,3 +126,9 @@ def chk_finite(x,name=None):
     raise ValueError(err_msg)
   return
 # ------------------------------------------------------------------------------
+def inherit_group_from_dir(file_path):
+    """Set the group of a file to match the group of its parent directory."""
+    parent_dir = os.path.dirname(os.path.abspath(file_path))
+    dir_gid = os.stat(parent_dir).st_gid
+    os.chown(file_path, -1, dir_gid)
+# ------------------------------------------------------------------------------
