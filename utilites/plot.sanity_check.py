@@ -1,9 +1,18 @@
 #!/usr/bin/env python
 # ------------------------------------------------------------------------------
-# This scripts will plot the data output from HICCUP as a sanity check (requires PyNGL)
+# This script will plot the data output from HICCUP as a sanity check (uses matplotlib)
 # ------------------------------------------------------------------------------
-import xarray as xr, numpy as np, ngl, os
+import xarray as xr, numpy as np, os
+import matplotlib.pyplot as plt
+from matplotlib.collections import PolyCollection
 from optparse import OptionParser
+
+# Coastlines are drawn when cartopy is available, but it is not required
+try:
+   import cartopy.crs as ccrs
+   HAVE_CARTOPY = True
+except ImportError:
+   HAVE_CARTOPY = False
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=None):
@@ -25,43 +34,39 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=N
    klev = -20
 
    # Make plot subtitle font size vary with number of plot panels
-   font_height = 0.015/np.sqrt(len(var))
+   title_fs = max(7, 14/np.sqrt(len(var)))
 
    #----------------------------------------------------------------------------
    # Create dataset objects
    ds = xr.open_dataset(ifile)
    scrip_ds = xr.open_dataset(gfile)
 
+   # grid cell corner/center coordinates used to draw the unstructured cells
+   corner_lon = scrip_ds['grid_corner_lon'].values
+   corner_lat = scrip_ds['grid_corner_lat'].values
+   center_lon = scrip_ds['grid_center_lon'].values
+
    # print(); print(ds[var[0]])
    # print(); print(scrip_ds)
    # exit()
-   
-   #----------------------------------------------------------------------------
-   # Set up plot stuff
-   plot = []
-   wks = ngl.open_wks(fig_type,fig_file)
-   res = get_resources(map_plot=True)
-   res.cnFillMode    = 'CellFill'
-   # res.sfXCellBounds = scrip_ds['grid_corner_lon'].values
-   # res.sfYCellBounds = scrip_ds['grid_corner_lat'].values
-   res.sfXArray         = scrip_ds.variables['grid_center_lon'].values
-   res.sfXCellBounds    = scrip_ds.variables['grid_corner_lon'].values
-   res.sfYArray         = scrip_ds.variables['grid_center_lat'].values
-   res.sfYCellBounds    = scrip_ds.variables['grid_corner_lat'].values
 
-   # separate resources for zonal mean plot
-   res2 = get_resources()
-   res2.vpHeightF = 0.4
-   res2.trYReverse = True
-   res2.tiXAxisString = 'Latitude'
-   res2.tiYAxisString = 'Pressure [hPa]'
+   #----------------------------------------------------------------------------
+   # Set up plot layout
+   if len(var)<4 :
+      ncol = 1
+   else:
+      ncol = 2                          # 2-column layout
+   nrow = int(np.ceil(len(var)/ncol))
+
+   fig = plt.figure(figsize=(7*ncol,3.5*nrow))
+   proj_kw = {'projection':ccrs.PlateCarree(central_longitude=180)} if HAVE_CARTOPY else {}
 
    #----------------------------------------------------------------------------
    # load data and create plot
    for v in range(len(var)):
-      
+
       data = ds[var[v]].isel(time=0)
-      
+
       lev_str = ''
       lev_name = None
       if 'lev' in data.dims : lev_name = 'lev'
@@ -81,124 +86,53 @@ def main(fig_file='sanity_check',fig_type='png',ifile=None,gfile=None,var_list=N
       # exit()
 
       # Create map plot
-      plot.append( ngl.contour_map(wks,data.values,res) )
-      if 'long_name' in data.attrs:
-         left_str = data.attrs['long_name']
+      ax = fig.add_subplot(nrow,ncol,v+1,**proj_kw)
+      pc = add_cell_fill(ax, corner_lon, corner_lat, center_lon, data.values)
+
+      if HAVE_CARTOPY:
+         ax.coastlines(linewidth=0.5)
+         ax.set_global()
       else:
-         left_str = var[v]
-      set_subtitles(wks, plot[len(plot)-1], left_str, '', lev_str, font_height=font_height )
-      
-      # if 'lev' in ds[var[v]].dims :
-      #    # Create zonal mean plot (height vs lat) using area-weighted averaging of columns
-      #    bin_ds = bin_YbyX( ds[var[v]].isel(time=0), ds['lat'], bin_min=-88, bin_max=88, bin_spc=2, wgt=ds['area'] )
+         ax.set_xlim(0,360); ax.set_ylim(-90,90)
+         ax.set_aspect('equal')
 
-      #    # Use sin(lat) axis to minimize distortion
-      #    sin_lat_bins = np.sin( bin_ds['bins'].values*np.pi/180. )
-      #    lat_tick = np.array([-90,-60,-30,0,30,60,90])
-      #    res2.tmXBMode, res2.tmXBValues, res2.tmXBLabels = "Explicit", np.sin( lat_tick*3.14159/180. ), lat_tick
+      cbar = fig.colorbar(pc, ax=ax, orientation='horizontal', pad=0.05, shrink=0.9)
+      cbar.ax.tick_params(labelsize=title_fs)
 
-      #    res2.sfXCStartV, res2.sfXCEndV = -1.0, 1.0
-      #    res2.sfYCStartV, res2.sfYCEndV = min( bin_ds['lev'].values ), max( bin_ds['lev'].values )
-
-      #    plot.append( ngl.contour(wks, bin_ds['bin_val'].transpose().values, res2) )
-      #    set_subtitles(wks, plot[len(plot)-1], data.attrs['long_name'], '', 'Zonal Mean', font_height=font_height )
-
-      # else: 
-
-      #    # Create map plot
-      #    plot.append( ngl.contour_map(wks,data.values,res) )
-      #    set_subtitles(wks, plot[len(plot)-1], data.attrs['long_name'], '', lev_str, font_height=font_height )
+      left_str = data.attrs['long_name'] if 'long_name' in data.attrs else var[v]
+      ax.set_title(left_str, loc='left',  fontsize=title_fs)
+      ax.set_title(lev_str,  loc='right', fontsize=title_fs)
 
    #----------------------------------------------------------------------------
-   # Combine plots panels
-   if len(plot)<4 :
-      layout = [len(plot),1]
-   else:
-      # layout = [ np.ceil(np.sqrt(len(plot))), np.ceil(np.sqrt(len(plot))) ]    # square layout
-      layout = [np.ceil(len(plot)),2]     # 2-column layout
-
-   pres = ngl.Resources()
-   pres.nglPanelXWhiteSpacePercent = 10
-   pres.nglPanelYWhiteSpacePercent = 10
-   ngl.panel(wks,plot,layout,pres)
-   ngl.end()
-
-   #----------------------------------------------------------------------------
-   # trim white space from image using imagemagik
-   if fig_type == 'png' :
-      os.system(f'convert -trim +repage {fig_file}.png {fig_file}.png')
-      print(f'\n{fig_file}.png\n')
+   # Combine plot panels and save
+   fig.tight_layout()
+   fig.savefig(f'{fig_file}.{fig_type}',dpi=150,bbox_inches='tight')
+   plt.close(fig)
+   print(f'\n{fig_file}.{fig_type}\n')
 
 #---------------------------------------------------------------------------------------------------
-# define function to add subtitles to the top of plot
+# Draw unstructured-grid data as filled polygons using the SCRIP cell corner bounds
 #---------------------------------------------------------------------------------------------------
-def set_subtitles(wks, plot, left_string='', center_string='', right_string='', font_height=0.01):
-   ttres         = ngl.Resources()
-   ttres.nglDraw = False
-
-   ### Use plot extent to call ngl.text(), otherwise you will see this error: 
-   ### GKS ERROR NUMBER   51 ISSUED FROM SUBROUTINE GSVP  : --RECTANGLE DEFINITION IS INVALID
-   strx = ngl.get_float(plot,'trXMinF')
-   stry = ngl.get_float(plot,'trYMinF')
-   ttres.txFontHeightF = font_height
-
-   # Set annotation resources to describe how close text is to be attached to plot
-   amres = ngl.Resources()
-   amres.amOrthogonalPosF = -0.52   # Top of plot plus a little extra to stay off the border
-   if hasattr(ttres,'amOrthogonalPosF'): amres.amOrthogonalPosF = ttres.amOrthogonalPosF   
-
-   # Add left string
-   amres.amJust,amres.amParallelPosF = 'BottomLeft', -0.5   # Left-justified
-   tx_id_l   = ngl.text(wks, plot, left_string, strx, stry, ttres)
-   anno_id_l = ngl.add_annotation(plot, tx_id_l, amres)
-   # Add center string
-   amres.amJust,amres.amParallelPosF = 'BottomCenter', 0.0   # Centered
-   tx_id_c   = ngl.text(wks, plot, center_string, strx, stry, ttres)
-   anno_id_c = ngl.add_annotation(plot, tx_id_c, amres)
-   # Add right string
-   amres.amJust,amres.amParallelPosF = 'BottomRight', 0.5   # Right-justified
-   tx_id_r   = ngl.text(wks, plot, right_string, strx, stry, ttres)
-   anno_id_r = ngl.add_annotation(plot, tx_id_r, amres)
-
-   return
-#---------------------------------------------------------------------------------------------------
-# Define function for setting the plot resources
-#---------------------------------------------------------------------------------------------------
-def get_resources(map_plot=False):
-   res = ngl.Resources()
-   res.nglDraw                  = False
-   res.nglFrame                 = False
-   res.tmXTOn                   = False
-   res.tmXBMajorOutwardLengthF  = 0.
-   res.tmXBMinorOutwardLengthF  = 0.
-   res.tmYLMajorOutwardLengthF  = 0.
-   res.tmYLMinorOutwardLengthF  = 0.
-   res.tmYLLabelFontHeightF     = 0.015
-   res.tmXBLabelFontHeightF     = 0.015
-   res.tiXAxisFontHeightF       = 0.015
-   res.tiYAxisFontHeightF       = 0.015
-   res.tmXBMinorOn              = False
-   res.tmYLMinorOn              = False
-   res.cnFillPalette            = "MPL_viridis"
-   res.cnFillOn                 = True
-   res.cnLinesOn                = False
-   res.cnLineLabelsOn           = False
-   res.cnInfoLabelOn            = False
-   res.lbLabelFontHeightF       = 0.015
-   if map_plot==True :
-      res.lbOrientation            = "Horizontal"
-      res.mpGridAndLimbOn          = False
-      res.mpCenterLonF             = 180
-      res.mpLimitMode              = "LatLon" 
-   return res
+def add_cell_fill(ax, corner_lon, corner_lat, center_lon, values, cmap='viridis'):
+   """ Draw each grid cell as a filled polygon (equivalent to NGL CellFill) """
+   # unwrap each cell's corner longitudes relative to its center so cells that
+   # straddle the dateline do not stretch all the way across the plot
+   lon = corner_lon - 360.0*np.round( (corner_lon - center_lon[:,None])/360.0 )
+   verts = np.stack([lon, corner_lat], axis=-1)   # (ncell, ncorner, 2)
+   values = np.asarray(values)
+   kw = {'transform':ccrs.PlateCarree()} if HAVE_CARTOPY else {}
+   pc = PolyCollection(verts, array=values, cmap=cmap, edgecolors='face', linewidths=0.0, **kw)
+   pc.set_clim(np.nanmin(values), np.nanmax(values))
+   ax.add_collection(pc)
+   return pc
 #---------------------------------------------------------------------------------------------------
 # Binning routine for calculating zonal mean on unstructured grid
 #---------------------------------------------------------------------------------------------------
 def bin_YbyX (Vy,Vx,bins=[],bin_min=0,bin_max=1,bin_spc=1,wgt=[],keep_time=False):
    """ Average Vy into bins of Vx values. """
    #----------------------------------------------------------------------------
-   # use min, max, and spc (i.e. stride) to define bins   
-   nbin    = np.round( ( bin_max - bin_min + bin_spc )/bin_spc ).astype(np.int)
+   # use min, max, and spc (i.e. stride) to define bins
+   nbin    = np.round( ( bin_max - bin_min + bin_spc )/bin_spc ).astype(int)
    bins    = np.linspace(bin_min,bin_max,nbin)
    bin_coord = xr.DataArray( bins )
    #----------------------------------------------------------------------------
@@ -208,9 +142,9 @@ def bin_YbyX (Vy,Vx,bins=[],bin_min=0,bin_max=1,bin_spc=1,wgt=[],keep_time=False
    if ntime==1 and keep_time==True : keep_time = False
 
    shape,dims,coord = (nbin,),'bin',[('bin', bin_coord)]
-   if nlev >1 and keep_time==False : shape,coord,dims = (nbin,nlev), [('bin',bin_coord),('lev',Vy['lev'])], ['bin','lev']   
+   if nlev >1 and keep_time==False : shape,coord,dims = (nbin,nlev), [('bin',bin_coord),('lev',Vy['lev'])], ['bin','lev']
    if nlev==1 and keep_time==False : shape,dims,coord = (nbin,),'bin',[('bin',bin_coord)]
-   
+
    mval = np.nan
    bin_val = xr.DataArray( np.full(shape,mval,dtype=Vy.dtype), coords=coord, dims=dims )
    bin_std = xr.DataArray( np.full(shape,mval,dtype=Vy.dtype), coords=coord, dims=dims )
@@ -234,19 +168,19 @@ def bin_YbyX (Vy,Vx,bins=[],bin_min=0,bin_max=1,bin_spc=1,wgt=[],keep_time=False
       condition = xr.DataArray( np.full(Vx.shape,False,dtype=bool), coords=Vx.coords )
       condition.values = ( np.where(val_chk,Vx.values,bin_bot-1e3) >=bin_bot ) \
                         &( np.where(val_chk,Vx.values,bin_bot-1e3)  <bin_top )
-      
+
       if np.sum(condition)>0 :
          if levchk :
-            if len(wgt)==0 : 
+            if len(wgt)==0 :
                bin_val[b,:] = Vy.where(condition,drop=True).mean( dim=avg_dims, skipna=True )
             else:
-               if wgt.dims != Vy.dims : 
-                  wgt, *__ = xr.broadcast(wgt, Vy) 
+               if wgt.dims != Vy.dims :
+                  wgt, *__ = xr.broadcast(wgt, Vy)
                   if 'time' in Vy.dims :
                      wgt = wgt.transpose('time','lev','ncol')
                   else :
                      wgt = wgt.transpose('lev','ncol')
-               if 'time' in Vy.dims : 
+               if 'time' in Vy.dims :
                   bin_val[b,:] = ( (Vy*wgt).where(condition,drop=True).sum( dim='ncol', skipna=True ) \
                                       / wgt.where(condition,drop=True).sum( dim='ncol', skipna=True ) ).mean(dim='time', skipna=True )
                else:
@@ -272,10 +206,10 @@ def bin_YbyX (Vy,Vx,bins=[],bin_min=0,bin_max=1,bin_spc=1,wgt=[],keep_time=False
    return bin_ds
 #---------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------------
-if __name__ == '__main__': 
+if __name__ == '__main__':
    # Parse the command line options
    help_header = 'usage: ./%prog [file] [file] ...\n'
-   help_header += '\nThis scripts will plot the data output from HICCUP as a sanity check (requires PyNGL)'
+   help_header += '\nThis script will plot the data output from HICCUP as a sanity check (uses matplotlib)'
    parser = OptionParser(usage=help_header)
    parser.add_option('-i',dest='ifile',default=None,help='input file name')
    parser.add_option('--grid_file',dest='gfile',default=None,help='grid file name')

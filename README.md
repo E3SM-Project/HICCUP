@@ -48,6 +48,8 @@ It is convenient to create a conda env that includes all these dependencies:
   conda create --name hiccup_env -c conda-forge xarray dask pandas numpy scipy netcdf4 hdf5 cdsapi tempest-remap "nco>=5.3.1" 
   ```
 
+The plotting scripts in `utilites/` (e.g. `plot.sanity_check.py`) additionally require [matplotlib](https://matplotlib.org/) and [cartopy](https://scitools.org.uk/cartopy/) to create map plots. If you want to make plots, add `matplotlib cartopy` to the conda create command above.
+
 After creating the environment it can be activated via:
 
   `source activate hiccup_env`
@@ -171,9 +173,10 @@ atmosphere component.
 ### Generating HICCUP Initial Conditions
 
 After the input data is aquired, HICCUP can be used to generate initial conditions 
-by editing and running the `template_scripts/create_initial_condition_from_obs.py` 
-script. This script controls the workflow for generating the atmosphere initial 
-condition as well as the SST/sea-ice data file.
+by editing and running one of the scripts in `template_hiccup_scripts`, such as 
+`template_hiccup_scripts/create_EAM_IC_from_ERA5-NOAA.py`. This script orchestrates
+the workflow for generating the atmosphere initial condition as well as the
+SST/sea-ice data file.
 
 The HICCUP workflow centers on a "hiccup_data" object that carries the information 
 needed for processing the data as well as class methods for processing the data. 
@@ -248,9 +251,8 @@ To run all unit tests simply type `python test_scripts/unit_test_all.py`.
 Below are issues that will be addressed by future development:
 
 - **Replace NCO commands with python for better scalability** - As we move towards routinely running global cloud resolving simulations we have found that various parts of HICCUP do not scale well. These issues have been addressed in an iterative fashion, but as more of this type of issue comes up it seems that a redesign might be helpful to make HICCUP more robust. NCO will still be required for many tasks, but I think many things could be streamlined and improved if they were done in python/xarray. This would also allow more careful control of the memory footprint for very large grids.
-- **Need to expan wiki page on RRM** - There is currently a place-holder page for this, but it needs to be fleshed out to describe the unique challenges that come with RRM cases.
-- **Detect whether input files are packed** - The ERA5 data from CDS come "packed" and the NCO unpacking command takes quite a while, even for small files that are already unpacked. The current workflow requires the user to know the state of the input files, so a method for automatically checking whether unpacking needs to be done would be very helpful. This would simplify the workflow a bit because we could delete the flag and line for this unpacking step and just have it done when the hiccup_data object is created.
-- **Add simple run script templates for hindcasts and land spin-up** - I have many scripts for these things that are much simpler than the standard [monolithic] E3SM run script for production coupled runs, but they are specific to individual machines and file systems. A more general and simplified script for this could be helpful for new users.
+- **Need to expand RRM wiki pages** - There is currently a place-holder page for this, but it needs to be fleshed out to describe the unique challenges that come with RRM cases.
+- **Add simple template run scripts for E3SM hindcasts and land spin-up** - I have many scripts for these things that are much simpler than the standard [monolithic] E3SM run script for production coupled runs, but they are specific to individual machines and file systems. A more general and simplified script for this could be helpful for new users.
 - **Fix support for using ERA5 SST and sea-ice** - I forget what the issue was here, but this has been requested a few times and I think it would be a valuable feature to have.
   **Add support for ERA5 model level data** - I haven't looked into this enough, but the few times I tried to get this working revelaed some limitations related to the vertical interpolation. This has been requested many times, but it does not appear to be a trivial effort to implement.
 - **Add support for CFSR / GFS / MERRA / JRA55** - This has proven difficult due to the ways these datasets are organized. ERA5 offers a lot of flexibilty to facilitate an automated workflow, but other datasets have a single format that must be accomodated. For example, if files are only offered as one variable per file with multiple time steps then a user who needs a single initial condition file at 00Z will have to download orders of magnitude more data than they, and the HICCUP back-end will require special exceptions for how to load each dataset and how the input arguments are sturctured, which will also require many more specialized checks to ensure the data is self-consistent, which seems error-prone. 
