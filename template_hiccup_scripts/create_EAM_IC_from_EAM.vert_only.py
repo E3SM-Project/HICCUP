@@ -4,25 +4,23 @@
 # This tool automates the creation of atmospheric initial condition files for 
 # E3SM using user supplied file for atmospheric and sea surface conditions.
 # ==================================================================================================
-import os, optparse
+import os
 from hiccup import hiccup
 # ------------------------------------------------------------------------------
-# Parse the command line options
-parser = optparse.OptionParser()
-parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
-parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
-(opts, args) = parser.parse_args()
+# HICCUP uses two independent path roots:
+#   hiccup_root - path to your local HICCUP repo, only used to locate the bundled
+#                 vertical grid files in files_vert/. Leave this pointed at the
+#                 repo - it does NOT need to move to scratch.
+#   data_root   - path to your input data AND everything HICCUP generates (grid,
+#                 map, tmp, and output files). Point this at scratch space when
+#                 working on an HPC system, especially for high resolution grids.
 # ------------------------------------------------------------------------------
-
-# local path for grid and mapping files (move this a scratch space for large grids)
 hiccup_root = os.getenv('HOME')+'/HICCUP'
-
-# Path for data output
-data_root = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
+data_root   = os.getenv('SCRATCH')+'/HICCUP/data/' # NERSC
 # data_root = os.getenv('MEMBERWORK')+'/cli115/HICCUP/data/'  # OLCF
 
 # Path for "supported" input data
-inputdata_path = '/global/cfs/cdirs/e3sm/inputdata'
+inputdata_root = '/global/cfs/cdirs/e3sm/inputdata'
 
 # time stamp for output file (= datetime.datetime.utcnow().strftime('%Y%m%d')])
 timestamp = '20220707'
@@ -34,13 +32,13 @@ dst_horz_grid = 'ne30np4'
 dst_vert_grid,vert_file_name = 'L80',f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
 
 # specify input file name
-cami_file = f'{inputdata_path}/atm/cam/inic/homme/cami_mam3_Linoz_ne30np4_L72_c160214.nc'
+cami_file = f'{inputdata_root}/atm/cam/inic/homme/cami_mam3_Linoz_ne30np4_L72_c160214.nc'
 
 # specify output file
 output_atm_file_name = f'{data_root}HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
 
 # topo file of output grid - replace this with file path if no default is set
-topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
+topo_file_name = hiccup.get_default_topo_file_name(dst_horz_grid)
 
 # ------------------------------------------------------------------------------
 # Create HICCUP data class instance

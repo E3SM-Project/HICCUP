@@ -25,7 +25,7 @@ echo ; echo ${dst_init_file} ; echo
 
 '''
 # ==================================================================================================
-import os, optparse, datetime
+import os
 from hiccup import hiccup
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
@@ -36,9 +36,16 @@ remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 # ------------------------------------------------------------------------------
-
-hiccup_root   = os.getenv('HOME')   +'/HICCUP' # local HICCUP path
-output_root   = os.getenv('SCRATCH')+'/HICCUP' # root path for HICCUP output
+# HICCUP uses two independent path roots:
+#   hiccup_root - path to your local HICCUP repo, only used to locate the bundled
+#                 vertical grid files in files_vert/. Leave this pointed at the
+#                 repo - it does NOT need to move to scratch.
+#   output_root - root path for everything HICCUP generates (grid, map, tmp, and
+#                 output files). Point this at scratch space when working on an
+#                 HPC system, especially for high resolution grids.
+# ------------------------------------------------------------------------------
+hiccup_root   = os.getenv('HOME')   +'/HICCUP'
+output_root   = os.getenv('SCRATCH')+'/HICCUP'
 dst_horz_grid = 'ne128np4'                     # output horizontal grid for atmosphere
 dst_vert_grid = 'L128'                         # output vertical grid for atmosphere
 dst_vert_file = f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc'
