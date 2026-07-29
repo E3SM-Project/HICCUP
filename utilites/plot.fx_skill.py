@@ -1,7 +1,6 @@
-import os, copy, glob, xarray as xr, numpy as np
-plot_backend = 'ngl' # mpl / ngl
-if plot_backend == 'mpl': import matplotlib.pyplot as plt
-if plot_backend == 'ngl': import ngl
+import os, xarray as xr, numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 #-------------------------------------------------------------------------------
 class tclr:END,RED,GREEN,MAGENTA,CYAN = '\033[0m','\033[31m','\033[32m','\033[35m','\033[36m'
 #-------------------------------------------------------------------------------
@@ -19,21 +18,12 @@ def print_stat(x,name='(no name)',fmt='f',stat='naxh',indent=''):
     if c=='s' : msg += '   std: '+fmt%x.std()
   print(msg); return msg
 #-------------------------------------------------------------------------------
-def trim_png(fig_file,verbose=True):
-   """ crop white space from png file """
-   fig_file = fig_file+".png"
-   fig_file = fig_file.replace(os.getenv('HOME')+'/Research/E3SM/','')
-   if os.path.isfile(fig_file) :
-      cmd = "convert -trim +repage "+fig_file+"   "+fig_file
-      os.system(cmd)
-      if verbose: print("\n"+fig_file+"\n")
-   else:
-      raise FileNotFoundError(f'\ntrim_png(): {fig_file} does not exist?!\n')
+def mpl_linestyle(d):
+  """ map an NGL dash pattern index to a matplotlib linestyle """
+  return {0:'solid', 1:(0,(6,3)), 2:(0,(2,2)), 3:(0,(6,3,2,3)), 4:(0,(1,2))}.get(d,'solid')
 #-------------------------------------------------------------------------------
 case,case_name,case_root,case_sub,clr,dsh = [],[],[],[],[],[]
 def add_case(case_in,name=None,root=None,sub='run',d=0,c='black',init_date=None):
-  # tmp_name = case_in if n is None else n
-  # tmp_name = f'E3SM {init_date}'
   case.append(case_in); case_name.append(name)
   case_root.append(root); case_sub.append(sub);
   dsh.append(d) ; clr.append(c)
@@ -57,7 +47,7 @@ obs_path = f'{obs_root}/ERA5_validation.*.2020-01-*.remap_ne30pg2.nc'
 spd = 8; time1,time2 = 0,spd*5 # daily files with 3-hourly data
 
 # specify temporal length of reference "climate" (acc only)
-ref_time1,ref_time2 = time1,time2 
+ref_time1,ref_time2 = time1,time2
 
 # list of metrics to calculate
 metric_list = ['acc','rmse','mean']
@@ -98,55 +88,7 @@ num_var = len(sim_var_list)
 num_case = len(case)
 #---------------------------------------------------------------------------------------------------
 # Set up plotting stuff
-if plot_backend == 'ngl':
-  wks = ngl.open_wks(fig_type,fig_file)
-  plot = [None]*num_var*num_met
-  res = ngl.Resources()
-  res.nglDraw                      = False
-  res.nglFrame                     = False
-  res.tmXTOn                       = False
-  res.tmXBMajorOutwardLengthF      = 0.
-  res.tmXBMinorOutwardLengthF      = 0.
-  res.tmYLMajorOutwardLengthF      = 0.
-  res.tmYLMinorOutwardLengthF      = 0.
-  res.tmYLLabelFontHeightF         = 0.015
-  res.tmXBLabelFontHeightF         = 0.015
-  res.tiXAxisFontHeightF           = 0.015
-  res.tiYAxisFontHeightF           = 0.015
-  res.tmXBMinorOn                  = False
-  res.tmYLMinorOn                  = False
-  res.xyLineThicknessF             = 6
-  res.tiXAxisString                = '[hours]'
-  res.xyLineColors                 = clr
-  res.xyDashPatterns               = dsh
-#---------------------------------------------------------------------------------------------------
-def set_subtitles(wks, plot, left_string='', center_string='', right_string='', font_height=0.01):
-  ttres         = ngl.Resources()
-  ttres.nglDraw = False
-  # Use plot extent to call ngl.text(), otherwise you will see this error:
-  # GKS ERROR NUMBER   51 ISSUED FROM SUBROUTINE GSVP  : --RECTANGLE DEFINITION IS INVALID
-  strx = ngl.get_float(plot,'trXMinF')
-  stry = ngl.get_float(plot,'trYMinF')
-  ttres.txFontHeightF = font_height
-  # Set annotation resources to describe how close text is to be attached to plot
-  amres = ngl.Resources()
-  if not hasattr(ttres,'amOrthogonalPosF'):
-    amres.amOrthogonalPosF = -0.52   # Top of plot plus a little extra to stay off the border
-  else:
-    amres.amOrthogonalPosF = ttres.amOrthogonalPosF
-  # Add left string
-  amres.amJust,amres.amParallelPosF = 'BottomLeft', -0.5   # Left-justified
-  tx_id_l   = ngl.text(wks, plot, left_string, strx, stry, ttres)
-  anno_id_l = ngl.add_annotation(plot, tx_id_l, amres)
-  # Add center string
-  amres.amJust,amres.amParallelPosF = 'BottomCenter', 0.0   # Centered
-  tx_id_c   = ngl.text(wks, plot, center_string, strx, stry, ttres)
-  anno_id_c = ngl.add_annotation(plot, tx_id_c, amres)
-  # Add right string
-  amres.amJust,amres.amParallelPosF = 'BottomRight', 0.5   # Right-justified
-  tx_id_r   = ngl.text(wks, plot, right_string, strx, stry, ttres)
-  anno_id_r = ngl.add_annotation(plot, tx_id_r, amres)
-  return
+fig,axs = plt.subplots(num_var,num_met,figsize=(4*num_met,2.5*num_var),squeeze=False)
 #---------------------------------------------------------------------------------------------------
 for v,mvar in enumerate(sim_var_list):
   print(f'\n  var: {tclr.MAGENTA}{mvar}{tclr.END}')
@@ -188,7 +130,7 @@ for v,mvar in enumerate(sim_var_list):
     print(f'    case: {tclr.CYAN}{case[c]}{tclr.END}')
     #---------------------------------------------------------------------------
     # read the simulation data
-    ds = xr.open_mfdataset( f'{case_root[c]}/{case[c]}/{case_sub[c]}/{case[c]}.eam.h1.*.nc' ) 
+    ds = xr.open_mfdataset( f'{case_root[c]}/{case[c]}/{case_sub[c]}/{case[c]}.eam.h1.*.nc' )
     data_fc = ds[mvar].isel(time=slice(time1,time2))
     #---------------------------------------------------------------------------
     # unit conversions
@@ -250,49 +192,42 @@ for v,mvar in enumerate(sim_var_list):
       if metric_list[m]=='mean':print_stat(fx_mean_list[c],name=f'Mean - {case_name[c]:10}',stat='naxh',indent=' '*4)
   #-----------------------------------------------------------------------------
   for m in range(num_met):
-    ip = v*num_met+m
+    ax = axs[v,m]
     #---------------------------------------------------------------------------
     if metric_list[m]=='acc':
-      tres = copy.deepcopy(res)
-      tres.trYMaxF = 1
-      tres.trYMinF = np.min(fx_acc_list) - np.std(fx_acc_list)
-      tres.tiYAxisString = f'ACC'
-      plot[ip] = ngl.xy(wks,np.stack(time_list),np.stack(fx_acc_list),tres)
-      set_subtitles(wks, plot[ip], mvar, '', 'ACC', font_height=0.01)
+      for c in range(num_case):
+        ax.plot(time_list[c].values,fx_acc_list[c],color=clr[c],
+                linestyle=mpl_linestyle(dsh[c]),linewidth=2)
+      ax.set_ylim( np.min(fx_acc_list)-np.std(fx_acc_list), 1 )
+      ax.set_ylabel('ACC')
+      ax.set_title(mvar,loc='left'); ax.set_title('ACC',loc='right')
     #---------------------------------------------------------------------------
     if metric_list[m]=='rmse':
-      tres = copy.deepcopy(res)
-      tres.tiYAxisString = f'RMSE'
-      plot[ip] = ngl.xy(wks,np.stack(time_list),np.stack(fx_rmse_list),tres) 
-      set_subtitles(wks, plot[ip], mvar, '', 'RMSE', font_height=0.01)
+      for c in range(num_case):
+        ax.plot(time_list[c].values,fx_rmse_list[c],color=clr[c],
+                linestyle=mpl_linestyle(dsh[c]),linewidth=2)
+      ax.set_ylabel('RMSE')
+      ax.set_title(mvar,loc='left'); ax.set_title('RMSE',loc='right')
     #---------------------------------------------------------------------------
     if metric_list[m]=='mean':
-      tres = copy.deepcopy(res)
-      tres.tiYAxisString = f'{mvar}'
-      plot[ip] = ngl.xy(wks,np.stack(time_list),np.stack(fx_mean_list),tres)
-      tres.xyLineColor = 'black'
-      tres.xyMonoLineColor = True
-      ngl.overlay(plot[ip], ngl.xy(wks,time_list[0].values,obs_mean,tres))
-      set_subtitles(wks, plot[ip], mvar, '', 'Mean', font_height=0.01)
-  #-----------------------------------------------------------------------------
-  # # Add legend
-  # lgres = ngl.Resources()
-  # lgres.vpWidthF, lgres.vpHeightF  = 0.05, 0.1
-  # lgres.lgLabelFontHeightF = 0.008
-  # lgres.lgLineThicknessF   = res.xyLineThicknessF
-  # lgres.lgMonoLineColor    = False
-  # lgres.lgLineColors       = clr
-  # lgres.lgDashIndexes      = dsh
-  # lgres.lgLabelJust    = 'CenterLeft'
-  # pid = ngl.legend_ndc(wks, len(case_name), case_name, 0.55, 0.9, lgres)
+      for c in range(num_case):
+        ax.plot(time_list[c].values,fx_mean_list[c],color=clr[c],
+                linestyle=mpl_linestyle(dsh[c]),linewidth=2)
+      ax.plot(time_list[0].values,obs_mean,color='black',linewidth=2)
+      ax.set_ylabel(mvar)
+      ax.set_title(mvar,loc='left'); ax.set_title('Mean',loc='right')
+    #---------------------------------------------------------------------------
+    ax.set_xlabel('[hours]')
+#---------------------------------------------------------------------------------------------------
+# Add legend
+handles = [ Line2D([0],[0],color=clr[c],linestyle=mpl_linestyle(dsh[c]),lw=2,label=case_name[c])
+           for c in range(num_case) ]
+handles.append( Line2D([0],[0],color='black',lw=2,label='ERA5') )
+fig.legend(handles=handles,loc='upper right',fontsize=8)
 #---------------------------------------------------------------------------------------------------
 # Finalize plot
-if plot_backend == 'ngl': 
-  pres = ngl.Resources()
-  pres.nglPanelYWhiteSpacePercent = 5
-  pres.nglPanelXWhiteSpacePercent = 5
-  layout = [num_var,num_met]
-  ngl.panel(wks,plot,layout,pres)
-#---------------------------------------------------------------------------------------------------
-trim_png(fig_file)
+fig.tight_layout()
+fig.savefig(f'{fig_file}.{fig_type}',dpi=150,bbox_inches='tight')
+plt.close(fig)
+print(f'\n{fig_file}.{fig_type}\n')
 #---------------------------------------------------------------------------------------------------

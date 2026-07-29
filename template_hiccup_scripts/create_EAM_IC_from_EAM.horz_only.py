@@ -25,14 +25,8 @@ echo ; echo ${dst_init_file} ; echo
 
 '''
 # ==================================================================================================
-import os, optparse, datetime
+import os, datetime
 from hiccup import hiccup
-# ------------------------------------------------------------------------------
-# Parse the command line options
-parser = optparse.OptionParser()
-parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
-parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
-(opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
 create_map_file = True    # grid and map file creation
@@ -41,8 +35,10 @@ do_sfc_adjust   = True    # perform surface adjustments
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 # ------------------------------------------------------------------------------
-
-output_root   = os.getenv('SCRATCH')+'/HICCUP' # root path for HICCUP output
+# output_root is the root path for everything HICCUP generates (grid, map, tmp,
+# and output files). Point this at scratch space when working on an HPC system,
+# especially for high resolution grids.
+output_root   = os.getenv('SCRATCH')+'/HICCUP'
 dst_horz_grid = 'ne16np4'                      # output horizontal grid for atmosphere
 dst_vert_grid = 'L72'                          # output vertical grid for atmosphere
 timestamp     = '99999999'                     # time stamp for output file
@@ -55,7 +51,7 @@ src_eami_file = f'{output_root}/files_init/eami_mam4_Linoz_ne30np4_L80_c20231010
 dst_eami_file = f'{output_root}/files_init/HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
 
 # topo file of output grid - replace this with file path if no default is set
-topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
+topo_file_name = hiccup.get_default_topo_file_name(dst_horz_grid)
 
 # ------------------------------------------------------------------------------
 # Create HICCUP data class instance

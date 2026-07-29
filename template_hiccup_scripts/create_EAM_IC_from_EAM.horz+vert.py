@@ -25,14 +25,8 @@ echo ; echo ${dst_init_file} ; echo
 
 '''
 # ==================================================================================================
-import os, optparse, datetime
+import os, datetime
 from hiccup import hiccup
-# ------------------------------------------------------------------------------
-# Parse the command line options
-parser = optparse.OptionParser()
-parser.add_option('--hgrid',dest='horz_grid',default=None,help='Sets the output horizontal grid')
-parser.add_option('--vgrid',dest='vert_grid',default=None,help='Sets the output vertical grid')
-(opts, args) = parser.parse_args()
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
 create_map_file = True    # grid and map file creation
@@ -42,19 +36,20 @@ remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 # ------------------------------------------------------------------------------
-
-hiccup_root   = os.getenv('HOME')   +'/HICCUP' # local HICCUP path
-output_root   = os.getenv('SCRATCH')+'/HICCUP' # root path for HICCUP output
+# HICCUP uses two independent path roots:
+#   hiccup_root - path to your local HICCUP repo, only used to locate the bundled
+#                 vertical grid files in files_vert/. Leave this pointed at the
+#                 repo - it does NOT need to move to scratch.
+#   output_root - root path for everything HICCUP generates (grid, map, tmp, and
+#                 output files). Point this at scratch space when working on an
+#                 HPC system, especially for high resolution grids.
+# ------------------------------------------------------------------------------
+hiccup_root   = os.getenv('HOME')   +'/HICCUP'
+output_root   = os.getenv('SCRATCH')+'/HICCUP'
 dst_horz_grid = 'ne16np4'                      # output horizontal grid for atmosphere
 dst_vert_grid = 'L80'                          # output vertical grid for atmosphere
 dst_vert_file = f'{hiccup_root}/files_vert/L80_for_E3SMv3.nc'
 timestamp     = '99999999'                     # time stamp for output file
-
- for grid and mapping files (move this a scratch space for large grids)
-
-
-# Path for supported E3SM input data
-inputdata_path = '/global/cfs/cdirs/e3sm/inputdata'
 
 # specify input file name
 src_eami_file = f'{output_root}/files_init/eami_mam4_Linoz_ne30np4_L80_c20231010_w-phis.nc'
@@ -64,7 +59,7 @@ src_eami_file = f'{output_root}/files_init/eami_mam4_Linoz_ne30np4_L80_c20231010
 dst_eami_file = f'{output_root}/files_init/HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
 
 # topo file of output grid - replace this with file path if no default is set
-topo_file_name = hdc.get_default_topo_file_name(dst_horz_grid)
+topo_file_name = hiccup.get_default_topo_file_name(dst_horz_grid)
 
 # ------------------------------------------------------------------------------
 # Create HICCUP data class instance
@@ -89,7 +84,7 @@ print('\n  Input Files')
 print(f'    input file:      {hiccup_data.input_file_list[0]}')
 print(f'    input topo file: {hiccup_data.topo_file}')
 print('\n  Output files')
-print(f'    output atm file: {output_atm_file_name}')
+print(f'    output atm file: {dst_eami_file}')
 
 # ------------------------------------------------------------------------------
 # create file name dictionaries for np4 and pg2 data (both are needed)
@@ -180,16 +175,16 @@ if combine_files :
     # Combine and delete temporary files
     hiccup_data.combine_files(file_dict=file_dict_all
                              ,delete_files=True
-                             ,output_file_name=output_atm_file_name)
+                             ,output_file_name=dst_eami_file)
 
     # Clean up the global attributes of the file
-    hiccup_data.clean_global_attributes(file_name=output_atm_file_name)
+    hiccup_data.clean_global_attributes(file_name=dst_eami_file)
 
 # ------------------------------------------------------------------------------
 # Print final output file name
 
 print()
-print(f'output_atm_file_name: {output_atm_file_name}')
+print(f'dst_eami_file: {dst_eami_file}')
 print()
 
 # Print summary of timer info

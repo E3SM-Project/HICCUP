@@ -8,7 +8,6 @@ import os
 from hiccup import hiccup
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
-verbose = True            # Global verbosity flag
 # unpack_nc_files = True    # unpack data files (convert short to float)
 create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
@@ -18,9 +17,17 @@ do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
 # create_sst_data = True    # sst/sea ice file creation
 # ------------------------------------------------------------------------------
-
-# local path for grid and mapping files (move this a scratch space for large grids)
+# HICCUP uses two independent path roots:
+#   hiccup_root - path to your local HICCUP repo, only used to locate the bundled
+#                 vertical grid files in files_vert/. Leave this pointed at the
+#                 repo - it does NOT need to move to scratch.
+#   data_root   - path to your input data AND everything HICCUP generates (grid,
+#                 map, tmp, and output files). Point this at scratch space when
+#                 working on an HPC system, especially for high resolution grids.
+# ------------------------------------------------------------------------------
 hiccup_root = os.getenv('HOME')+'/HICCUP'
+data_root   = os.getenv('HOME')+'/HICCUP/data_scratch'
+# data_root = os.getenv('SCRATCH')+'/HICCUP/data_scratch'  # recommended on HPC systems
 
 # Specify output atmosphere horizontal grid
 dst_horz_grid = 'ne30np4'
@@ -28,13 +35,13 @@ dst_horz_grid = 'ne30np4'
 # Specify output atmosphere vertical grid
 dst_vert_grid,vert_file_name = 'L128',f'{hiccup_root}/files_vert/vert_coord_E3SM_L128.nc'
 
-# specify date of data (and separately specify year for SST/ice files)
+# specify date and hour of data (and separately specify year for SST/ice files)
 init_date = '2008-10-01'
+init_hour = '00'
 init_year = int(init_date.split('-')[0])
 
 # Specify output file names
-data_root = f'{hiccup_root}/data_scratch'
-output_atm_file_name = f'{data_root}/HICCUP.atm_era5.{init_date}.{dst_horz_grid}.{dst_vert_grid}.nc'
+output_atm_file_name = f'{data_root}/HICCUP.atm_era5.{init_date}.{init_hour}.{dst_horz_grid}.{dst_vert_grid}.nc'
 output_sst_file_name = f'{data_root}/HICCUP.sst_noaa.{init_date}.nc'
 
 # set topo file - replace this with file path if no defalt is set
@@ -48,8 +55,8 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
                                         target_model='EAMXX',
                                         dst_horz_grid=dst_horz_grid,
                                         dst_vert_grid=dst_vert_grid,
-                                        input_file_list=[f'{data_root}/ERA5.atm.{init_date}.nc',
-                                                         f'{data_root}/ERA5.sfc.{init_date}.nc'],
+                                        input_file_list=[f'{data_root}/ERA5.atm.{init_date}.{init_hour}.nc',
+                                                         f'{data_root}/ERA5.sfc.{init_date}.{init_hour}.nc'],
                                         sstice_name='NOAA',
                                         sst_file=f'{data_root}/sst.day.mean.{init_year}.nc',
                                         ice_file=f'{data_root}/icec.day.mean.{init_year}.nc',
@@ -58,7 +65,7 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='ERA5',
                                         grid_dir=data_root,
                                         map_dir=data_root,
                                         tmp_dir=data_root,
-                                        verbose=verbose,
+                                        verbose=True,
                                         check_input_files=True,)
 
 # Print some informative stuff

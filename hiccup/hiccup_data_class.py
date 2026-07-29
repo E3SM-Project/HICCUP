@@ -100,7 +100,7 @@ class hiccup_data(object):
                   check_input_files=None,
                   RRM_grid=None,
                   do_timers=None,
-                  verbose=False,
+                  verbose=True,
                   verbose_indent='',
                 ):
 
