@@ -18,7 +18,7 @@ default_map_dir     = './files_mapping'
 default_tmp_dir     = './files_tmp'
 
 # Global verbosity default
-hiccup_verbose = False
+hiccup_verbose = True
 hiccup_verbose_indent = ''
 
 # Set numpy to ignore overflow errors
