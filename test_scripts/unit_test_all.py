@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 import unittest
 from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer
@@ -22,6 +23,12 @@ suite_list.append( loader.loadTestsFromModule(unit_test_timer_methods) )
 suite_list.append( loader.loadTestsFromModule(unit_test_utilities) )
 suite_list.append( loader.loadTestsFromModule(unit_test_vertical_remap) )
 
-for suite in suite_list: runner.run(suite)
+all_successful = True
+for suite in suite_list:
+  result = runner.run(suite)
+  if not result.wasSuccessful(): all_successful = False
 
 print_timer(timer_start,caller='total time for all tests')
+
+# Return a non-zero exit code on failure so CI can detect it
+if not all_successful: sys.exit(1)

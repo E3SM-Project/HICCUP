@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up conda environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: hiccup_env
+          init-shell: bash
+          post-cleanup: none
+          cache-environment: true
+          create-args: >-
+            python=${{ matrix.python-version }}
+            xarray dask pandas numpy scipy netcdf4 hdf5 psutil
+            nco>=5.3.1
+
+      - name: Install HICCUP
+        run: pip install ./
+
+      - name: Run unit tests
+        working-directory: test_scripts
+        run: python unit_test_all.py
