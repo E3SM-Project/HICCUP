@@ -118,9 +118,13 @@ if do_state_adjust :
     hiccup_data.atmos_state_adjustment_multifile(file_dict=file_dict)
 # ------------------------------------------------------------------------------
 # Apply random perturbation to the final data
+# set spatially_correlated=True for synoptic-scale coherent perturbations
+# (control the coherence with corr_length_km) instead of grid-point noise
 if 'do_random_perturb' not in locals(): do_random_perturb = False
 if do_random_perturb :
-    hiccup_data.atmos_state_apply_perturbations_multifile(file_dict=file_dict)
+    hiccup_data.atmos_state_apply_perturbations_multifile(file_dict=file_dict
+                                                         ,spatially_correlated=False
+                                                         ,corr_length_km=1000.)
 # ------------------------------------------------------------------------------
 # Combine files
 if 'combine_files' not in locals(): combine_files = False

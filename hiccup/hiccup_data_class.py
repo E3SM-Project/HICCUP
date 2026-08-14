@@ -1272,10 +1272,18 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def atmos_state_apply_perturbations_multifile(self,file_dict,seed=None,verbose=None):
+    def atmos_state_apply_perturbations_multifile(self,file_dict,seed=None,
+                                                  spatially_correlated=False,
+                                                  corr_length_km=1000.,verbose=None):
         """
         apply post-remapping atmospheric perturbations
         for the multifile workflow
+
+        spatially_correlated : if True, low-pass filter the perturbations so
+                               they are spatially coherent (synoptic-scale)
+                               rather than grid-point noise
+        corr_length_km       : approximate 1/e spatial correlation length of the
+                               perturbations [km] when spatially_correlated=True
         """
         if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
@@ -1290,9 +1298,14 @@ class hiccup_data(object):
 
         with xr.open_mfdataset(file_list,combine='by_coords',chunks=self.get_chunks()) as ds_data:
 
-            # adjust cloud water to remove negative values
-            ds_data = hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed,
-                                                      verbose=False, verbose_indent=self.verbose_indent )
+            # apply random perturbations to the state variables
+            if spatially_correlated:
+                ds_data = hsa.apply_correlated_perturbations( ds_data, var_list=var_list,
+                                                              corr_length_km=corr_length_km, seed=seed,
+                                                              verbose=False, verbose_indent=self.verbose_indent )
+            else:
+                ds_data = hsa.apply_random_perturbations( ds_data, var_list=var_list, seed=seed,
+                                                          verbose=False, verbose_indent=self.verbose_indent )
             ds_data.compute()
             # Write perturbed data back to the individual data files
             for var in var_list:

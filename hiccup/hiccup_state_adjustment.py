@@ -11,6 +11,7 @@ from hiccup.hiccup_constants import Rgas
 from hiccup.hiccup_constants import Rdair
 from hiccup.hiccup_constants import Rvapor
 from hiccup.hiccup_constants import P0
+from hiccup.hiccup_constants import rearth
 from hiccup.hiccup_utilities import print_stat
 from hiccup.hiccup_utilities import chk_finite
 
@@ -460,6 +461,223 @@ def apply_random_perturbations( ds, var_list=None, seed=None,
 
   return ds
 
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def build_gaussian_smoother( lat, lon, corr_length_km, ncol_name='ncol',
+                             n_sigma=3. ):
+  """
+  Build a sparse, row-normalized Gaussian smoothing matrix keyed to a physical
+  correlation length, for low-pass filtering fields on an unstructured (ncol)
+  grid. Returns a scipy sparse matrix S of shape (ncol,ncol) such that S @ f
+  smooths the field f. Smoothing IID Gaussian noise this way yields a field
+  whose ~1/e spatial correlation length is approximately corr_length_km.
+
+  lat,lon        : column center latitude/longitude [degrees]
+  corr_length_km : approximate 1/e spatial correlation length [km]
+  n_sigma        : neighbor search cutoff in units of the kernel std-dev
+  """
+  from scipy.spatial import cKDTree
+  from scipy.sparse import coo_matrix, diags
+
+  # convert the requested correlation length into the Gaussian kernel std-dev.
+  # smoothing white noise with a kernel of std sigma yields an autocorrelation
+  # that reaches 1/e near 2*sigma, so use sigma = corr_length_km/2 to make the
+  # interface argument behave like the resulting correlation length.
+  sigma_km = corr_length_km / 2.
+
+  # convert lat/lon to xyz on the unit sphere so the KD-tree handles the poles
+  # and the antimeridian seam correctly
+  lat_r = np.deg2rad(np.asarray(lat,dtype=np.float64))
+  lon_r = np.deg2rad(np.asarray(lon,dtype=np.float64))
+  xyz = np.column_stack([ np.cos(lat_r)*np.cos(lon_r),
+                          np.cos(lat_r)*np.sin(lon_r),
+                          np.sin(lat_r) ])
+  tree = cKDTree(xyz)
+
+  # neighbor search cutoff as a chord length on the unit sphere
+  rearth_km = rearth/1e3
+  theta_cut = min( n_sigma*sigma_km/rearth_km, np.pi )
+  chord_cut = 2.*np.sin(theta_cut/2.)
+
+  # sparse chord-distance matrix between all columns within the cutoff, then
+  # convert chord distance to great-circle distance [km] for the kernel weight
+  dmat = tree.sparse_distance_matrix(tree, max_distance=chord_cut,
+                                     output_type='coo_matrix')
+  chord = np.clip(dmat.data, 0., 2.)
+  gc_km = rearth_km * 2.*np.arcsin(chord/2.)
+  weights = np.exp( -0.5*(gc_km/sigma_km)**2 )
+
+  S = coo_matrix((weights,(dmat.row,dmat.col)), shape=dmat.shape).tocsr()
+
+  # row-normalize so the filter preserves the field mean (partition of unity)
+  row_sum = np.asarray(S.sum(axis=1)).ravel()
+  row_sum[row_sum==0.] = 1.
+  S = diags(1./row_sum) @ S
+
+  return S
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
+                                    seed=None, smoother=None, ncol_name='ncol',
+                                    n_sigma=3., verbose=None, verbose_indent='' ):
+  """
+  Apply spatially correlated random perturbations to the final remapped state
+  variables on an unstructured (ncol) grid. As with apply_random_perturbations
+  the magnitude is 1% of each variable's standard deviation, but here the noise
+  is low-pass filtered with a Gaussian kernel so that it "looks" spatially
+  coherent (synoptic-scale) rather than grid-point static. The smoothing matrix
+  is built once from the grid coordinates and reused across all variables and
+  vertical levels.
+
+  corr_length_km : approximate 1/e spatial correlation length of the
+                   perturbations [km] (default 1000)
+  smoother       : optional prebuilt matrix from build_gaussian_smoother() to
+                   reuse across calls (e.g. when generating many ensemble
+                   members); built from the grid coordinates when None
+  """
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Applying spatially correlated random '
+                    f'perturbation (corr_length_km={corr_length_km:g})...')
+
+  if var_list is None:
+    raise ValueError(f'var_list cannot be None')
+
+  for var in var_list:
+    if var not in ds.variables:
+      raise KeyError(f'{var} is missing from data')
+
+  if ncol_name not in ds.dims:
+    raise ValueError(f'{ncol_name} dimension not found in data; correlated '
+                     f'perturbations require an unstructured grid')
+
+  if seed is None:
+    seed = int(datetime.datetime.utcnow().strftime('%s'))
+    seed = seed*hash(os.getenv('USER'))
+    seed = seed*hash(' '.join(os.listdir()))
+    seed = np.abs(seed)
+
+  # initialize RNG
+  rng = np.random.default_rng(seed)
+
+  # build the smoothing operator once from the grid coordinates (unless a
+  # prebuilt smoother was provided for reuse across ensemble members)
+  ncol = ds.sizes[ncol_name]
+  if smoother is None:
+    for coord in ['lat','lon']:
+      if coord not in ds.variables:
+        raise KeyError(f'{coord} is required for correlated perturbations but '
+                       f'is missing from data')
+    smoother = build_gaussian_smoother( ds['lat'].values, ds['lon'].values,
+                                        corr_length_km, ncol_name=ncol_name,
+                                        n_sigma=n_sigma )
+  if smoother.shape[0]!=ncol or smoother.shape[1]!=ncol:
+    raise ValueError(f'smoother shape {smoother.shape} does not match '
+                     f'{ncol_name} size {ncol}')
+  S = smoother
+
+  # apply perturbations
+  for var in var_list:
+    # generate an independent smoothed noise field for each non-ncol slice
+    # (e.g. each vertical level), operating on the ncol axis
+    axis = ds[var].dims.index(ncol_name)
+    var_data = np.moveaxis( ds[var].values, axis, -1 )
+    lead_shape = var_data.shape[:-1]
+    n_lead = int(np.prod(lead_shape)) if lead_shape else 1
+    iid = rng.standard_normal((n_lead,ncol))
+    noise = (S @ iid.T).T                          # (n_lead,ncol)
+    # smoothing shrinks variance, so rescale each slice back to unit std
+    noise_std = noise.std(axis=1,keepdims=True)
+    noise_std[noise_std==0.] = 1.
+    noise = noise/noise_std
+    # scale to 1% of the variable std-dev, matching apply_random_perturbations
+    noise = noise.reshape((*lead_shape,ncol)) * ds[var].std().values * 0.01
+    ds[var].values = ds[var].values + np.moveaxis( noise, -1, axis )
+
+  return ds
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
+                           spatially_correlated=True, corr_length_km=1000.,
+                           seed=None, smoother=None, ncol_name='ncol', n_sigma=3.,
+                           clobber=False, verbose=None, verbose_indent='' ):
+  """
+  Write a copy of input_file with random perturbations applied to var_list.
+
+  The file is copied so that all non-perturbed variables and metadata are
+  preserved byte-for-byte; only the perturbed variables are overwritten in
+  place, which keeps each variable's dtype, chunking, compression, and fill
+  value intact. Intended to be called repeatedly (e.g. seed=member_index in a
+  loop) to build a perturbation ensemble from a single final IC file.
+
+  spatially_correlated : if True, low-pass filter the perturbations so they are
+                         spatially coherent (synoptic-scale) rather than
+                         grid-point noise
+  corr_length_km       : approximate 1/e spatial correlation length [km]
+  smoother             : optional prebuilt matrix from build_gaussian_smoother()
+                         to avoid rebuilding it on each call; the (possibly
+                         newly built) smoother is returned so it can be reused
+
+  Returns the smoothing matrix (or None when spatially_correlated is False) so
+  that it can be passed back in to avoid rebuilding it for each ensemble member.
+  """
+  import shutil
+  import netCDF4
+  if verbose is None : verbose = verbose_default
+  if verbose: print(f'\n{verbose_indent}Creating perturbed file => {output_file}')
+
+  if os.path.abspath(input_file)==os.path.abspath(output_file):
+    raise ValueError('input_file and output_file must be different')
+  if not os.path.exists(input_file):
+    raise OSError(f'input_file does not exist => {input_file}')
+  if os.path.exists(output_file) and not clobber:
+    raise OSError(f'output_file already exists (use clobber=True) => {output_file}')
+
+  # copy the file so all non-perturbed variables and metadata are preserved
+  # exactly; only the perturbed variables will be overwritten below
+  out_dir = os.path.dirname(output_file)
+  if out_dir!='' and not os.path.exists(out_dir): os.makedirs(out_dir)
+  shutil.copy2(input_file, output_file)
+
+  # load only the variables to be perturbed (plus coordinates) into memory
+  with xr.open_dataset(input_file) as ds_in:
+    present = [v for v in var_list if v in ds_in.variables]
+    missing = [v for v in var_list if v not in ds_in.variables]
+    if missing:
+      print(f'{verbose_indent}WARNING: skipping variables not found in '
+            f'{input_file} => {missing}')
+    if not present:
+      raise KeyError(f'none of var_list found in {input_file} => {var_list}')
+    load_vars = list(present)
+    if spatially_correlated:
+      for coord in ['lat','lon']:
+        if coord not in ds_in.variables:
+          raise KeyError(f'{coord} is required for correlated perturbations but '
+                         f'is missing from {input_file}')
+        load_vars.append(coord)
+    ds = ds_in[load_vars].load()
+
+  # apply the perturbations in memory using the tested numeric routines
+  if spatially_correlated:
+    if smoother is None:
+      smoother = build_gaussian_smoother( ds['lat'].values, ds['lon'].values,
+                                          corr_length_km, ncol_name=ncol_name,
+                                          n_sigma=n_sigma )
+    ds = apply_correlated_perturbations( ds, var_list=present,
+                                         corr_length_km=corr_length_km, seed=seed,
+                                         smoother=smoother, ncol_name=ncol_name,
+                                         n_sigma=n_sigma, verbose=False,
+                                         verbose_indent=verbose_indent )
+  else:
+    ds = apply_random_perturbations( ds, var_list=present, seed=seed,
+                                     verbose=False, verbose_indent=verbose_indent )
+
+  # write the perturbed variable values back into the copy in place
+  with netCDF4.Dataset(output_file, 'a') as nc:
+    for var in present:
+      nc.variables[var][:] = ds[var].values
+
+  return smoother
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 def calculate_qv_sat_liq( temperature, pressure ):
