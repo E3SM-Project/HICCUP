@@ -4,6 +4,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-tests:
@@ -27,6 +32,7 @@ jobs:
           environment-name: hiccup_env
           init-shell: bash
           post-cleanup: none
+          cache-environment: true
           create-args: >-
             python=${{ matrix.python-version }}
             xarray dask pandas numpy scipy netcdf4 hdf5 psutil
