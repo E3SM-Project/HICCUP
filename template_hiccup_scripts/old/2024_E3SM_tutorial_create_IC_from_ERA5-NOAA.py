@@ -119,7 +119,8 @@ if do_state_adjust :
 # ------------------------------------------------------------------------------
 # Apply random perturbation to the final data
 # set spatially_correlated=True for synoptic-scale coherent perturbations
-# (control the coherence with corr_length_km) instead of grid-point noise
+# (control the coherence with corr_length_km) instead of grid-point noise;
+# the example below uses spatially_correlated=False (IID grid-point noise)
 if 'do_random_perturb' not in locals(): do_random_perturb = False
 if do_random_perturb :
     hiccup_data.atmos_state_apply_perturbations_multifile(file_dict=file_dict

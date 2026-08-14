@@ -1288,7 +1288,9 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
-        if verbose: print(f'\n{self.verbose_indent}Applying random perturbations...')
+        if verbose:
+            perturb_type = 'spatially correlated' if spatially_correlated else 'IID grid-point'
+            print(f'\n{self.verbose_indent}Applying {perturb_type} random perturbations...')
 
         # build list of file names for variables to be perturbed
         file_list = []

@@ -2,7 +2,7 @@
 #===================================================================================================
 # Unit testing for state_adjustment module
 #===================================================================================================
-import unittest, os, tempfile, numpy as np, xarray as xr
+import unittest, tempfile, numpy as np, xarray as xr
 from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer
 from hiccup import hiccup_state_adjustment as hsa

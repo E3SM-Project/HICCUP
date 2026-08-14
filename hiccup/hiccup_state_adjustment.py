@@ -479,6 +479,11 @@ def build_gaussian_smoother( lat, lon, corr_length_km, ncol_name='ncol',
   from scipy.spatial import cKDTree
   from scipy.sparse import coo_matrix, diags
 
+  if corr_length_km <= 0:
+    raise ValueError(f'corr_length_km must be positive, got {corr_length_km}')
+  if n_sigma <= 0:
+    raise ValueError(f'n_sigma must be positive, got {n_sigma}')
+
   # convert the requested correlation length into the Gaussian kernel std-dev.
   # smoothing white noise with a kernel of std sigma yields an autocorrelation
   # that reaches 1/e near 2*sigma, so use sigma = corr_length_km/2 to make the
@@ -579,6 +584,9 @@ def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
   for var in var_list:
     # generate an independent smoothed noise field for each non-ncol slice
     # (e.g. each vertical level), operating on the ncol axis
+    if ncol_name not in ds[var].dims:
+      raise ValueError(f'variable {var!r} does not have dimension {ncol_name!r}; '
+                       f'all variables in var_list must contain the {ncol_name!r} dimension')
     axis = ds[var].dims.index(ncol_name)
     var_data = np.moveaxis( ds[var].values, axis, -1 )
     lead_shape = var_data.shape[:-1]
@@ -618,8 +626,10 @@ def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
                          to avoid rebuilding it on each call; the (possibly
                          newly built) smoother is returned so it can be reused
 
-  Returns the smoothing matrix (or None when spatially_correlated is False) so
-  that it can be passed back in to avoid rebuilding it for each ensemble member.
+  Returns the smoothing matrix when spatially_correlated is True (or when a
+  smoother was supplied) so that it can be passed back in to avoid rebuilding
+  it for each ensemble member; returns None when spatially_correlated is False
+  and no smoother was provided.
   """
   import shutil
   import netCDF4
