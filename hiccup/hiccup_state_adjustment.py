@@ -687,7 +687,7 @@ def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
     for var in present:
       nc.variables[var][:] = ds[var].values
 
-  return smoother
+  return smoother if spatially_correlated else None
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 def calculate_qv_sat_liq( temperature, pressure ):
