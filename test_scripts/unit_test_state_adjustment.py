@@ -2,7 +2,7 @@
 #===================================================================================================
 # Unit testing for state_adjustment module
 #===================================================================================================
-import unittest, numpy as np, xarray as xr
+import unittest, tempfile, numpy as np, xarray as xr
 from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer
 from hiccup import hiccup_state_adjustment as hsa
@@ -282,6 +282,126 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( np.all( np.abs(ds['CLOUD_FRAC'].values-expected_answer)<1e-10 ) )
 
     print_timer(timer_start,caller='test_adjust_cloud_fraction')
+  # ----------------------------------------------------------------------------
+  def test_build_gaussian_smoother(self):
+    """
+    Does the Gaussian smoother produce a row-normalized operator?
+    """
+    timer_start = perf_counter()
+
+    lon2d,lat2d = np.meshgrid( np.linspace(0,360,48,endpoint=False)
+                             , np.linspace(-80,80,24) )
+    lat = lat2d.ravel(); lon = lon2d.ravel()
+
+    S = hsa.build_gaussian_smoother( lat, lon, corr_length_km=2000. )
+
+    # rows should sum to 1 (partition of unity) so the filter preserves the mean
+    row_sum = np.asarray(S.sum(axis=1)).ravel()
+    self.assertTrue( np.all( np.abs(row_sum-1.)<1e-10 ) )
+    # a constant field should be unchanged by the smoother
+    const = np.full(lat.size,3.7)
+    self.assertTrue( np.all( np.abs((S@const)-3.7)<1e-10 ) )
+
+    print_timer(timer_start,caller='test_build_gaussian_smoother')
+  # ----------------------------------------------------------------------------
+  def test_apply_correlated_perturbations(self):
+    """
+    Are correlated perturbations the right magnitude, reproducible, and
+    spatially coherent?
+    """
+    timer_start = perf_counter()
+
+    # synthetic unstructured grid with lat/lon coordinates
+    lon2d,lat2d = np.meshgrid( np.linspace(0,360,72,endpoint=False)
+                             , np.linspace(-80,80,36) )
+    lat = lat2d.ravel(); lon = lon2d.ravel()
+    ncol = lat.size
+    rng = np.random.default_rng(0)
+    base = rng.standard_normal(ncol)*5. + 280.
+    def make_ds():
+      return xr.Dataset({'T':xr.DataArray(base.copy(),dims=['ncol'])
+                        ,'lat':xr.DataArray(lat,dims=['ncol'])
+                        ,'lon':xr.DataArray(lon,dims=['ncol'])
+                        }, coords={'ncol':np.arange(ncol)} )
+
+    corr_length_km = 2000.
+    ds1 = hsa.apply_correlated_perturbations( make_ds(), var_list=['T']
+                                            , corr_length_km=corr_length_km, seed=123 )
+    pert1 = ds1['T'].values - base
+
+    # magnitude should be ~1% of the field std-dev, matching apply_random_perturbations
+    self.assertTrue( np.abs( pert1.std()/base.std() - 0.01 ) < 2e-3 )
+
+    # same seed should give identical results
+    ds2 = hsa.apply_correlated_perturbations( make_ds(), var_list=['T']
+                                            , corr_length_km=corr_length_km, seed=123 )
+    self.assertTrue( np.all( ds2['T'].values == ds1['T'].values ) )
+
+    # perturbations should be spatially coherent: nearby columns more
+    # correlated than distant ones
+    lat_r=np.deg2rad(lat); lon_r=np.deg2rad(lon)
+    xyz=np.column_stack([np.cos(lat_r)*np.cos(lon_r)
+                        ,np.cos(lat_r)*np.sin(lon_r),np.sin(lat_r)])
+    f=(pert1-pert1.mean())/pert1.std()
+    i=rng.integers(0,ncol,200000); j=rng.integers(0,ncol,200000)
+    chord=np.linalg.norm(xyz[i]-xyz[j],axis=1)
+    gc=6371.*2*np.arcsin(np.clip(chord/2,0,1)); prod=f[i]*f[j]
+    corr_near = prod[gc<corr_length_km].mean()
+    corr_far  = prod[gc>2*corr_length_km].mean()
+    self.assertTrue( corr_near > 0.3 )
+    self.assertTrue( corr_near > corr_far )
+
+    print_timer(timer_start,caller='test_apply_correlated_perturbations')
+  # ----------------------------------------------------------------------------
+  def test_create_perturbed_file(self):
+    """
+    Does create_perturbed_file preserve non-perturbed data, perturb the
+    requested variables, and reproduce results for a given seed?
+    """
+    timer_start = perf_counter()
+
+    lon2d,lat2d = np.meshgrid( np.linspace(0,360,48,endpoint=False)
+                             , np.linspace(-80,80,24) )
+    lat = lat2d.ravel(); lon = lon2d.ravel()
+    ncol = lat.size
+    rng = np.random.default_rng(0)
+    ds = xr.Dataset({'T':xr.DataArray(rng.standard_normal(ncol)*5+280,dims=['ncol'])
+                    ,'Q':xr.DataArray(rng.standard_normal(ncol),dims=['ncol'])
+                    ,'lat':xr.DataArray(lat,dims=['ncol'])
+                    ,'lon':xr.DataArray(lon,dims=['ncol'])
+                    }, coords={'ncol':np.arange(ncol)} )
+
+    with tempfile.TemporaryDirectory() as tmp:
+      in_file  = f'{tmp}/in.nc'
+      out_file = f'{tmp}/out.nc'
+      rep_file = f'{tmp}/rep.nc'
+      ds.to_netcdf(in_file)
+
+      hsa.create_perturbed_file( in_file, out_file, var_list=['T']
+                               , corr_length_km=2000., seed=7 )
+      orig = xr.open_dataset(in_file)
+      pert = xr.open_dataset(out_file)
+
+      # non-perturbed variable must be unchanged
+      self.assertTrue( np.array_equal( orig['Q'].values, pert['Q'].values ) )
+      # perturbed variable must actually change, ~1% of the field std-dev
+      d = pert['T'].values - orig['T'].values
+      self.assertTrue( d.std()>0. )
+      self.assertTrue( np.abs( d.std()/orig['T'].std().values - 0.01 ) < 3e-3 )
+
+      # same seed reproduces the perturbed file exactly
+      hsa.create_perturbed_file( in_file, rep_file, var_list=['T']
+                               , corr_length_km=2000., seed=7 )
+      rep = xr.open_dataset(rep_file)
+      self.assertTrue( np.array_equal( rep['T'].values, pert['T'].values ) )
+
+      # refuse to overwrite an existing file without clobber
+      with self.assertRaises(OSError):
+        hsa.create_perturbed_file( in_file, out_file, var_list=['T'], seed=1 )
+
+      orig.close(); pert.close(); rep.close()
+
+    print_timer(timer_start,caller='test_create_perturbed_file')
   # ----------------------------------------------------------------------------
   # def test_dry_mass_fixer(self):
   #   """ """

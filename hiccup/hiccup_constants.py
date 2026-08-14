@@ -14,3 +14,4 @@ Rgas      = avogad*boltz     # universal gas constant                  ~ J/k/kmo
 Rdair     = Rgas/MW_dryair   # gas constant for dry air                ~ J/k/kg
 Rvapor    = Rgas/MW_vapor    # gas constant for water vapor            ~ J/(kg/kg)
 P0        = 1e5              # reference pressure
+rearth    = 6.37122e6        # radius of the earth                     ~ m

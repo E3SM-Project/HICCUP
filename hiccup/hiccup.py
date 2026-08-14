@@ -7,6 +7,8 @@ import hiccup.hiccup_data_class as hdc
 from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
+from hiccup.hiccup_state_adjustment import create_perturbed_file
+from hiccup.hiccup_state_adjustment import build_gaussian_smoother
 # ------------------------------------------------------------------------------
 
 default_target_model = 'EAM'
