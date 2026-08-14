@@ -30,7 +30,7 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
             xarray dask pandas numpy scipy netcdf4 hdf5 psutil
-            "nco>=5.3.1"
+            nco>=5.3.1
 
       - name: Install HICCUP
         run: pip install ./
