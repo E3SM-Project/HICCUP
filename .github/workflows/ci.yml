@@ -25,6 +25,8 @@ jobs:
         uses: mamba-org/setup-micromamba@v2
         with:
           environment-name: hiccup_env
+          init-shell: bash
+          post-cleanup: none
           create-args: >-
             python=${{ matrix.python-version }}
             xarray dask pandas numpy scipy netcdf4 hdf5 psutil
