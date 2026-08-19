@@ -1,0 +1,25 @@
+# environment.yml
+# Conda environment for HICCUP
+# Build with:   conda env create -f environment.yml
+name: hiccup_env
+channels:
+  - conda-forge
+dependencies:
+  # Pin the interpreter to avoid the free-threaded "3.14t" build, which the
+  # geoscience stack (cftime, netcdf4, etc.) doesn't support yet. 3.13 is also
+  # fine, avoid 3.14.
+  - python=3.12
+  - xarray
+  - dask
+  - pandas
+  - numpy
+  - scipy
+  - netcdf4
+  - hdf5
+  - cdsapi
+  - tempest-remap
+  - nco>=5.3.1
+  # urllib3 2.x turns on strict cert checks (VERIFY_X509_STRICT) that reject the
+  # LLNL/lab SSL-inspection proxy certs, which are missing an Authority Key
+  # Identifier. Pinning to 1.x keeps ERA5 downloads working behind those proxies.
+  - urllib3<2
