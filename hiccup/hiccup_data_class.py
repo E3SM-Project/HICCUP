@@ -1498,10 +1498,48 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
+    def check_dimension_order(self,ds,expected_dim_list,file_name=None,verbose=None):
+        """
+        Verify that variables use the expected relative dimension order.
+        E3SM reads initial condition files positionally and does not validate the
+        layout, so a transposed field produces garbage instead of an error - it
+        typically blows up in the dycore on the very first step. Only the relative
+        order of the recognized dims is checked, so extra dims (dim2, nv, nbnd)
+        may appear anywhere without tripping the check.
+        """
+        if verbose is None: verbose = self.verbose
+
+        # map the generic horizontal dim name onto whatever this dataset actually uses
+        expected_dim_list = list(expected_dim_list)
+        if 'ncol' in expected_dim_list \
+        and 'ncol' not in ds.dims and 'ncol_d' in ds.dims:
+            expected_dim_list[expected_dim_list.index('ncol')] = 'ncol_d'
+
+        bad_var_list = []
+        for var in ds.data_vars:
+            var_dims = [d for d in ds[var].dims if d in expected_dim_list]
+            if var_dims != sorted(var_dims,key=expected_dim_list.index):
+                bad_var_list.append(f'      {var}{ds[var].dims}')
+
+        if bad_var_list:
+            msg  = f'{tcolor.RED}Unexpected dimension order'
+            if file_name is not None: msg += f' in {file_name}'
+            msg += '\n'
+            msg += f'    expected order: {tuple(expected_dim_list)}\n'
+            msg += '    offending variables:\n'
+            msg += '\n'.join(bad_var_list)
+            msg += f'{tcolor.ENDC}'
+            raise ValueError(msg)
+
+        if verbose:
+            print(f'{self.verbose_indent}  dimension order OK: {tuple(expected_dim_list)}')
+        return
+    # --------------------------------------------------------------------------
     def combine_files(self,file_dict,output_file_name,delete_files=False,
                       method='xarray',use_single_precision=None,
                       permute_dimensions=None,permute_dim_list=None,
-                      combine_uv=None,remove_ilev=None,verbose=None):
+                      combine_uv=None,
+                      check_dim_order=True,expected_dim_list=None,verbose=None):
         """
         Combine files in file_dict into single output file
         """
@@ -1521,22 +1559,22 @@ class hiccup_data(object):
             u_name,v_name,uv_name = 'U','V','UV'
             if use_single_precision is None: use_single_precision = False
             if permute_dimensions is None: permute_dimensions = False
+            if expected_dim_list is None: expected_dim_list = ['time','lev','ncol']
             if combine_uv is None: combine_uv = False
-            if remove_ilev is None: remove_ilev = False
         if self.target_model=='EAMXX':
             u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None:permute_dim_list = ['time','ncol','lev']
+            if expected_dim_list is None: expected_dim_list = permute_dim_list
             if combine_uv is None: combine_uv = True
-            if remove_ilev is None: remove_ilev = False
         if self.target_model=='EAMXX-nudging':
             u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
+            if expected_dim_list is None: expected_dim_list = permute_dim_list
             if combine_uv is None: combine_uv = False
-            if remove_ilev is None: remove_ilev = True
 
         print()
         print(f'permute_dimensions: {permute_dimensions}')
@@ -1600,6 +1638,12 @@ class hiccup_data(object):
                 # if 'ni' not in file_dict.keys() and 'qv' in file_dict.keys():
                 #     ds_out['ni'] = ds_out['qv'].copy(deep=True)*0
                 #     ds_out['ni'].attrs['long_name'] = 'Grid box averaged cloud ice number'
+            # validate the layout before writing - a transposed IC is read without
+            # complaint by E3SM and only shows up as a dycore blow-up on step 1
+            if check_dim_order:
+                self.check_dimension_order(ds_out,expected_dim_list,
+                                           file_name=output_file_name,verbose=verbose)
+
             ds_out.to_netcdf(output_file_name)
             ds_out.close()
 

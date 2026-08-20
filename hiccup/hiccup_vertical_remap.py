@@ -147,6 +147,15 @@ def _remap_field(field, p_in, p_out, in_lev_name, out_lev_name, mode, extrap):
     output_dtypes=[out_dtype],
   )
   result.attrs = dict(field.attrs)
+
+  # apply_ufunc always moves core dims to the last axis, so a (time,lev,ncol) field
+  # would come back as (time,ncol,lev). The NCO path this replaced was order-preserving,
+  # and EAM expects the vertical dim in its original slot, so restore the source layout.
+  # The trailing Ellipsis is defensive - it parks any dim not present in the source
+  # field (from broadcasting against p_in/p_out) at the end instead of raising.
+  dim_order = [out_lev_name if d==in_lev_name else d for d in field.dims]
+  result = result.transpose(*dim_order, ...)
+
   return result
 
 # ---------------------------------------------------------------------------
