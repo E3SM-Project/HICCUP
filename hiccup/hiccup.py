@@ -13,6 +13,10 @@ from hiccup.hiccup_state_adjustment import build_gaussian_smoother
 
 default_target_model = 'EAM'
 
+# canonical target model names - these exact spellings are what the rest of HICCUP
+# compares against, so verify_target_model() normalizes user input back to them
+valid_target_model_list = ['EAM','EAMXX','EAMXX-nudging']
+
 # default output paths
 default_output_dir  = './data'
 default_grid_dir    = './files_grid'
@@ -88,14 +92,17 @@ def get_default_topo_file_name(grid,topo_file_root=None):
 # ------------------------------------------------------------------------------
 def verify_target_model(target_model):
     """
-    Normalize and validate target_model name (only EAM or EAMXX)
+    Normalize and validate target_model name
     """
     if not isinstance(target_model, str):
         raise ValueError(f'target_model must be a string => {target_model!r}')
-    normalized = target_model.upper()
-    if normalized not in ['EAM', 'EAMXX']:
-        raise ValueError(f'target_model is not valid => {target_model}')
-    return normalized
+    # Match case-insensitively but return the canonical spelling, since the rest of
+    # HICCUP compares against these exact strings - note that "EAMXX-nudging" is mixed
+    # case, so a blanket .upper() would silently disable every branch that checks for it
+    for valid_target_model in valid_target_model_list:
+        if target_model.upper()==valid_target_model.upper(): return valid_target_model
+    raise ValueError(f'target_model is not valid => {target_model}'
+                     f'\n  valid options => {valid_target_model_list}')
 # ------------------------------------------------------------------------------
 # Method for returning class object
 # ------------------------------------------------------------------------------

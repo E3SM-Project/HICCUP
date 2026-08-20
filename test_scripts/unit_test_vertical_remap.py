@@ -381,6 +381,39 @@ class remap_vertical_end_to_end_test_case(unittest.TestCase):
       np.testing.assert_allclose(T_got, T_exp, rtol=1e-10, atol=1e-10)
     print_timer(timer_start, caller='test_smooth_field_remap_is_accurate')
   # ------------------------------------------------------------------------
+  def test_dimension_order_is_preserved(self):
+    """
+    the remapped fields must keep the source dimension order (time,lev,ncol).
+    xarray.apply_ufunc moves core dims to the last axis, which silently produced
+    (time,ncol,lev) output - EAM reads initial conditions positionally and does not
+    validate the layout, so a transposed IC blows up in the dycore on the first step
+    instead of raising an error. Assert the layout explicitly rather than calling
+    .transpose() first, which is what let this regression through before.
+    """
+    timer_start = perf_counter()
+    remap_vertical_py(self.src_file, self.out_file, self.vert_file, ps_name='PS', lev_name='lev')
+    with xr.open_dataset(self.out_file) as ds_out:
+      for var in ['T','Q']:
+        self.assertEqual(ds_out[var].dims, ('time','lev','ncol'),
+                         msg=f'{var} dims {ds_out[var].dims} != source order (time,lev,ncol)')
+      self.assertEqual(ds_out['PS'].dims, ('time','ncol'))
+    print_timer(timer_start, caller='test_dimension_order_is_preserved')
+  # ------------------------------------------------------------------------
+  def test_dimension_order_is_preserved_for_transposed_source(self):
+    """
+    a source written as (time,ncol,lev) must come back as (time,ncol,lev) - the remap
+    should mirror whatever layout it was handed, not impose one of its own
+    """
+    timer_start = perf_counter()
+    src_file = os.path.join(self.tmpdir, 'src_transposed.nc')
+    self.ds_src.transpose('time','ncol','lev').to_netcdf(src_file)
+    remap_vertical_py(src_file, self.out_file, self.vert_file, ps_name='PS', lev_name='lev')
+    with xr.open_dataset(self.out_file) as ds_out:
+      for var in ['T','Q']:
+        self.assertEqual(ds_out[var].dims, ('time','ncol','lev'),
+                         msg=f'{var} dims {ds_out[var].dims} != source order (time,ncol,lev)')
+    print_timer(timer_start, caller='test_dimension_order_is_preserved_for_transposed_source')
+  # ------------------------------------------------------------------------
   def test_passthrough_variables_unchanged(self):
     """
     variables without the source lev dim (PS, TS) should be copied through bit-identical

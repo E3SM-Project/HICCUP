@@ -471,6 +471,110 @@ class hiccup_data_class_test_case(unittest.TestCase):
     finally:
       os.remove(tmp.name)
     print_timer(timer_start, caller='test_check_input_times_and_get_time_index')
+  # ----------------------------------------------------------------------------
+  def _make_dim_order_ds(self, dim_order=('time','lev','ncol')):
+    """helper - tiny dataset whose 3D fields use the requested dim order"""
+    sizes = {'time':1,'lev':4,'ncol':6}
+    shape = tuple(sizes[d] for d in dim_order)
+    return xr.Dataset({
+      'T':  xr.DataArray(np.zeros(shape), dims=list(dim_order)),
+      'PS': xr.DataArray(np.zeros((1,6)), dims=['time','ncol']),
+    })
+  # ----------------------------------------------------------------------------
+  def test_check_dimension_order(self):
+    """
+    check_dimension_order should accept the expected layout and reject a transposed one
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+
+    # happy path - EAM layout
+    ds_good = self._make_dim_order_ds(('time','lev','ncol'))
+    obj.check_dimension_order(ds_good,['time','lev','ncol'],verbose=False)
+
+    # error path - transposed field is the regression this check exists to catch
+    ds_bad = self._make_dim_order_ds(('time','ncol','lev'))
+    with self.assertRaises(ValueError) as ctx:
+      obj.check_dimension_order(ds_bad,['time','lev','ncol'],verbose=False)
+    self.assertIn('T',str(ctx.exception))
+
+    # the same dataset is valid under the EAMxx expected order
+    obj.check_dimension_order(ds_bad,['time','ncol','lev'],verbose=False)
+    print_timer(timer_start, caller='test_check_dimension_order')
+  # ----------------------------------------------------------------------------
+  def test_check_dimension_order_ignores_extra_dims(self):
+    """
+    only the relative order of recognized dims matters - extra dims (dim2, nv, nbnd)
+    may appear anywhere, so EAMxx horiz_winds and grid metadata must not trip the check
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    ds = xr.Dataset({
+      'horiz_winds':   xr.DataArray(np.zeros((1,6,2,4)), dims=['time','ncol','dim2','lev']),
+      'lat_vertices':  xr.DataArray(np.zeros((6,4)),     dims=['ncol','nv']),
+      'time_bnds':     xr.DataArray(np.zeros((1,2)),     dims=['time','nbnd']),
+      'hyai':          xr.DataArray(np.zeros(5),         dims=['ilev']),
+    })
+    obj.check_dimension_order(ds,['time','ncol','lev'],verbose=False)
+    print_timer(timer_start, caller='test_check_dimension_order_ignores_extra_dims')
+  # ----------------------------------------------------------------------------
+  def test_check_dimension_order_handles_ncol_d(self):
+    """
+    a dataset using ncol_d should be checked against ncol_d in the expected slot
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    ds_good = xr.Dataset({'T': xr.DataArray(np.zeros((1,4,6)), dims=['time','lev','ncol_d'])})
+    obj.check_dimension_order(ds_good,['time','lev','ncol'],verbose=False)
+    ds_bad = xr.Dataset({'T': xr.DataArray(np.zeros((1,6,4)), dims=['time','ncol_d','lev'])})
+    self.assertRaises(ValueError, obj.check_dimension_order, ds_bad, ['time','lev','ncol'], None, False)
+    print_timer(timer_start, caller='test_check_dimension_order_handles_ncol_d')
+  # ----------------------------------------------------------------------------
+  def test_verify_target_model_valid_names(self):
+    """
+    all supported target models should be accepted and returned in canonical spelling
+    """
+    timer_start = perf_counter()
+    for name in ['EAM','EAMXX','EAMXX-nudging']:
+      self.assertEqual(hiccup.verify_target_model(name), name)
+    print_timer(timer_start, caller='test_verify_target_model_valid_names')
+  # ----------------------------------------------------------------------------
+  def test_verify_target_model_is_case_insensitive(self):
+    """
+    input is matched case-insensitively but normalized back to the canonical spelling,
+    since the rest of HICCUP compares against these exact strings - "EAMXX-nudging" is
+    mixed case, so returning an upper-cased name would silently disable its branches
+    """
+    timer_start = perf_counter()
+    self.assertEqual(hiccup.verify_target_model('eam'), 'EAM')
+    self.assertEqual(hiccup.verify_target_model('eamxx'), 'EAMXX')
+    for name in ['eamxx-nudging','EAMXX-NUDGING','EAMxx-Nudging']:
+      self.assertEqual(hiccup.verify_target_model(name), 'EAMXX-nudging')
+    print_timer(timer_start, caller='test_verify_target_model_is_case_insensitive')
+  # ----------------------------------------------------------------------------
+  def test_verify_target_model_invalid(self):
+    """
+    unrecognized names and non-string input should raise ValueError
+    """
+    timer_start = perf_counter()
+    for bad in ['EAMXX-foo','CAM','',None,5,['EAM']]:
+      self.assertRaises(ValueError, hiccup.verify_target_model, bad)
+    print_timer(timer_start, caller='test_verify_target_model_invalid')
+  # ----------------------------------------------------------------------------
+  def test_create_hiccup_data_accepts_eamxx_nudging(self):
+    """
+    EAMXX-nudging must survive create_hiccup_data() - it is a supported target model
+    with dedicated branches in combine_files() and remap_vertical_multifile()
+    """
+    timer_start = perf_counter()
+    obj = hiccup.create_hiccup_data( src_data_name='ERA5',
+                                     target_model='EAMXX-nudging',
+                                     dst_horz_grid='ne30np4',
+                                     dst_vert_grid='L128',
+                                     input_file_list=[f'{TEST_DATA}/HICCUP_TEST.ERA5.atm.low-res.nc',
+                                                      f'{TEST_DATA}/HICCUP_TEST.ERA5.sfc.low-res.nc'])
+    self.assertEqual(obj.target_model, 'EAMXX-nudging')
+    print_timer(timer_start, caller='test_create_hiccup_data_accepts_eamxx_nudging')
 #===============================================================================
 if __name__ == '__main__':
     unittest.main()
