@@ -1511,13 +1511,16 @@ class hiccup_data(object):
 
         # map the generic horizontal dim name onto whatever this dataset actually uses
         expected_dim_list = list(expected_dim_list)
-        if 'ncol' in expected_dim_list \
-        and 'ncol' not in ds.dims and 'ncol_d' in ds.dims:
-            expected_dim_list[expected_dim_list.index('ncol')] = 'ncol_d'
+        dim_alias = {}
+        if 'ncol' in expected_dim_list and 'ncol_d' in ds.dims:
+            if 'ncol' not in ds.dims:
+                expected_dim_list[expected_dim_list.index('ncol')] = 'ncol_d'
+            else:
+                dim_alias['ncol_d'] = 'ncol'
 
         bad_var_list = []
         for var in ds.data_vars:
-            var_dims = [d for d in ds[var].dims if d in expected_dim_list]
+            var_dims = [dim_alias.get(d, d) for d in ds[var].dims if dim_alias.get(d, d) in expected_dim_list]
             if var_dims != sorted(var_dims,key=expected_dim_list.index):
                 bad_var_list.append(f'      {var}{ds[var].dims}')
 
