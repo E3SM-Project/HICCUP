@@ -474,11 +474,11 @@ class hiccup_data(object):
         if src_type is not None and src_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
         if dst_type is not None and dst_type not in ['FV','GLL']:
-            raise ValueError(f'The value of src_type={src_type} is not supported')
+            raise ValueError(f'The value of dst_type={dst_type} is not supported')
 
         # Determine whether the grid arguments passed to GenerateOverlapMesh
         # need to be swapped (i.e. dst grid is finer than the src grid)
-        if lrg2sml is None: lrg2sml = self.check_lrg2sml()
+        if lrg2sml is None: lrg2sml = self.check_lrg2sml(verbose=verbose)
 
         # Set the mapping algorithm
         if src_type=='FV' and dst_type=='GLL': alg_flag = '-a fv2se_flx'

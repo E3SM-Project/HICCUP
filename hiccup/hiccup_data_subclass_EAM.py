@@ -268,7 +268,7 @@ class EAM(hiccup_data):
         cmd += f' --src_grd={self.src_grid_file_np}'
         cmd += f' --dst_grd={self.dst_grid_file_np}'
         cmd += f' --map_file={self.map_file_np}'
-        if self.check_lrg2sml(self.src_grid_file_np,self.dst_grid_file_np):
+        if self.check_lrg2sml(self.src_grid_file_np,self.dst_grid_file_np,verbose=verbose):
             cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
