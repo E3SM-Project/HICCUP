@@ -184,6 +184,7 @@ class hiccup_data(object):
     from hiccup.hiccup_data_class_grid_methods import get_dst_grid_ne
     from hiccup.hiccup_data_class_grid_methods import get_dst_grid_npg
     from hiccup.hiccup_data_class_grid_methods import get_dst_grid_ncol
+    from hiccup.hiccup_data_class_grid_methods import check_lrg2sml
     # --------------------------------------------------------------------------
     # Import SST/sea-ice methods
     from hiccup.hiccup_data_class_sstice_methods import get_sst_file
@@ -449,11 +450,12 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=False):
+    def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=None):
         """ 
         Generate mapping file after grid files have been created.
         This routine assumes that the destination is always GLL/np4.
-        For mapping EAM to EAM data this method is overloaded below. 
+        For mapping EAM to EAM data this method is overloaded below.
+        The lrg2sml argument is determined automatically if not specified.
         """
         if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
@@ -474,6 +476,10 @@ class hiccup_data(object):
         if dst_type is not None and dst_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
 
+        # Determine whether the grid arguments passed to GenerateOverlapMesh
+        # need to be swapped (i.e. dst grid is finer than the src grid)
+        if lrg2sml is None: lrg2sml = self.check_lrg2sml()
+
         # Set the mapping algorithm
         if src_type=='FV' and dst_type=='GLL': alg_flag = '-a fv2se_flx'
         if src_type=='GLL'and dst_type=='GLL': alg_flag = '-a se2se'
@@ -485,7 +491,8 @@ class hiccup_data(object):
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
-        if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids 
+        cmd += f' --tmp_dir={self.tmp_dir}'
+        if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids (--a2o, --atm2ocn, --b2l, --big2ltl, --l2s)
         run_cmd(cmd,verbose,shell=True)
 
         if self.do_timers: self.print_timer(timer_start)

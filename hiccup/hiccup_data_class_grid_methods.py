@@ -69,3 +69,32 @@ def get_dst_grid_ncol(self):
         if npg>0 : ncol = int(ne*ne*6*npg)
     return ncol
 # ------------------------------------------------------------------------------
+def get_grid_cell_count(grid_file):
+    """
+    Return the number of cells/elements in a SCRIP or exodus grid file
+    """
+    cell_dim_list = ['grid_size','num_elem','elementCount','ncol']
+    with xr.open_dataset(grid_file,decode_cf=False) as ds_grid:
+        for dim in cell_dim_list:
+            if dim in ds_grid.sizes: return int(ds_grid.sizes[dim])
+    raise ValueError(f'get_grid_cell_count: could not determine the number of cells'
+                     f' in {grid_file} - expected one of these dimensions: {cell_dim_list}')
+# ------------------------------------------------------------------------------
+def check_lrg2sml(self,src_grid_file=None,dst_grid_file=None,verbose=None):
+    """
+    Determine whether the ncremap --lrg2sml flag is needed. This flag swaps the
+    order of the grid arguments given to GenerateOverlapMesh, which requires the
+    grid with the smaller cells to come first, so the flag is needed whenever the
+    destination grid is finer than the source grid (i.e. "very fine" RRM grids).
+    """
+    if verbose is None: verbose = self.verbose
+    if src_grid_file is None: src_grid_file = self.src_grid_file
+    if dst_grid_file is None: dst_grid_file = self.dst_grid_file
+    src_cell_cnt = get_grid_cell_count(src_grid_file)
+    dst_cell_cnt = get_grid_cell_count(dst_grid_file)
+    lrg2sml = dst_cell_cnt > src_cell_cnt
+    if verbose:
+        print(f'{self.verbose_indent}  src grid cells: {src_cell_cnt}'
+              f' / dst grid cells: {dst_cell_cnt} => lrg2sml = {lrg2sml}')
+    return lrg2sml
+# ------------------------------------------------------------------------------
