@@ -491,7 +491,7 @@ class hiccup_data(object):
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
-        cmd += f' --tmp_dir={self.tmp_dir}'
+        if self.tmp_dir is not None: cmd += f' --tmp_dir={self.tmp_dir}'
         if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids (--a2o, --atm2ocn, --b2l, --big2ltl, --l2s)
         run_cmd(cmd,verbose,shell=True)
 
