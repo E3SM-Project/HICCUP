@@ -65,7 +65,6 @@ class hiccup_data_class_test_case(unittest.TestCase):
     attr_list.append('do_timers')
     attr_list.append('verbose')
     attr_list.append('verbose_indent')
-    attr_list.append('output_dir')
     attr_list.append('grid_dir')
     attr_list.append('map_dir')
     attr_list.append('tmp_dir')

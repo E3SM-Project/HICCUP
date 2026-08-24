@@ -87,7 +87,6 @@ class hiccup_data(object):
                   input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
-                  output_dir=None,
                   grid_dir=None,
                   map_dir=None,
                   tmp_dir=None,
@@ -149,13 +148,11 @@ class hiccup_data(object):
 
         if check_input_files is None: check_input_files = True
 
-        # Set output paths for data, grid, and map files
-        if output_dir=='' or output_dir==None : output_dir = './'
+        # Set paths for grid, map, and temporary files
         if grid_dir is None or grid_dir=='' : raise ValueError(f'invalid grid_dir: {grid_dir}')
         if map_dir  is None or map_dir==''  : raise ValueError(f'invalid map_dir: {map_dir}')
         if tmp_dir  is None or tmp_dir==''  : raise ValueError(f'invalid tmp_dir: {tmp_dir}')
 
-        self.output_dir = output_dir
         self.grid_dir = grid_dir
         self.map_dir = map_dir
         self.tmp_dir = tmp_dir
