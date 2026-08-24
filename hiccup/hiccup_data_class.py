@@ -151,9 +151,9 @@ class hiccup_data(object):
 
         # Set output paths for data, grid, and map files
         if output_dir=='' or output_dir==None : output_dir = './'
-        if grid_dir=='' or grid_dir==None : grid_dir = default_grid_dir
-        if map_dir=='' or map_dir==None : map_dir = default_map_dir
-        if tmp_dir=='' or tmp_dir==None : tmp_dir = default_tmp_dir
+        if grid_dir is None or grid_dir=='' : raise ValueError(f'invalid grid_dir: {grid_dir}')
+        if map_dir  is None or map_dir==''  : raise ValueError(f'invalid map_dir: {map_dir}')
+        if tmp_dir  is None or tmp_dir==''  : raise ValueError(f'invalid tmp_dir: {tmp_dir}')
 
         self.output_dir = output_dir
         self.grid_dir = grid_dir
