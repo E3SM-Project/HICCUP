@@ -165,10 +165,11 @@ def create_hiccup_data( src_data_name,
             # Check input files for required variables (also builds _var_to_file_map)
             if check_input_files: obj.check_file_vars()
 
-            # Create the grid and map folders if they do not exist
-            for d in [grid_dir,map_dir]:
-                if d is not None: 
-                    if not os.path.exists(d): os.makedirs(d)
+            # Create the grid, map, and tmp folders if they do not exist
+            # tmp_dir is kept separate from grid_dir and map_dir so that it can
+            # be safely purged - everything HICCUP writes there is disposable
+            for d in [grid_dir,map_dir,tmp_dir]:
+                if not os.path.exists(d): os.makedirs(d)
 
             # global timer_start_total
             obj.timer_start_total = perf_counter()
