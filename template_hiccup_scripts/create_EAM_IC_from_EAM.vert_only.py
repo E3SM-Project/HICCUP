@@ -34,7 +34,8 @@ dst_vert_grid,vert_file_name = 'L80',f'{hiccup_root}/files_vert/L80_for_E3SMv3.n
 # specify input file name
 cami_file = f'{inputdata_root}/atm/cam/inic/homme/cami_mam3_Linoz_ne30np4_L72_c160214.nc'
 
-# specify output file
+# specify output file - make sure the destination folder exists
+if not os.path.exists(data_root): os.makedirs(data_root)
 output_atm_file_name = f'{data_root}HICCUP.eam_i_mam3_Linoz_{dst_horz_grid}_{dst_vert_grid}_c{timestamp}.nc'
 
 # topo file of output grid - replace this with file path if no default is set
@@ -52,7 +53,6 @@ hiccup_data = hiccup.create_hiccup_data(src_data_name='EAM',
                                         dst_vert_grid=dst_vert_grid,
                                         input_file_list=[cami_file],
                                         topo_file=topo_file_name,
-                                        output_dir=data_root,
                                         verbose=True,)
 
 # Print some informative stuff
