@@ -937,6 +937,9 @@ class hiccup_data(object):
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
+        # Cache time indices per file to avoid repeatedly opening the same file
+        time_idx_cache = {}
+
         # Copy atmosphere and surface data to individual files (no regridding)
         for var,tmp_file_name in file_dict.items():
             in_file = self._var_to_file_map[var]
@@ -947,8 +950,13 @@ class hiccup_data(object):
                 keep_vars = [in_var] + [v for v in [lat_var,lon_var] if v is not None and v in ds.variables]
                 ds_out = ds[keep_vars]
                 if target_time is not None and 'time' in ds_out.dims:
-                    time_idx = self._get_time_index(in_file,target_time)
-                    ds_out = ds_out.isel(time=[time_idx])
+                    if in_file not in time_idx_cache:
+                        with xr.open_dataset(in_file, decode_times=False) as ds_tmp:
+                            if 'time' in ds_tmp.dims:
+                                times = xr.decode_cf(ds_tmp)['time'].values
+                                time_idx_cache[in_file] = pd.DatetimeIndex(times).get_loc(pd.Timestamp(target_time))
+                    if in_file in time_idx_cache:
+                        ds_out = ds_out.isel(time=[time_idx_cache[in_file]])
                 ds_out.to_netcdf(tmp_file_name,format=xarray_atm_nc_format,mode='w')
 
         if self.do_timers: self.print_timer(timer_start)
