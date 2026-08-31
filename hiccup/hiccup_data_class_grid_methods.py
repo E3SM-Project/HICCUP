@@ -73,12 +73,23 @@ def get_grid_cell_count(grid_file):
     """
     Return the number of cells/elements in a SCRIP or exodus grid file
     """
-    cell_dim_list = ['grid_size','num_elem','elementCount','ncol']
-    with xr.open_dataset(grid_file,decode_cf=False) as ds_grid:
-        for dim in cell_dim_list:
-            if dim in ds_grid.sizes: return int(ds_grid.sizes[dim])
+    import netCDF4
+    # NOTE: use netCDF4 directly instead of xarray - some grid files (e.g. exodus)
+    # declare dimensions (like num_elem) that are not attached to any variable,
+    # so xarray's ds.sizes silently omits them even though ncdump -h shows them
+    direct_dim_list   = ['grid_size','ncol','elementCount']
+    spectral_dim_list = ['num_elem','num_el_in_blk1']
+    with netCDF4.Dataset(grid_file) as ds_grid:
+        for dim in direct_dim_list:
+            if dim in ds_grid.dimensions: return int(ds_grid.dimensions[dim].size)
+        for dim in spectral_dim_list:
+            if dim in ds_grid.dimensions:
+                # Exodus SE grids typically store the number of elements; convert to
+                # the equivalent np4 ncol count: ncol = num_elem*(np-1)^2 + 2 (np=4).
+                return int(ds_grid.dimensions[dim].size * (4-1)**2 + 2)
     raise ValueError(f'get_grid_cell_count: could not determine the number of cells'
-                     f' in {grid_file} - expected one of these dimensions: {cell_dim_list}')
+                     f' in {grid_file} - expected one of these dimensions: '
+                     f'{direct_dim_list+spectral_dim_list}')
 # ------------------------------------------------------------------------------
 def check_lrg2sml(self,src_grid_file=None,dst_grid_file=None,verbose=None):
     """
