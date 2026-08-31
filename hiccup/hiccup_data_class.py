@@ -906,7 +906,119 @@ class hiccup_data(object):
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
-        return 
+        return
+    # --------------------------------------------------------------------------
+    def stage_multifile(self,file_dict,verbose=None,target_time=None):
+        """
+        Copy each variable into its own temporary file using the same "multifile"
+        layout as remap_horizontal_multifile(), but without performing any
+        horizontal regridding. Use this in place of remap_horizontal_multifile()
+        when the destination horizontal grid is identical to the source grid
+        (e.g. converting EAM data to EAMxx format on the same mesh) but the data
+        still needs to pass through methods that expect the multifile layout,
+        like surface_adjustment_multifile().
+        """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Staging multi-file data to temporary files (no horizontal remap)...')
+
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
+
+        lat_var = self.atm_var_name_dict['lat'] if 'lat' in self.atm_var_name_dict else None
+        lon_var = self.atm_var_name_dict['lon'] if 'lon' in self.atm_var_name_dict else None
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
+
+        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
+
+        # Cache time indices per file to avoid repeatedly opening the same file
+        time_idx_cache = {}
+
+        # Copy atmosphere and surface data to individual files (no regridding)
+        for var,tmp_file_name in file_dict.items():
+            in_file = self._var_to_file_map[var]
+            in_var  = all_var_dicts[var]
+            # Remove temporary files if they exist
+            if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
+            with xr.open_dataset(in_file,chunks=self.get_chunks()) as ds:
+                keep_vars = [in_var] + [v for v in [lat_var,lon_var] if v is not None and v in ds.variables]
+                ds_out = ds[keep_vars]
+                if target_time is not None and 'time' in ds_out.dims:
+                    if in_file not in time_idx_cache:
+                        with xr.open_dataset(in_file, decode_times=False) as ds_tmp:
+                            if 'time' in ds_tmp.dims:
+                                times = xr.decode_cf(ds_tmp)['time'].values
+                                time_idx_cache[in_file] = pd.DatetimeIndex(times).get_loc(pd.Timestamp(target_time))
+                    if in_file in time_idx_cache:
+                        ds_out = ds_out.isel(time=[time_idx_cache[in_file]])
+                ds_out.to_netcdf(tmp_file_name,format=xarray_atm_nc_format,mode='w')
+
+        if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
+        return
+    # --------------------------------------------------------------------------
+    def stage_multifile_eam(self,file_dict,verbose=None,target_time=None):
+        """
+        Copy each variable into its own temporary file using the same "multifile"
+        layout as remap_horizontal_multifile_eam(), but without performing any
+        horizontal regridding. Use this in place of remap_horizontal_multifile_eam()
+        when the destination horizontal grid is identical to the source grid
+        (e.g. converting EAM data to EAMxx format on the same mesh) but the data
+        still needs to pass through methods that expect the multifile layout,
+        like surface_adjustment_multifile().
+        """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Staging multi-file data to temporary files (no horizontal remap)...')
+
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
+
+        # Copy atmosphere and surface data to individual files (no regridding)
+        for var,tmp_file_name in file_dict.items():
+            in_var  = var
+            in_file = self._var_to_file_map.get(var, self.input_file_list[0])
+            # Remove temporary files if they exist
+            if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
+            with xr.open_dataset(in_file,chunks=self.get_chunks()) as ds:
+                # always try to carry lat/lon along, since remap_horizontal_multifile_eam
+                # gets these "for free" from the map file regardless of --var_lst
+                keep_vars = [in_var] + [v for v in ['lat','lon'] if v in ds.variables]
+                ds_out = ds[keep_vars]
+                if target_time is not None and 'time' in ds_out.dims:
+                    time_idx = self._get_time_index(in_file,target_time)
+                    ds_out = ds_out.isel(time=[time_idx])
+                ds_out.to_netcdf(tmp_file_name,format=xarray_atm_nc_format,mode='w')
+
+        # get rid of bounds and vertices variables
+        # (mirrors the cleanup in remap_horizontal_multifile_eam)
+        for var,tmp_file_name in file_dict.items():
+            with xr.open_dataset(tmp_file_name) as ds:
+                ds.load()
+                if 'lat' in ds and 'bounds' in ds['lat'].attrs : del ds['lat'].attrs['bounds']
+                if 'lon' in ds and 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
+                if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
+                if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+                ds.to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+
+        if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
+        return
     # --------------------------------------------------------------------------
     def surface_adjustment_multifile(self,file_dict,verbose=None,
                                     adj_TS=False,adj_PS=True,adj_T_eam=False):

@@ -35,6 +35,16 @@ do_sfc_adjust   = True    # perform surface T and P adjustments
 remap_data_vert = True    # vertical remap
 do_state_adjust = True    # post vertical interpolation adjustments
 combine_files   = True    # combine temporary data files and delete
+
+# Set this to True when dst_horz_grid is the same mesh as the source EAM data
+# (e.g. converting an EAM file to EAMxx format without changing resolution).
+# This skips grid/map file creation and the actual horizontal regrid, using
+# stage_multifile() in place of remap_horizontal_multifile() to put the data
+# in the "multifile" layout that surface_adjustment_multifile() still needs
+# (useful here because EAM and EAMxx topography files often use different
+# amounts of smoothing, so surface_adjustment_multifile() is still required
+# even though no horizontal regridding is actually needed).
+same_horz_grid  = False
 # ------------------------------------------------------------------------------
 # HICCUP uses two independent path roots:
 #   hiccup_root - path to your local HICCUP repo, only used to locate the bundled
@@ -93,7 +103,8 @@ file_dict = hiccup_data.get_multifile_dict(timestamp=timestamp)
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
 if 'create_map_file' not in locals(): create_map_file = False
-if create_map_file :
+if 'same_horz_grid' not in locals(): same_horz_grid = False
+if create_map_file and not same_horz_grid :
 
     # Create grid description files needed for the mapping file
     hiccup_data.create_src_grid_file()
@@ -107,9 +118,13 @@ if create_map_file :
 if 'remap_data_horz' not in locals(): remap_data_horz = False
 if remap_data_horz :
 
-    # Horizontally regrid np4 data
-    hiccup_data.map_file = hiccup_data.map_file_np
-    hiccup_data.remap_horizontal_multifile(file_dict=file_dict)
+    if same_horz_grid :
+        # Same mesh - just stage the data into per-variable files, no regrid
+        hiccup_data.stage_multifile(file_dict=file_dict)
+    else :
+        # Horizontally regrid np4 data
+        hiccup_data.map_file = hiccup_data.map_file_np
+        hiccup_data.remap_horizontal_multifile(file_dict=file_dict)
 
     # Rename variables to match what the model expects
     hiccup_data.rename_vars_multifile(file_dict=file_dict)
