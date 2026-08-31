@@ -83,7 +83,10 @@ def get_grid_cell_count(grid_file):
         for dim in direct_dim_list:
             if dim in ds_grid.dimensions: return int(ds_grid.dimensions[dim].size)
         for dim in spectral_dim_list:
-            if dim in ds_grid.dimensions: return int(ds_grid.dimensions[dim].size*9+2)
+            if dim in ds_grid.dimensions:
+                # Exodus SE grids typically store the number of elements; convert to
+                # the equivalent np4 ncol count: ncol = num_elem*(np-1)^2 + 2 (np=4).
+                return int(ds_grid.dimensions[dim].size * (4-1)**2 + 2)
     raise ValueError(f'get_grid_cell_count: could not determine the number of cells'
                      f' in {grid_file} - expected one of these dimensions: '
                      f'{direct_dim_list+spectral_dim_list}')
