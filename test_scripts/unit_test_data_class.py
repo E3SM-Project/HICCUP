@@ -225,6 +225,89 @@ class hiccup_data_class_test_case(unittest.TestCase):
                       msg=f'Expected .nc path for key {key!r}, got {file_dict[key]!r}')
     print_timer(timer_start,caller='test_hiccup_data_class_get_multifile_dict_eam')
   # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_stage_multifile(self):
+    """
+    verify stage_multifile() copies each variable into the multifile layout
+    (same file_dict paths as remap_horizontal_multifile()) without performing
+    any horizontal remap
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    file_dict = obj.get_multifile_dict(timestamp='stagetest')
+    try:
+      obj.stage_multifile(file_dict=file_dict)
+      all_var_dicts = {**obj.atm_var_name_dict, **obj.sfc_var_name_dict}
+      lat_var = obj.atm_var_name_dict['lat']
+      lon_var = obj.atm_var_name_dict['lon']
+      for key, path in file_dict.items():
+        self.assertTrue(os.path.isfile(path), msg=f'stage_multifile did not create {path}')
+        src_var = all_var_dicts[key]
+        with xr.open_dataset(path) as ds_out:
+          self.assertIn(src_var, ds_out.variables,
+                        msg=f'{src_var} missing from staged file for {key!r}')
+          self.assertIn(lat_var, ds_out.variables, msg='lat missing from staged file')
+          self.assertIn(lon_var, ds_out.variables, msg='lon missing from staged file')
+      # spot check that the data itself was copied through unchanged
+      src_path = obj._var_to_file_map['T']
+      with xr.open_dataset(src_path) as ds_src, xr.open_dataset(file_dict['T']) as ds_T:
+        np.testing.assert_allclose(ds_T['t'].values, ds_src['t'].values)
+    finally:
+      for path in file_dict.values():
+        if os.path.isfile(path): os.remove(path)
+    print_timer(timer_start,caller='test_hiccup_data_class_stage_multifile')
+  # ----------------------------------------------------------------------------
+  def test_hiccup_data_class_stage_multifile_eam(self):
+    """
+    verify stage_multifile_eam() copies each variable into the multifile layout
+    (same file_dict paths as remap_horizontal_multifile_eam()) without performing
+    any horizontal remap, using identity-named ("EAM-style") source variables
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5   # reuse a real object; stage_multifile_eam is generic
+
+    # build a small synthetic "EAM-style" source file (identity-named variables,
+    # unlike ERA5 test data where e.g. 'T' is stored as 't')
+    ncol = 4
+    ds_in = xr.Dataset({
+      'T':   (('ncol',), np.arange(ncol, dtype='float64')),
+      'PS':  (('ncol',), np.arange(ncol, dtype='float64')*10.),
+      'lat': (('ncol',), np.linspace(-1,1,ncol)),
+      'lon': (('ncol',), np.linspace(0,2,ncol)),
+    })
+    tmp_in = tempfile.NamedTemporaryFile(suffix='.nc', delete=False)
+    tmp_in.close()
+    # disable xarray's default NaN _FillValue so check_file_FillValue() doesn't
+    # decide to write a "modified" copy and rebuild _var_to_file_map on us
+    no_fill_encoding = {v: {'_FillValue': None} for v in ds_in.data_vars}
+    ds_in.to_netcdf(tmp_in.name, encoding=no_fill_encoding)
+
+    file_dict = {'T':  os.path.join(obj.tmp_dir,'stage_eam_test.T.nc'),
+                 'PS': os.path.join(obj.tmp_dir,'stage_eam_test.PS.nc')}
+
+    orig_input_file_list = obj.input_file_list
+    orig_var_to_file_map = obj._var_to_file_map
+    try:
+      obj.input_file_list  = [tmp_in.name]
+      obj._var_to_file_map = {'T': tmp_in.name, 'PS': tmp_in.name}
+
+      obj.stage_multifile_eam(file_dict=file_dict)
+
+      for key, path in file_dict.items():
+        self.assertTrue(os.path.isfile(path), msg=f'stage_multifile_eam did not create {path}')
+        with xr.open_dataset(path) as ds_out:
+          self.assertIn(key, ds_out.variables, msg=f'{key} missing from staged file')
+          self.assertIn('lat', ds_out.variables, msg='lat missing from staged file')
+          self.assertIn('lon', ds_out.variables, msg='lon missing from staged file')
+          np.testing.assert_allclose(ds_out[key].values, ds_in[key].values)
+    finally:
+      obj.input_file_list  = orig_input_file_list
+      obj._var_to_file_map = orig_var_to_file_map
+      os.remove(tmp_in.name)
+      for path in file_dict.values():
+        if os.path.isfile(path): os.remove(path)
+
+    print_timer(timer_start,caller='test_hiccup_data_class_stage_multifile_eam')
+  # ----------------------------------------------------------------------------
   def test_parse_version(self):
     """
     test that parse_version correctly parses version strings with and without suffixes
