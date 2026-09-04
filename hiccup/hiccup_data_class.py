@@ -1061,7 +1061,8 @@ class hiccup_data(object):
         # creating a new temporary file is a good way to do this
         if adj_T_eam and adj_PS:
             ps_file = file_dict[var_dict['PS']]
-            ps_old_file = ps_file.replace(var_dict['PS'],'PS_old')
+            ps_dir, ps_base = os.path.split(ps_file)
+            ps_old_file = os.path.join(ps_dir, f'PS_old_{ps_base}')
             run_cmd(f'cp {ps_file} {ps_old_file} ',verbose,shell=True)
 
         file_list = get_adj_file_list(var_dict.values(),file_dict)
