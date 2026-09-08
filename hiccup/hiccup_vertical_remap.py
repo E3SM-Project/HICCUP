@@ -265,19 +265,24 @@ def remap_vertical_py(input_file, output_file, vert_file,
     # source pressure ends up as a bare hPa lev coordinate (max ~1000) while the
     # target grid is in Pa (max ~1e5). np.interp would then clamp every level
     # below ~10 hPa to a constant instead of raising - fail loudly instead.
-    p_in_max  = float(np.asarray(p_in.max()))
-    p_out_max = float(np.asarray(p_out.max()))
-    if p_in_max > 0.0 and p_in_max < 1.2e3 and p_out_max > 1.0e4:
-      raise ValueError(
-        f'source vertical pressure (max {p_in_max:.3g}) and target grid '
-        f'(max {p_out_max:.3g} Pa) appear to be in different units - the source '
-        f'looks like hPa while the target is Pa. This usually means the source '
-        f'file is missing its hybrid coefficients (hyam/hybm/P0) at the vertical '
-        f'remap step, so lev={lev_name!r} was used directly as pressure. '
-        f'Fix by adding P0 (add_reference_pressure), setting lev units to hPa/mb '
-        f'(so it can be converted to Pa), or converting lev values to Pa and '
-        f'setting units="Pa".'
-      )
+    # Only relevant to the bare pressure-coordinate fallback: a hybrid source
+    # always yields Pa (hyam*P0 + hybm*ps), so skip the guard there and avoid
+    # eagerly reducing p_in/p_out over large dask arrays before apply_ufunc.
+    src_is_hybrid = {'hyam','hybm'}.issubset(ds_in.variables.keys())
+    if not src_is_hybrid:
+      p_in_max  = float(np.asarray(p_in.max()))
+      p_out_max = float(np.asarray(p_out.max()))
+      if p_in_max > 0.0 and p_in_max < 1.2e3 and p_out_max > 1.0e4:
+        raise ValueError(
+          f'source vertical pressure (max {p_in_max:.3g}) and target grid '
+          f'(max {p_out_max:.3g} Pa) appear to be in different units - the source '
+          f'looks like hPa while the target is Pa. This usually means the source '
+          f'file is missing its hybrid coefficients (hyam/hybm/P0) at the vertical '
+          f'remap step, so lev={lev_name!r} was used directly as pressure. '
+          f'Fix by adding P0 (add_reference_pressure), setting lev units to hPa/mb '
+          f'(so it can be converted to Pa), or converting lev values to Pa and '
+          f'setting units="Pa".'
+        )
 
     # decide which fields get remapped; never remap the hybrid coefficients themselves -
     # those describe the vertical grid and are pulled from vert_file
