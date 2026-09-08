@@ -270,8 +270,12 @@ def remap_vertical_py(input_file, output_file, vert_file,
     # eagerly reducing p_in/p_out over large dask arrays before apply_ufunc.
     src_is_hybrid = {'hyam','hybm'}.issubset(ds_in.variables.keys())
     if not src_is_hybrid:
-      p_in_max  = float(np.asarray(p_in.max()))
-      p_out_max = float(np.asarray(p_out.max()))
+      p_in_max = float(np.asarray(p_in.max()))
+      ps_max = float(np.asarray(ps.max()))
+      p0 = float(np.asarray(ds_vert['P0'])) if 'P0' in ds_vert.variables else _DEFAULT_P0
+      hyam_max = float(np.asarray(ds_vert['hyam'].max()))
+      hybm_max = float(np.asarray(ds_vert['hybm'].max()))
+      p_out_max = hyam_max*p0 + hybm_max*ps_max
       if p_in_max > 0.0 and p_in_max < 1.2e3 and p_out_max > 1.0e4:
         raise ValueError(
           f'source vertical pressure (max {p_in_max:.3g}) and target grid '
