@@ -141,6 +141,10 @@ class EAM(hiccup_data):
             self.atm_var_name_dict.update({'o3_volume_mix_ratio':'O3'}) # ozone mass mixing ratio
             self.atm_var_name_dict.update({'qc':'CLDLIQ'})              # specific cloud liq water
             self.atm_var_name_dict.update({'qi':'CLDICE'})              # specific cloud ice water
+            self.atm_var_name_dict.update({'qr':'RAINQM'})              # rain water
+            self.atm_var_name_dict.update({'nc':'NUMLIQ'})              # cloud liquid number concentration
+            self.atm_var_name_dict.update({'ni':'NUMICE'})              # cloud ice number concentration
+            self.atm_var_name_dict.update({'nr':'NUMRAI'})              # rain number concentration
             self.sfc_var_name_dict.update({'ps':'PS'})                  # sfc pressure
             self.sfc_var_name_dict.update({'phis':'PHIS'})              # surface geopotential
 
