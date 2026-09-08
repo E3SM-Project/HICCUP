@@ -1371,19 +1371,27 @@ class hiccup_data(object):
         if convert_ozone and self.target_model==self.src_data_name : convert_ozone = False
 
         if convert_ozone:
+            if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
+            if self.do_timers: timer_start_adj = perf_counter()
+            O3_name = None
             if self.src_data_name=='ERA5':
-                if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
-                if self.do_timers: timer_start_adj = perf_counter()
                 if self.target_model=='EAM'  : O3_name = 'O3'
                 if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
-                with xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks()) as ds_data:
-                    # Convert mass mixing ratio to molecular/volume mixing ratio
-                    ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
-                    ds_data[O3_name].attrs['units'] = 'mol/mol'
-                    ds_data.to_netcdf(f'{file_dict[O3_name]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
-                    ds_data.close()
-                run_cmd(f'mv {file_dict[O3_name]}.hiccup_tmp {file_dict[O3_name]}',verbose)
-                if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
+            if self.src_data_name=='EAM':
+                if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
+            if O3_name is None:
+                raise ValueError(
+                    f'Cannot determine ozone variable for source {self.src_data_name} '
+                    f'and target {self.target_model}'
+                )
+            with xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                # Convert mass mixing ratio to molecular/volume mixing ratio
+                ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
+                ds_data[O3_name].attrs['units'] = 'mol/mol'
+                ds_data.to_netcdf(f'{file_dict[O3_name]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {file_dict[O3_name]}.hiccup_tmp {file_dict[O3_name]}',verbose)
+            if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
