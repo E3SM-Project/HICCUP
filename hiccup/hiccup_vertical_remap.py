@@ -274,7 +274,9 @@ def remap_vertical_py(input_file, output_file, vert_file,
         f'looks like hPa while the target is Pa. This usually means the source '
         f'file is missing its hybrid coefficients (hyam/hybm/P0) at the vertical '
         f'remap step, so lev={lev_name!r} was used directly as pressure. '
-        f'Add P0 (add_reference_pressure) or set the lev units to Pa/hPa.'
+        f'Fix by adding P0 (add_reference_pressure), setting lev units to hPa/mb '
+        f'(so it can be converted to Pa), or converting lev values to Pa and '
+        f'setting units="Pa".'
       )
 
     # decide which fields get remapped; never remap the hybrid coefficients themselves -
