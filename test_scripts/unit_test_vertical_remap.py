@@ -16,7 +16,8 @@ from hiccup.hiccup_vertical_remap import (remap_vertical_py,
                                           _compute_input_pressure,
                                           _compute_output_pressure,
                                           _interp_column,
-                                          _remap_field)
+                                          _remap_field,
+                                          _DEFAULT_P0)
 
 # ---------------------------------------------------------------------------
 # fixture helpers
@@ -209,6 +210,43 @@ class compute_pressure_test_case(unittest.TestCase):
     np.testing.assert_allclose(p, expected, rtol=1e-12)
     print_timer(timer_start, caller='test_input_pressure_hybrid_eam')
   # ------------------------------------------------------------------------
+  def test_input_pressure_hybrid_eam_defaults_p0_when_missing(self):
+    """
+    EAM hybrid input with hyam/hybm but NO P0 (file not yet through
+    add_reference_pressure) must still use the hybrid formula with a default P0.
+    Regression: the old code fell through to the bare-lev fallback and used the
+    hPa-valued lev coordinate as Pa, clamping everything below ~10 hPa to a
+    constant (only visibly wrong in T, whose profile has structure aloft).
+    """
+    timer_start = perf_counter()
+    ds = xr.Dataset({
+      'hyam': (('lev',), np.array([0.1, 0.2])),
+      'hybm': (('lev',), np.array([0.0, 0.5])),
+      'PS':   (('ncol',), np.array([1.0e5, 9.5e4])),
+    }, coords={'lev': np.array([100.0, 800.0])})  # hPa-looking lev, must be ignored
+    ps = ds['PS']
+    p = _compute_input_pressure(ds, lev_name='lev', ps=ps).values
+    expected = np.array([
+      [0.1*_DEFAULT_P0 + 0.0*1.0e5, 0.1*_DEFAULT_P0 + 0.0*9.5e4],
+      [0.2*_DEFAULT_P0 + 0.5*1.0e5, 0.2*_DEFAULT_P0 + 0.5*9.5e4],
+    ])
+    np.testing.assert_allclose(p, expected, rtol=1e-12)
+    print_timer(timer_start, caller='test_input_pressure_hybrid_eam_defaults_p0_when_missing')
+  # ------------------------------------------------------------------------
+  def test_input_pressure_pure_pressure_hpa_units_converted(self):
+    """
+    a pressure-level coordinate that advertises hPa/millibar units should be
+    converted to Pa so it matches the Pa-valued target grid
+    """
+    timer_start = perf_counter()
+    plev = np.array([10.0, 100.0, 500.0, 1000.0])  # hPa
+    lev = xr.DataArray(plev, dims='plev'); lev.attrs['units'] = 'hPa'
+    ds = xr.Dataset({'PS': (('ncol',), np.array([1.0e5]))},
+                    coords={'plev': lev})
+    p = _compute_input_pressure(ds, lev_name='plev', ps=ds['PS']).values
+    np.testing.assert_allclose(p, plev*100.0, rtol=1e-12)
+    print_timer(timer_start, caller='test_input_pressure_pure_pressure_hpa_units_converted')
+  # ------------------------------------------------------------------------
   def test_input_pressure_hybrid_ifs(self):
     """
     IFS hybrid input (lnsp present, no P0) should produce p = hyam + hybm*ps
@@ -229,6 +267,50 @@ class compute_pressure_test_case(unittest.TestCase):
     ])
     np.testing.assert_allclose(p, expected, rtol=1e-12)
     print_timer(timer_start, caller='test_input_pressure_hybrid_ifs')
+  # ------------------------------------------------------------------------
+  def test_input_pressure_hybrid_ifs_with_p0_present(self):
+    """
+    an IFS hybrid input (hyam in Pa) that also carries P0 - e.g. after
+    add_reference_pressure - must still use the additive IFS formula
+    p = hyam + hybm*ps and NOT scale hyam by P0
+    """
+    timer_start = perf_counter()
+    hyam_pa = np.array([1.0e3, 2.0e3])
+    ds = xr.Dataset({
+      'hyam': (('lev',), hyam_pa),
+      'hybm': (('lev',), np.array([0.0, 0.5])),
+      'lnsp': (('ncol',), np.log(np.array([1.0e5, 9.5e4]))),
+      'P0':   ((), np.float64(1.0e5)),
+    })
+    ps = _resolve_surface_pressure(ds, 'PS')
+    p = _compute_input_pressure(ds, lev_name='lev', ps=ps).values
+    expected = np.array([
+      [1.0e3 + 0.0*1.0e5, 1.0e3 + 0.0*9.5e4],
+      [2.0e3 + 0.5*1.0e5, 2.0e3 + 0.5*9.5e4],
+    ])
+    np.testing.assert_allclose(p, expected, rtol=1e-12)
+    print_timer(timer_start, caller='test_input_pressure_hybrid_ifs_with_p0_present')
+  # ------------------------------------------------------------------------
+  def test_input_pressure_hybrid_ifs_with_ps_no_lnsp(self):
+    """
+    an IFS hybrid input (hyam in Pa) that supplies PS directly instead of lnsp
+    must be recognized as IFS from the hyam magnitude, not mis-scaled as EAM
+    """
+    timer_start = perf_counter()
+    hyam_pa = np.array([1.0e3, 2.0e3])
+    ds = xr.Dataset({
+      'hyam': (('lev',), hyam_pa),
+      'hybm': (('lev',), np.array([0.0, 0.5])),
+      'PS':   (('ncol',), np.array([1.0e5, 9.5e4])),
+    })
+    ps = _resolve_surface_pressure(ds, 'PS')
+    p = _compute_input_pressure(ds, lev_name='lev', ps=ps).values
+    expected = np.array([
+      [1.0e3 + 0.0*1.0e5, 1.0e3 + 0.0*9.5e4],
+      [2.0e3 + 0.5*1.0e5, 2.0e3 + 0.5*9.5e4],
+    ])
+    np.testing.assert_allclose(p, expected, rtol=1e-12)
+    print_timer(timer_start, caller='test_input_pressure_hybrid_ifs_with_ps_no_lnsp')
   # ------------------------------------------------------------------------
   def test_input_pressure_pure_pressure_levels(self):
     """
@@ -493,6 +575,59 @@ class remap_vertical_end_to_end_test_case(unittest.TestCase):
       self.assertIn('P0', ds_out.variables)
       self.assertEqual(float(ds_out['P0'].values), 1.0e5)
     print_timer(timer_start, caller='test_p0_always_written_even_when_vert_file_lacks_it')
+  # ------------------------------------------------------------------------
+  def test_source_missing_p0_remaps_correctly_not_constant(self):
+    """
+    a hybrid source that still has hyam/hybm but lost P0 must remap to the correct
+    analytic profile - NOT collapse to a constant below ~10 hPa. This is the
+    end-to-end guard for the reported bug where only T looked wrong because the
+    source pressure silently fell back to the hPa lev coordinate.
+    """
+    timer_start = perf_counter()
+    no_p0_src = os.path.join(self.tmpdir, 'src_no_p0.nc')
+    # give lev genuine hPa-looking values so the old fallback would misfire
+    hyam = self.ds_src['hyam'].values
+    hybm = self.ds_src['hybm'].values
+    lev_hpa = (hyam*1.0e5 + hybm*1.0e5)/100.0
+    src = self.ds_src.drop_vars('P0').assign_coords(lev=lev_hpa)
+    src.to_netcdf(no_p0_src)
+    out = os.path.join(self.tmpdir, 'out_no_p0.nc')
+    remap_vertical_py(no_p0_src, out, self.vert_file, ps_name='PS', lev_name='lev')
+    with xr.open_dataset(out) as ds_out:
+      hyam_t = ds_out['hyam'].values
+      hybm_t = ds_out['hybm'].values
+      ps     = ds_out['PS'].values
+      p_tgt  = hyam_t[None, :, None]*1.0e5 + hybm_t[None, :, None]*ps[:, None, :]
+      T_exp  = 250.0 + 30.0*np.log(p_tgt/1.0e5)
+      T_got  = ds_out['T'].transpose('time', 'lev', 'ncol').values
+      np.testing.assert_allclose(T_got, T_exp, rtol=1e-8, atol=1e-8)
+      # and it must not be constant in the vertical
+      self.assertGreater(np.ptp(T_got, axis=1).min(), 1.0)
+    print_timer(timer_start, caller='test_source_missing_p0_remaps_correctly_not_constant')
+  # ------------------------------------------------------------------------
+  def test_hpa_pa_unit_mismatch_raises(self):
+    """
+    a source with no hybrid coefs and a bare hPa lev coordinate (no units attr)
+    remapped onto a Pa target grid should raise a clear ValueError rather than
+    silently clamping everything below ~10 hPa to a constant
+    """
+    timer_start = perf_counter()
+    hpa_src = os.path.join(self.tmpdir, 'src_hpa.nc')
+    lev_hpa = np.linspace(1.0, 1000.0, 20)  # hPa, ascending; no units attribute
+    ntime, ncol = 2, 4
+    T = 250.0 + 30.0*np.log((lev_hpa*100.0)/1.0e5)
+    T = np.broadcast_to(T[None, :, None], (ntime, 20, ncol))
+    ds = xr.Dataset(
+      data_vars={
+        'T':  (('time', 'lev', 'ncol'), T.astype(np.float64)),
+        'PS': (('time', 'ncol'), np.full((ntime, ncol), 1.0e5)),
+      },
+      coords={'time': np.arange(ntime), 'lev': lev_hpa, 'ncol': np.arange(ncol)},
+    )
+    ds.to_netcdf(hpa_src)
+    with self.assertRaises(ValueError):
+      remap_vertical_py(hpa_src, self.out_file, self.vert_file, ps_name='PS', lev_name='lev')
+    print_timer(timer_start, caller='test_hpa_pa_unit_mismatch_raises')
   # ------------------------------------------------------------------------
   def test_var_list_filters_remapped_fields(self):
     """

@@ -49,27 +49,51 @@ def _compute_input_pressure(ds, lev_name, ps):
   """
   return an xarray.DataArray of pressure on the source vertical grid
   detects three layouts:
-    1. EAM / EAMxx hybrid: hyam, hybm, P0 present -> p = hyam*P0 + hybm*ps
-    2. ECMWF IFS hybrid:   hyam in Pa, lnsp present (no P0) -> p = hyam + hybm*ps
+    1. EAM / EAMxx hybrid: hyam is a unitless fraction of P0 -> p = hyam*P0 + hybm*ps
+       (P0 defaults to _DEFAULT_P0 when absent - EAM/CAM hyam are unitless
+       fractions, so a missing P0 must NOT silently drop us to the bare-lev
+       fallback, which mixes hPa lev values with a Pa target grid)
+    2. ECMWF IFS hybrid:   hyam is already in Pa -> p = hyam + hybm*ps
     3. pure pressure levels: only the lev coord -> p = ds[lev_name]
+       (converted to Pa when the coordinate advertises hPa/millibar units)
+  The EAM vs IFS choice is made from the magnitude of hyam, NOT from the presence
+  of P0 or lnsp: those cues are ambiguous (an IFS file can carry P0 after
+  add_reference_pressure, and an IFS file can supply PS instead of lnsp), and
+  keying off them picks the wrong hybrid formula. hyam as a unitless fraction is
+  O(1); hyam in Pa is O(1e3-1e4), so the two conventions are cleanly separated by
+  several orders of magnitude.
   ps must be the resolved surface pressure DataArray (see _resolve_surface_pressure)
   """
   variables = set(ds.variables.keys())
   hybrid = {'hyam','hybm'}.issubset(variables)
 
-  if hybrid and 'P0' in variables:
-    return ds['hyam']*ds['P0'] + ds['hybm']*ps
-
-  if hybrid and 'lnsp' in variables:
-    # IFS layout: hyam is already in Pa
-    return ds['hyam'] + ds['hybm']*ps
+  if hybrid:
+    hyam = ds['hyam']
+    hybm = ds['hybm']
+    # unitless fraction (EAM/CAM) vs pressure in Pa (ECMWF IFS); hyam is 1-D over
+    # levels so this max() is cheap even under dask
+    if float(np.asarray(hyam.max())) <= 1.0:
+      # EAM / EAMxx hybrid: hyam is a unitless fraction of P0. Default P0 when the
+      # file hasn't had add_reference_pressure() applied yet - otherwise we'd fall
+      # through to the bare-lev fallback below and use the hPa-valued lev
+      # coordinate as if it were Pa, clamping everything below ~10 hPa to a constant.
+      p0 = ds['P0'] if 'P0' in variables else _DEFAULT_P0
+      return hyam*p0 + hybm*ps
+    # IFS layout: hyam is already in Pa, no P0 scaling
+    return hyam + hybm*ps
 
   if lev_name in ds.coords or lev_name in ds.variables:
-    return ds[lev_name].astype('float64')
+    lev = ds[lev_name].astype('float64')
+    # pressure-level coordinate: normalize hPa/millibar to Pa so it matches the
+    # Pa-valued target grid (p_out = hyam*P0 + hybm*ps)
+    units = str(lev.attrs.get('units','')).strip().lower()
+    if units in ('hpa','mb','millibar','millibars','mbar'):
+      lev = lev*100.0
+    return lev
 
   raise ValueError(
     f'cannot infer source vertical grid for lev_name={lev_name!r}; '
-    f'expected hybrid (hyam,hybm,P0|lnsp) or pressure-level coordinate'
+    f'expected hybrid (hyam,hybm[,P0|lnsp]) or pressure-level coordinate'
   )
 
 # ---------------------------------------------------------------------------
@@ -235,6 +259,34 @@ def remap_vertical_py(input_file, output_file, vert_file,
 
     p_in  = _compute_input_pressure(ds_in, lev_name, ps)
     p_out = _compute_output_pressure(ds_vert, ps, out_lev_name)
+
+    # guard against a source/target vertical-unit mismatch. The classic failure
+    # is a source file whose hybrid coefficients (or P0) went missing, so the
+    # source pressure ends up as a bare hPa lev coordinate (max ~1000) while the
+    # target grid is in Pa (max ~1e5). np.interp would then clamp every level
+    # below ~10 hPa to a constant instead of raising - fail loudly instead.
+    # Only relevant to the bare pressure-coordinate fallback: a hybrid source
+    # always yields Pa (hyam*P0 + hybm*ps), so skip the guard there and avoid
+    # eagerly reducing p_in/p_out over large dask arrays before apply_ufunc.
+    src_is_hybrid = {'hyam','hybm'}.issubset(ds_in.variables.keys())
+    if not src_is_hybrid:
+      p_in_max = float(np.asarray(p_in.max()))
+      ps_max = float(np.asarray(ps.max()))
+      p0 = float(np.asarray(ds_vert['P0'])) if 'P0' in ds_vert.variables else _DEFAULT_P0
+      hyam_max = float(np.asarray(ds_vert['hyam'].max()))
+      hybm_max = float(np.asarray(ds_vert['hybm'].max()))
+      p_out_max = hyam_max*p0 + hybm_max*ps_max
+      if p_in_max > 0.0 and p_in_max < 1.2e3 and p_out_max > 1.0e4:
+        raise ValueError(
+          f'source vertical pressure (max {p_in_max:.3g}) and target grid '
+          f'(max {p_out_max:.3g} Pa) appear to be in different units - the source '
+          f'looks like hPa while the target is Pa. This usually means the source '
+          f'file is missing its hybrid coefficients (hyam/hybm/P0) at the vertical '
+          f'remap step, so lev={lev_name!r} was used directly as pressure. '
+          f'Fix by adding P0 (add_reference_pressure), setting lev units to hPa/mb '
+          f'(so it can be converted to Pa), or converting lev values to Pa and '
+          f'setting units="Pa".'
+        )
 
     # decide which fields get remapped; never remap the hybrid coefficients themselves -
     # those describe the vertical grid and are pulled from vert_file
