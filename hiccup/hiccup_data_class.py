@@ -1379,7 +1379,11 @@ class hiccup_data(object):
                 if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
             if self.src_data_name=='EAM':
                 if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
-            if O3_name is None: raise ValueError('O3_name cannot be None!')
+            if O3_name is None:
+                raise ValueError(
+                    f'Cannot determine ozone variable for source {self.src_data_name} '
+                    f'and target {self.target_model}'
+                )
             with xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks()) as ds_data:
                 # Convert mass mixing ratio to molecular/volume mixing ratio
                 ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
