@@ -49,30 +49,38 @@ def _compute_input_pressure(ds, lev_name, ps):
   """
   return an xarray.DataArray of pressure on the source vertical grid
   detects three layouts:
-    1. EAM / EAMxx hybrid: hyam, hybm present -> p = hyam*P0 + hybm*ps
+    1. EAM / EAMxx hybrid: hyam is a unitless fraction of P0 -> p = hyam*P0 + hybm*ps
        (P0 defaults to _DEFAULT_P0 when absent - EAM/CAM hyam are unitless
        fractions, so a missing P0 must NOT silently drop us to the bare-lev
        fallback, which mixes hPa lev values with a Pa target grid)
-    2. ECMWF IFS hybrid:   hyam in Pa, lnsp present (no P0) -> p = hyam + hybm*ps
+    2. ECMWF IFS hybrid:   hyam is already in Pa -> p = hyam + hybm*ps
     3. pure pressure levels: only the lev coord -> p = ds[lev_name]
        (converted to Pa when the coordinate advertises hPa/millibar units)
+  The EAM vs IFS choice is made from the magnitude of hyam, NOT from the presence
+  of P0 or lnsp: those cues are ambiguous (an IFS file can carry P0 after
+  add_reference_pressure, and an IFS file can supply PS instead of lnsp), and
+  keying off them picks the wrong hybrid formula. hyam as a unitless fraction is
+  O(1); hyam in Pa is O(1e3-1e4), so the two conventions are cleanly separated by
+  several orders of magnitude.
   ps must be the resolved surface pressure DataArray (see _resolve_surface_pressure)
   """
   variables = set(ds.variables.keys())
   hybrid = {'hyam','hybm'}.issubset(variables)
 
-  if hybrid and 'lnsp' in variables:
-    # IFS layout: hyam is already in Pa, no P0 scaling
-    return ds['hyam'] + ds['hybm']*ps
-
   if hybrid:
-    # EAM / EAMxx hybrid: hyam is a unitless fraction of P0. Default P0 when the
-    # file hasn't had add_reference_pressure() applied yet - otherwise the old
-    # code fell through to the bare-lev fallback below and used the hPa-valued
-    # lev coordinate as if it were Pa, clamping everything below ~10 hPa to a
-    # constant.
-    p0 = ds['P0'] if 'P0' in variables else _DEFAULT_P0
-    return ds['hyam']*p0 + ds['hybm']*ps
+    hyam = ds['hyam']
+    hybm = ds['hybm']
+    # unitless fraction (EAM/CAM) vs pressure in Pa (ECMWF IFS); hyam is 1-D over
+    # levels so this max() is cheap even under dask
+    if float(np.asarray(hyam.max())) <= 1.0:
+      # EAM / EAMxx hybrid: hyam is a unitless fraction of P0. Default P0 when the
+      # file hasn't had add_reference_pressure() applied yet - otherwise we'd fall
+      # through to the bare-lev fallback below and use the hPa-valued lev
+      # coordinate as if it were Pa, clamping everything below ~10 hPa to a constant.
+      p0 = ds['P0'] if 'P0' in variables else _DEFAULT_P0
+      return hyam*p0 + hybm*ps
+    # IFS layout: hyam is already in Pa, no P0 scaling
+    return hyam + hybm*ps
 
   if lev_name in ds.coords or lev_name in ds.variables:
     lev = ds[lev_name].astype('float64')

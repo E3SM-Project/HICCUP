@@ -268,6 +268,50 @@ class compute_pressure_test_case(unittest.TestCase):
     np.testing.assert_allclose(p, expected, rtol=1e-12)
     print_timer(timer_start, caller='test_input_pressure_hybrid_ifs')
   # ------------------------------------------------------------------------
+  def test_input_pressure_hybrid_ifs_with_p0_present(self):
+    """
+    an IFS hybrid input (hyam in Pa) that also carries P0 - e.g. after
+    add_reference_pressure - must still use the additive IFS formula
+    p = hyam + hybm*ps and NOT scale hyam by P0
+    """
+    timer_start = perf_counter()
+    hyam_pa = np.array([1.0e3, 2.0e3])
+    ds = xr.Dataset({
+      'hyam': (('lev',), hyam_pa),
+      'hybm': (('lev',), np.array([0.0, 0.5])),
+      'lnsp': (('ncol',), np.log(np.array([1.0e5, 9.5e4]))),
+      'P0':   ((), np.float64(1.0e5)),
+    })
+    ps = _resolve_surface_pressure(ds, 'PS')
+    p = _compute_input_pressure(ds, lev_name='lev', ps=ps).values
+    expected = np.array([
+      [1.0e3 + 0.0*1.0e5, 1.0e3 + 0.0*9.5e4],
+      [2.0e3 + 0.5*1.0e5, 2.0e3 + 0.5*9.5e4],
+    ])
+    np.testing.assert_allclose(p, expected, rtol=1e-12)
+    print_timer(timer_start, caller='test_input_pressure_hybrid_ifs_with_p0_present')
+  # ------------------------------------------------------------------------
+  def test_input_pressure_hybrid_ifs_with_ps_no_lnsp(self):
+    """
+    an IFS hybrid input (hyam in Pa) that supplies PS directly instead of lnsp
+    must be recognized as IFS from the hyam magnitude, not mis-scaled as EAM
+    """
+    timer_start = perf_counter()
+    hyam_pa = np.array([1.0e3, 2.0e3])
+    ds = xr.Dataset({
+      'hyam': (('lev',), hyam_pa),
+      'hybm': (('lev',), np.array([0.0, 0.5])),
+      'PS':   (('ncol',), np.array([1.0e5, 9.5e4])),
+    })
+    ps = _resolve_surface_pressure(ds, 'PS')
+    p = _compute_input_pressure(ds, lev_name='lev', ps=ps).values
+    expected = np.array([
+      [1.0e3 + 0.0*1.0e5, 1.0e3 + 0.0*9.5e4],
+      [2.0e3 + 0.5*1.0e5, 2.0e3 + 0.5*9.5e4],
+    ])
+    np.testing.assert_allclose(p, expected, rtol=1e-12)
+    print_timer(timer_start, caller='test_input_pressure_hybrid_ifs_with_ps_no_lnsp')
+  # ------------------------------------------------------------------------
   def test_input_pressure_pure_pressure_levels(self):
     """
     pure pressure-level input should return the lev coord directly
