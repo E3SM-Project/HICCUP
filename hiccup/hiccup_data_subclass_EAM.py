@@ -136,8 +136,8 @@ class EAM(hiccup_data):
             self.atm_var_name_dict.update({'lon':'lon'})
             self.atm_var_name_dict.update({'T_mid':'T'})                # temperature
             self.atm_var_name_dict.update({'qv':'Q'})                   # specific humidity
-            self.atm_var_name_dict.update({'horiz_winds_u':'U'})        # zonal wind
-            self.atm_var_name_dict.update({'horiz_winds_v':'V'})        # meridional wind
+            self.atm_var_name_dict.update({'U':'U'})                    # zonal wind
+            self.atm_var_name_dict.update({'V':'V'})                    # meridional wind
             self.atm_var_name_dict.update({'o3_volume_mix_ratio':'O3'}) # ozone mass mixing ratio
             self.atm_var_name_dict.update({'qc':'CLDLIQ'})              # specific cloud liq water
             self.atm_var_name_dict.update({'qi':'CLDICE'})              # specific cloud ice water
