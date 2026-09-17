@@ -168,6 +168,36 @@ class interp_column_test_case(unittest.TestCase):
     np.testing.assert_array_equal(f_got, np.array([42.0, 42.0, 42.0]))
     print_timer(timer_start, caller='test_linear_extrapolation_falls_back_when_single_source_point')
   # ------------------------------------------------------------------------
+  def test_lapse_extrapolation_matches_nco_rule(self):
+    """
+    below the lowest source level, extrap='lapse' must follow the rule NCO's
+    ncremap applies to temperature: T = T(p_max) + 6.5 K/(100 hPa) * (p - p_max).
+    Clamping instead (the old default) leaves the lowest model levels
+    systematically cool wherever surface pressure exceeds the lowest source
+    pressure, which is about a third of a global grid.
+    """
+    timer_start = perf_counter()
+    p_src = np.array([5.0e4, 1.0e5])
+    f_src = np.array([250.0, 290.0])
+    p_tgt = np.array([1.1e5, 1.4e5])
+    f_got = _interp_column(p_tgt, p_src, f_src, mode='linear_pressure', extrap='lapse')
+    f_exp = 290.0 + 6.5e-4*(p_tgt - 1.0e5)
+    np.testing.assert_allclose(f_got, f_exp, rtol=1e-12)
+    print_timer(timer_start, caller='test_lapse_extrapolation_matches_nco_rule')
+  # ------------------------------------------------------------------------
+  def test_lapse_extrapolation_still_clamps_at_top(self):
+    """
+    extrap='lapse' changes only the high-pressure end; above the lowest source
+    pressure it must still clamp, not run the lapse rate backwards
+    """
+    timer_start = perf_counter()
+    p_src = np.array([5.0e4, 1.0e5])
+    f_src = np.array([250.0, 290.0])
+    f_got = _interp_column(np.array([1.0e3]), p_src, f_src,
+                           mode='linear_pressure', extrap='lapse')
+    self.assertAlmostEqual(f_got[0], 250.0)
+    print_timer(timer_start, caller='test_lapse_extrapolation_still_clamps_at_top')
+  # ------------------------------------------------------------------------
   def test_handles_descending_source_pressure(self):
     """
     column ordered top-down (decreasing pressure) should give the same result as ascending
@@ -548,6 +578,31 @@ class remap_vertical_end_to_end_test_case(unittest.TestCase):
     with self.assertRaises(ValueError):
       remap_vertical_py(no_ps, self.out_file, self.vert_file, ps_name='PS', lev_name='lev')
     print_timer(timer_start, caller='test_missing_ps_raises')
+  # ------------------------------------------------------------------------
+  def test_ps_file_supplies_surface_pressure(self):
+    """
+    surface pressure may live in a separate file - the multi-file workflow relies
+    on this to avoid copying ps into every per-variable file, which cost a full
+    read and rewrite of each file. A source with PS stripped out should still
+    remap correctly, and the output should carry PS from ps_file
+    """
+    timer_start = perf_counter()
+    no_ps   = os.path.join(self.tmpdir, 'src_no_ps.nc')
+    ps_only = os.path.join(self.tmpdir, 'ps_only.nc')
+    self.ds_src.drop_vars('PS').to_netcdf(no_ps)
+    self.ds_src[['PS']].to_netcdf(ps_only)
+    remap_vertical_py(no_ps, self.out_file, self.vert_file, ps_name='PS',
+                      lev_name='lev', ps_file=ps_only)
+    with xr.open_dataset(self.out_file) as ds_out:
+      np.testing.assert_array_equal(ds_out['PS'].values, self.ds_src['PS'].values)
+      hyam = ds_out['hyam'].values
+      hybm = ds_out['hybm'].values
+      ps   = ds_out['PS'].values
+      p_tgt = hyam[None, :, None]*1.0e5 + hybm[None, :, None]*ps[:, None, :]
+      T_exp = 250.0 + 30.0*np.log(p_tgt/1.0e5)
+      T_got = ds_out['T'].transpose('time', 'lev', 'ncol').values
+      np.testing.assert_allclose(T_got, T_exp, rtol=1e-10, atol=1e-10)
+    print_timer(timer_start, caller='test_ps_file_supplies_surface_pressure')
   # ------------------------------------------------------------------------
   def test_lnsp_source_remaps_and_writes_ps(self):
     """
