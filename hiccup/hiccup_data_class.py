@@ -1705,14 +1705,14 @@ class hiccup_data(object):
             if expected_dim_list is None: expected_dim_list = ['time','lev','ncol']
             if combine_uv is None: combine_uv = False
         if self.target_model=='EAMXX':
-            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            u_name,v_name,uv_name = 'U','V','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None:permute_dim_list = ['time','ncol','lev']
             if expected_dim_list is None: expected_dim_list = permute_dim_list
-            if combine_uv is None: combine_uv = True
+            # if combine_uv is None: combine_uv = True
         if self.target_model=='EAMXX-nudging':
-            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            u_name,v_name,uv_name = 'U','V','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']
