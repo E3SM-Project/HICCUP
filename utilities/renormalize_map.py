@@ -62,6 +62,9 @@ def main():
     print(f'  n_s={n_s}  n_b={n_b}', flush=True)
     rowsum = compute_row_sums(ds, n_s, n_b)
 
+  if not np.all(np.isfinite(rowsum)):
+    n_invalid = int((~np.isfinite(rowsum)).sum())
+    raise ValueError(f'{n_invalid} rows have a non-finite weight sum and cannot be rescaled')
   dev = np.abs(rowsum - 1.0)
   bad = dev > args.tol
   print()
