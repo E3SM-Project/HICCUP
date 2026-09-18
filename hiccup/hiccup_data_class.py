@@ -779,7 +779,7 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def remap_horizontal_multifile(self,file_dict,verbose=None,target_time=None,method='nco'):
+    def remap_horizontal_multifile(self,file_dict,verbose=None,target_time=None):
         """
         Horizontally remap data into seperate files for each variable
         This approach was developed specifically for very fine grids like ne1024
@@ -828,20 +828,13 @@ class hiccup_data(object):
                     ds_tmp.close()
                 if in_file in time_idx_cache:
                     nco_opt += f' -d time,{time_idx_cache[in_file]}'
-            if method=='nco':
-                cmd  = f'ncremap'
-                cmd += f" --nco_opt='{nco_opt}' "
-                cmd += f' --map_file={self.map_file}'
-                cmd += f' --in_file={in_file}'
-                cmd += f' --out_file={tmp_file_name}'
-                cmd += f' --var_lst={in_var_list}'
-                cmd += f' --fl_fmt={ncremap_file_fmt}'
-            if method=='tr':
-                cmd  = f'ApplyOfflineMap'
-                cmd += f' --map {self.map_file} '
-                cmd += f' --in_data {in_file}'
-                cmd += f' --out_data {tmp_file_name}'
-                cmd += f' --var {in_var_list}'
+            cmd  = f'ncremap'
+            cmd += f" --nco_opt='{nco_opt}' "
+            cmd += f' --map_file={self.map_file}'
+            cmd += f' --in_file={in_file}'
+            cmd += f' --out_file={tmp_file_name}'
+            cmd += f' --var_lst={in_var_list}'
+            cmd += f' --fl_fmt={ncremap_file_fmt}'
             run_cmd(cmd,verbose,shell=True)
 
         if self.do_timers: self.print_timer(timer_start)
