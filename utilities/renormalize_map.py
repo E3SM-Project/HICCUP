@@ -118,8 +118,12 @@ def main():
   dev2 = np.abs(rowsum2 - 1.0)
   print()
   print(f'  row sums after: min={rowsum2.min():.10f} max={rowsum2.max():.10f}')
-  print(f'  rows still off 1.0 by >1e-10: {int((dev2>1e-10).sum())}')
-  print('  PASS' if (dev2 > 1e-10).sum() == 0 else '  FAIL - inspect before using')
+  verify_tol = max(args.tol, 1e-10)
+  failed = ~np.isfinite(rowsum2) | (dev2 > verify_tol)
+  print(f'  rows still off 1.0 by >{verify_tol:g}: {int(failed.sum())}')
+  if failed.any():
+    raise ValueError('renormalized map failed row-sum verification')
+  print('  PASS')
 
 # --------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
