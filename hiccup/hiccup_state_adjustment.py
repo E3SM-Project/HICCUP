@@ -377,7 +377,9 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
 
   # The following check is to avoid the generation of negative values
   # that can occur in the upper stratosphere and mesosphere
-  qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0)
+  # Note: reading .values here would force dask to materialize the entire
+  # array in one allocation - on an ne1024-class RRM grid that is ~300 GB
+  qv_sat = xr.where(qv_sat>=0.0,qv_sat,1.0).astype(qv_sat.dtype)
 
   # Calculate relative humidity for limiter
   rh = ds['Q'] / qv_sat
@@ -388,9 +390,10 @@ def remove_supersaturation( ds, hybrid_lev=False, pressure_var_name='plev',
   # save attributes to restore later
   tmp_attrs = ds['Q'].attrs
 
-  # Apply limiter conditions
-  ds['Q'] = xr.where(rh.values>1.,qv_sat,ds['Q'])
-  ds['Q'] = xr.where(rh.values<0.,qv_min,ds['Q'])
+  # Apply limiter conditions - keep these lazy so dask streams the comparison
+  # block by block instead of computing rh over the full grid at once
+  ds['Q'] = xr.where(rh>1.,qv_sat,ds['Q'])
+  ds['Q'] = xr.where(rh<0.,qv_min,ds['Q'])
   
   # restore attributes
   ds['Q'].attrs = tmp_attrs
@@ -409,8 +412,13 @@ def adjust_cld_wtr( ds, verbose=None, verbose_indent='' ):
   if verbose is None : verbose = verbose_default
   if verbose: print(f'\n{verbose_indent}Adjusting cloud water...')
 
+  # assigning through .values would materialize the whole array, so rebuild the
+  # variable lazily instead and restore the dtype/attrs that assignment kept
   for var in ['CLDLIQ','CLDICE']:
-    if var in ds.data_vars: ds[var].values = xr.where( ds[var].values>=0, ds[var], 0. )
+    if var in ds.data_vars:
+      var_attrs, var_dtype = ds[var].attrs, ds[var].dtype
+      ds[var] = xr.where( ds[var]>=0, ds[var], 0. ).astype(var_dtype)
+      ds[var].attrs = var_attrs
 
   return ds
 
@@ -423,8 +431,11 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None, verbose_inden
   if verbose is None : verbose = verbose_default
   if verbose: print(f'\n{verbose_indent}Adjusting cloud fraction...')
 
-  ds[frac_var_name].values = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
-  ds[frac_var_name].values = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. )
+  # see adjust_cld_wtr - avoid .values assignment so dask can stream this
+  var_attrs, var_dtype = ds[frac_var_name].attrs, ds[frac_var_name].dtype
+  ds[frac_var_name] = xr.where(ds[frac_var_name]>=0, ds[frac_var_name], 0. )
+  ds[frac_var_name] = xr.where(ds[frac_var_name]<=1, ds[frac_var_name], 1. ).astype(var_dtype)
+  ds[frac_var_name].attrs = var_attrs
 
   return ds
 

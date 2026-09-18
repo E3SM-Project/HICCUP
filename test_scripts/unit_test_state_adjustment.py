@@ -3,6 +3,7 @@
 # Unit testing for state_adjustment module
 #===================================================================================================
 import unittest, tempfile, numpy as np, xarray as xr
+import dask, dask.array as da
 from time import perf_counter
 from hiccup.hiccup_data_class_timer_methods import print_timer
 from hiccup import hiccup_state_adjustment as hsa
@@ -11,85 +12,6 @@ from hiccup.hiccup_constants import Rdair
 from hiccup.hiccup_constants import Rvapor
 
 verbose_default = False # local verbosity default
-
-#===============================================================================
-def remove_supersaturation_test( ds, hybrid_lev=False, pressure_var_name='plev',
-                            debug=False, verbose=None, verbose_indent='' ):
-  """
-  Adjust the surface temperature based on new surace height assumed lapse rate 
-    ncol            # columns
-    qv              specific humidity
-    temperature     temperature at layer mid-points [k]
-    pressure        pressure at layer mid-points    (convert to hPa for qv_sat calculation)
-  """
-  if verbose is None : verbose = verbose_default
-  if verbose: print(f'\n{verbose_indent}Removing super saturated data points...')
-  if debug: print(f'{verbose_indent}remove_supersaturation: DEBUG MODE ENABLED')
-
-  qv_min = 1.0e-9   # minimum specific humidity value allowed
-
-  if hybrid_lev :
-    pressure = get_pressure_from_hybrid(ds)/1e2
-  else :
-    pressure = ds[pressure_var_name]
-
-  if debug:
-    print(); print_stat(pressure,name='pressure in remove_supersaturation')
-    print(); print_stat(ds['Q'],name='qv in remove_supersaturation')
-    print(); print_stat(ds['T'],name='T in remove_supersaturation')
-
-  # Calculate saturation specific humidity
-  qv_sat = calculate_qv_sat_liq(ds['T'],pressure)
-  
-  if debug:
-    print(); print_stat(qv_sat,name='qv_sat in remove_supersaturation')
-
-  # The following check is to avoid the generation of negative values
-  # that can occur in the upper stratosphere and mesosphere
-  # qv_sat.values = xr.where(qv_sat.values>=0.0,qv_sat,1.0)
-
-  qv_sat = xr.where(qv_sat>=0.0,qv_sat,1.0)
-
-  # Calculate relative humidity for limiter
-  rh = ds['Q'] / qv_sat
-
-  if debug:
-    print(); print_stat(rh,name='rh in remove_supersaturation')
-
-  # save attributes to restore later
-  tmp_attrs = ds['Q'].attrs
-
-  # Apply limiter conditions
-  ds['Q'] = xr.where(rh>1.,qv_sat,ds['Q'])
-  ds['Q'] = xr.where(rh<0.,qv_min,ds['Q'])
-  
-  # restore attributes
-  ds['Q'].attrs = tmp_attrs
-
-  if debug:
-    print(); print_stat(ds['Q'],name='qv in remove_supersaturation after adjustment')
-
-  return
-
-#===============================================================================
-def calculate_qv_sat_liq( temperature, pressure ):
-  """ 
-  calculate saturation specific humidity [kg/kg]
-  from temperature [K] and pressure [hPa]
-  """
-
-  # Calculate saturation vapor pressure [hPa] over liquid 
-  # Bolton, D., 1980: The Computation of Equivalent Potential Temperature, MWR, 108, 1046-1053
-  # https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
-  es = 6.112 * np.exp( 17.67*(temperature-273.0)/(temperature-273.0+243.5) ) 
-
-  # Convert to mixing ratio
-  r_sat = (Rdair/Rvapor) * es / (pressure - es)
-
-  # Convert mixing ratio to saturation specific humidity
-  qv_sat = r_sat / ( 1.0 + r_sat )
-
-  return qv_sat
 
 #===============================================================================
 class state_adjustment_test_case(unittest.TestCase):
@@ -203,8 +125,7 @@ class state_adjustment_test_case(unittest.TestCase):
                     ,'plev':xr.DataArray(pressure,dims=['ncol'])
                     }, coords={'ncol':np.arange(ncol)} )
 
-    # hsa.remove_supersaturation( ds )
-    remove_supersaturation_test(ds)
+    hsa.remove_supersaturation( ds )
 
     rh_out = ds['Q'].values/qv_sat
     expected_answer = np.array([1.0, 1.0, 0.9])
@@ -235,8 +156,7 @@ class state_adjustment_test_case(unittest.TestCase):
                     ,'plev':xr.DataArray(pressure,dims=['ncol'])
                     }, coords={'ncol':np.arange(ncol)} )
 
-    # hsa.remove_supersaturation( ds )
-    remove_supersaturation_test(ds)
+    hsa.remove_supersaturation( ds )
 
     rh_out = ds['Q'].values/qv_sat
     # expected_answer = np.array([1.0, 1.0, 0.9])
@@ -244,6 +164,58 @@ class state_adjustment_test_case(unittest.TestCase):
 
     print_timer(timer_start,caller='test_remove_supersaturation2')
   
+  # ----------------------------------------------------------------------------
+  def _make_trap_array(self, msg, shape=(8,1024)):
+    """
+    Build a dask array that raises if anything ever forces it to compute
+    """
+    def _explode():
+      raise AssertionError(msg)
+    return da.from_delayed( dask.delayed(_explode)(), shape=shape, dtype=float )
+  # ----------------------------------------------------------------------------
+  def test_remove_supersaturation_stays_lazy(self):
+    """
+    Does the supersaturation limiter avoid materializing the whole field?
+    """
+    timer_start = perf_counter()
+
+    # reading .values inside the limiter pulls the entire field into memory in a
+    # single allocation - on an ne1024-class RRM grid that is ~300 GB and it
+    # exhausted the node partway through, so nothing here may be computed
+    trap = self._make_trap_array('remove_supersaturation materialized its input'
+                                 ' - it must stay lazy for large grids')
+
+    ds = xr.Dataset({'Q'   :xr.DataArray(trap,dims=['lev','ncol'])
+                    ,'T'   :xr.DataArray(trap,dims=['lev','ncol'])
+                    ,'plev':xr.DataArray(trap,dims=['lev','ncol'])
+                    })
+
+    ds_out = hsa.remove_supersaturation( ds )
+
+    # still lazy afterwards, so the caller controls when the write happens
+    self.assertIsNotNone( ds_out['Q'].chunks )
+
+    print_timer(timer_start,caller='test_remove_supersaturation_stays_lazy')
+  # ----------------------------------------------------------------------------
+  def test_adjust_cld_wtr_stays_lazy(self):
+    """
+    Does the cloud water limiter avoid materializing the whole field?
+    """
+    timer_start = perf_counter()
+
+    trap = self._make_trap_array('adjust_cld_wtr materialized its input'
+                                 ' - it must stay lazy for large grids')
+
+    ds = xr.Dataset({'CLDLIQ':xr.DataArray(trap,dims=['lev','ncol'])
+                    ,'CLDICE':xr.DataArray(trap,dims=['lev','ncol'])
+                    })
+
+    ds_out = hsa.adjust_cld_wtr( ds )
+
+    self.assertIsNotNone( ds_out['CLDLIQ'].chunks )
+    self.assertIsNotNone( ds_out['CLDICE'].chunks )
+
+    print_timer(timer_start,caller='test_adjust_cld_wtr_stays_lazy')
   # ----------------------------------------------------------------------------
   def test_adjust_cld_wtr(self):
     """

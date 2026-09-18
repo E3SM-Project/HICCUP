@@ -24,6 +24,11 @@ enable_chunks = True
 ncol_chunk_size = 'auto'
 lev_chunk_size = 'auto'
 
+# concurrent dask threads used when writing state-adjusted fields - the netCDF
+# writer is serialized, so an uncapped pool (one thread per core, 256 on a
+# Perlmutter CPU node) computes chunks faster than they can be drained
+state_adj_workers = 4
+
 print_memory_usage = False
 
 # use 100k header padding for improved performance when editing metadata
@@ -1137,9 +1142,11 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def remap_vertical(self,input_file_name,output_file_name,
                        vert_file_name,ps_name='PS',vert_remap_var_list=None,
-                       verbose=None):
+                       ps_file_name=None,verbose=None):
         """
         Vertically remap data and combine into single file.
+        Surface pressure is read from ps_file_name when given, otherwise it must
+        already be present in input_file_name.
         Delegates to the pure-Python implementation in
         hiccup.hiccup_vertical_remap.remap_vertical_py(). The original NCO-based
         implementation is preserved as remap_vertical_nco() and can be invoked
@@ -1167,6 +1174,7 @@ class hiccup_data(object):
             lev_name=self.lev_name,
             chunks=self.get_chunks(),
             nc_output_format=xarray_atm_nc_format,
+            ps_file=ps_file_name,
             verbose=verbose,
         )
 
@@ -1182,6 +1190,9 @@ class hiccup_data(object):
         Preserved verbatim so an advanced user can swap a call site from
         remap_vertical() to remap_vertical_nco() if the Python path needs to be
         bypassed for debugging. New code should use remap_vertical().
+        NOTE: ncremap reads --ps_nm from the input file, so this path requires
+        ps to be present in input_file_name. remap_vertical_multifile() no longer
+        copies it in, so append it first if you switch a call site back to this.
         """
         print_memory_usage_loc = print_memory_usage
         current_func,parent_func = sys._getframe(0).f_code.co_name, sys._getframe(1).f_code.co_name
@@ -1267,21 +1278,13 @@ class hiccup_data(object):
 
         for var,file_name in file_dict.items() :
             if '_sfc_' not in file_name :
-                # Append surface pressure for vertical interpolation
-                ds = xr.open_dataset(file_name)
-                ds_ps = xr.open_dataset(ps_file_name)
-                ds[ps_var_name] = ds_ps[ps_var_name]
-                tmp_file_name = file_name.replace('.nc',f'.tmp.nc')
-                ds.to_netcdf(tmp_file_name,mode='w')
-                ds.close(); ds_ps.close()
-                run_cmd(f'mv {tmp_file_name} {file_name}',verbose=False)
-
-                # Do the vertical interpolation for this file
+                # Surface pressure is read straight from the sfc file.
                 self.remap_vertical(input_file_name=file_name,
                                    output_file_name=file_name,
                                    vert_file_name=vert_file_name,
                                    vert_remap_var_list=[var],
-                                   ps_name=ps_var_name)
+                                   ps_name=ps_var_name,
+                                   ps_file_name=ps_file_name)
         
         # Re-set do_timers to previous value
         self.do_timers = prev_do_timers
@@ -1309,7 +1312,8 @@ class hiccup_data(object):
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
             tmp_file_name = file_dict[var_dict['Q']]
-            ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            with dask.config.set(scheduler='threads', num_workers=state_adj_workers):
+                ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
             ds_data.close()
         run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
 
@@ -1336,9 +1340,10 @@ class hiccup_data(object):
             ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
-            for var in var_dict.values():
-                if var in self.atm_var_name_dict.keys():
-                    ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            with dask.config.set(scheduler='threads', num_workers=state_adj_workers):
+                for var in var_dict.values():
+                    if var in self.atm_var_name_dict.keys():
+                        ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
             ds_data.close()
         for var in var_dict.values():
             run_cmd(f'mv {file_dict[var]}.hiccup_tmp {file_dict[var]}',verbose)
@@ -1815,14 +1820,16 @@ class hiccup_data(object):
             
 
         # make sure time dimension is "unlimited"
+        tmp_output_file_name = f'{output_file_name}.mk_rec_dmn_tmp.nc'
         cmd = f'ncks -O'
         if final_file_fmt is not None:
             cmd += f' --fl_fmt={final_file_fmt}'
         else:
             cmd += f' --fl_fmt={ncremap_file_fmt}'
         cmd+= f' --mk_rec_dmn time'
-        cmd+= f' {output_file_name} {output_file_name} '
+        cmd+= f' {output_file_name} {tmp_output_file_name} '
         run_cmd(cmd,verbose,prepend_line=False)
+        run_cmd(f'mv {tmp_output_file_name} {output_file_name}',verbose,prepend_line=False)
 
         # make sure the final output file inherits the group of the parent directory
         hiccup.hiccup_utilities.inherit_group_from_dir(output_file_name)

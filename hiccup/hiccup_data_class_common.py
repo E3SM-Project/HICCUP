@@ -12,6 +12,7 @@ import datetime
 import numpy as np
 import xarray as xr
 import pandas as pd
+import dask
 from time import perf_counter
 from functools import partial
 
@@ -29,6 +30,7 @@ __all__ = [
     'np',
     'xr',
     'pd',
+    'dask',
     'perf_counter',
     'partial',
 ]
