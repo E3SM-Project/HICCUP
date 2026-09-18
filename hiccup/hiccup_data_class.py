@@ -24,6 +24,11 @@ enable_chunks = True
 ncol_chunk_size = 'auto'
 lev_chunk_size = 'auto'
 
+# concurrent dask threads used when writing state-adjusted fields - the netCDF
+# writer is serialized, so an uncapped pool (one thread per core, 256 on a
+# Perlmutter CPU node) computes chunks faster than they can be drained
+state_adj_workers = 4
+
 print_memory_usage = False
 
 # use 100k header padding for improved performance when editing metadata
@@ -1197,7 +1202,8 @@ class hiccup_data(object):
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
             tmp_file_name = file_dict[var_dict['Q']]
-            ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            with dask.config.set(scheduler='threads', num_workers=state_adj_workers):
+                ds_data[var_dict['Q']].to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
             ds_data.close()
         run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
 
@@ -1224,9 +1230,10 @@ class hiccup_data(object):
             ds_data = hsa.adjust_cld_wtr( ds_data, verbose=verbose, verbose_indent=self.verbose_indent )
             # Write adjusted data back to data files
             ds_data = ds_data.rename(var_dict)
-            for var in var_dict.values():
-                if var in self.atm_var_name_dict.keys():
-                    ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+            with dask.config.set(scheduler='threads', num_workers=state_adj_workers):
+                for var in var_dict.values():
+                    if var in self.atm_var_name_dict.keys():
+                        ds_data[var].to_netcdf(f'{file_dict[var]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
             ds_data.close()
         for var in var_dict.values():
             run_cmd(f'mv {file_dict[var]}.hiccup_tmp {file_dict[var]}',verbose)
