@@ -542,9 +542,10 @@ def remap_vertical_py(input_file, output_file, vert_file,
     # Only relevant to the bare pressure-coordinate fallback: a hybrid source
     # always yields Pa (hyam*P0 + hybm*ps), so skip the guard there and avoid
     # eagerly reducing p_in/p_out over large dask arrays before apply_ufunc.
-    src_is_hybrid = {'hyam','hybm'}.issubset(ds_in.variables.keys())
-    if not src_is_hybrid:
-      p_in_max = float(np.asarray(p_in.max()))
+    p_in_kind, p_in_plev = p_in_spec
+    if p_in_kind == 'plev':
+      # p_in_plev is the 1-D lev coordinate (already in Pa if units were hPa/mb)
+      p_in_max = float(np.asarray(p_in_plev.max()))
       ps_max = float(np.asarray(ps.max()))
       p0 = float(np.asarray(ds_vert['P0'])) if 'P0' in ds_vert.variables else _DEFAULT_P0
       hyam_max = float(np.asarray(ds_vert['hyam'].max()))
