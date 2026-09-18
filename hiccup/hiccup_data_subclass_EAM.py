@@ -18,7 +18,6 @@ class EAM(hiccup_data):
                   input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
-                  output_dir=None,
                   grid_dir=None,
                   map_dir=None,
                   tmp_dir=None,
@@ -39,7 +38,6 @@ class EAM(hiccup_data):
                           input_file_list=input_file_list,
                           dst_horz_grid=dst_horz_grid,
                           dst_vert_grid=dst_vert_grid,
-                          output_dir=output_dir,
                           grid_dir=grid_dir,
                           map_dir=map_dir,
                           tmp_dir=tmp_dir,
@@ -138,11 +136,15 @@ class EAM(hiccup_data):
             self.atm_var_name_dict.update({'lon':'lon'})
             self.atm_var_name_dict.update({'T_mid':'T'})                # temperature
             self.atm_var_name_dict.update({'qv':'Q'})                   # specific humidity
-            self.atm_var_name_dict.update({'horiz_winds_u':'U'})        # zonal wind
-            self.atm_var_name_dict.update({'horiz_winds_v':'V'})        # meridional wind
+            self.atm_var_name_dict.update({'U':'U'})                    # zonal wind
+            self.atm_var_name_dict.update({'V':'V'})                    # meridional wind
             self.atm_var_name_dict.update({'o3_volume_mix_ratio':'O3'}) # ozone mass mixing ratio
             self.atm_var_name_dict.update({'qc':'CLDLIQ'})              # specific cloud liq water
             self.atm_var_name_dict.update({'qi':'CLDICE'})              # specific cloud ice water
+            self.atm_var_name_dict.update({'qr':'RAINQM'})              # rain water
+            self.atm_var_name_dict.update({'nc':'NUMLIQ'})              # cloud liquid number concentration
+            self.atm_var_name_dict.update({'ni':'NUMICE'})              # cloud ice number concentration
+            self.atm_var_name_dict.update({'nr':'NUMRAI'})              # rain number concentration
             self.sfc_var_name_dict.update({'ps':'PS'})                  # sfc pressure
             self.sfc_var_name_dict.update({'phis':'PHIS'})              # surface geopotential
 
@@ -257,9 +259,6 @@ class EAM(hiccup_data):
 
         check_dependency('ncremap')
 
-        dst_ne = self.get_dst_grid_ne()
-        src_ne = self.get_src_grid_ne()
-
         # Check that grid file fields are not empty
         if self.src_grid_file_np is None : raise ValueError('src_grid_file_np is not defined!')
         if self.src_grid_file_pg is None : raise ValueError('src_grid_file_pg is not defined!')
@@ -271,7 +270,8 @@ class EAM(hiccup_data):
         cmd += f' --src_grd={self.src_grid_file_np}'
         cmd += f' --dst_grd={self.dst_grid_file_np}'
         cmd += f' --map_file={self.map_file_np}'
-        if dst_ne>src_ne : cmd += ' --lrg2sml '
+        if self.check_lrg2sml(self.src_grid_file_np,self.dst_grid_file_np,verbose=verbose):
+            cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
         # Create the pgN map file
@@ -279,7 +279,8 @@ class EAM(hiccup_data):
         cmd += f' --src_grd={self.src_grid_file_pg}'
         cmd += f' --dst_grd={self.dst_grid_file_pg}'
         cmd += f' --map_file={self.map_file_pg}'
-        if dst_ne>src_ne : cmd += ' --lrg2sml '
+        if self.check_lrg2sml(self.src_grid_file_pg,self.dst_grid_file_pg):
+            cmd += ' --lrg2sml '
         run_cmd(cmd,verbose,shell=True)
 
         if self.do_timers: self.print_timer(timer_start)

@@ -18,7 +18,6 @@ default_target_model = 'EAM'
 valid_target_model_list = ['EAM','EAMXX','EAMXX-nudging']
 
 # default output paths
-default_output_dir  = './data'
 default_grid_dir    = './files_grid'
 default_map_dir     = './files_mapping'
 default_tmp_dir     = './files_tmp'
@@ -111,7 +110,6 @@ def create_hiccup_data( src_data_name,
                         dst_horz_grid=None,
                         dst_vert_grid=None,
                         input_file_list=None,
-                        output_dir=default_output_dir,
                         grid_dir=default_grid_dir,
                         map_dir=default_map_dir,
                         tmp_dir=default_tmp_dir,
@@ -149,7 +147,6 @@ def create_hiccup_data( src_data_name,
                             topo_file=topo_file,
                             dst_horz_grid=dst_horz_grid,
                             dst_vert_grid=dst_vert_grid,
-                            output_dir=output_dir,
                             grid_dir=grid_dir,
                             map_dir=map_dir,
                             tmp_dir=tmp_dir,
@@ -168,10 +165,11 @@ def create_hiccup_data( src_data_name,
             # Check input files for required variables (also builds _var_to_file_map)
             if check_input_files: obj.check_file_vars()
 
-            # Create the output, grid, and map folders if they do not exist
-            for d in [output_dir,grid_dir,map_dir]:
-                if d is not None: 
-                    if not os.path.exists(d): os.makedirs(d)
+            # Create the grid, map, and tmp folders if they do not exist
+            # tmp_dir is kept separate from grid_dir and map_dir so that it can
+            # be safely purged - everything HICCUP writes there is disposable
+            for d in [grid_dir,map_dir,tmp_dir]:
+                if not os.path.exists(d): os.makedirs(d)
 
             # global timer_start_total
             obj.timer_start_total = perf_counter()

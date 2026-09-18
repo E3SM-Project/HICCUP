@@ -14,7 +14,6 @@ class ERA5(hiccup_data):
                   input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
-                  output_dir=None,
                   grid_dir=None,
                   map_dir=None,
                   tmp_dir=None,
@@ -35,7 +34,6 @@ class ERA5(hiccup_data):
                           input_file_list=input_file_list,
                           dst_horz_grid=dst_horz_grid,
                           dst_vert_grid=dst_vert_grid,
-                          output_dir=output_dir,
                           grid_dir=grid_dir,
                           map_dir=map_dir,
                           tmp_dir=tmp_dir,
@@ -109,8 +107,8 @@ class ERA5(hiccup_data):
             self.atm_var_name_dict.update({'lon':'longitude'})
             self.atm_var_name_dict.update({'T_mid':'t'})                # temperature
             self.atm_var_name_dict.update({'qv':'q'})                   # specific humidity
-            self.atm_var_name_dict.update({'horiz_winds_u':'u'})        # zonal wind
-            self.atm_var_name_dict.update({'horiz_winds_v':'v'})        # meridional wind
+            self.atm_var_name_dict.update({'U':'u'})                    # zonal wind
+            self.atm_var_name_dict.update({'V':'v'})                    # meridional wind
             self.atm_var_name_dict.update({'qc':'clwc'})                # specific cloud liq water
             self.atm_var_name_dict.update({'qi':'ciwc'})                # specific cloud ice water
             self.atm_var_name_dict.update({'o3_volume_mix_ratio':'o3'}) # ozone mass mixing ratio

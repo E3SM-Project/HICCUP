@@ -92,7 +92,6 @@ class hiccup_data(object):
                   input_file_list=None,
                   dst_horz_grid=None,
                   dst_vert_grid=None,
-                  output_dir=None,
                   grid_dir=None,
                   map_dir=None,
                   tmp_dir=None,
@@ -154,13 +153,11 @@ class hiccup_data(object):
 
         if check_input_files is None: check_input_files = True
 
-        # Set output paths for data, grid, and map files
-        if output_dir=='' or output_dir==None : output_dir = './'
-        if grid_dir=='' or grid_dir==None : grid_dir = default_grid_dir
-        if map_dir=='' or map_dir==None : map_dir = default_map_dir
-        if tmp_dir=='' or tmp_dir==None : tmp_dir = default_tmp_dir
+        # Set paths for grid, map, and temporary files
+        if grid_dir is None or grid_dir=='' : raise ValueError(f'invalid grid_dir: {grid_dir}')
+        if map_dir  is None or map_dir==''  : raise ValueError(f'invalid map_dir: {map_dir}')
+        if tmp_dir  is None or tmp_dir==''  : raise ValueError(f'invalid tmp_dir: {tmp_dir}')
 
-        self.output_dir = output_dir
         self.grid_dir = grid_dir
         self.map_dir = map_dir
         self.tmp_dir = tmp_dir
@@ -189,6 +186,7 @@ class hiccup_data(object):
     from hiccup.hiccup_data_class_grid_methods import get_dst_grid_ne
     from hiccup.hiccup_data_class_grid_methods import get_dst_grid_npg
     from hiccup.hiccup_data_class_grid_methods import get_dst_grid_ncol
+    from hiccup.hiccup_data_class_grid_methods import check_lrg2sml
     # --------------------------------------------------------------------------
     # Import SST/sea-ice methods
     from hiccup.hiccup_data_class_sstice_methods import get_sst_file
@@ -454,11 +452,12 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return 
     # --------------------------------------------------------------------------
-    def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=False):
+    def create_map_file(self,verbose=None,src_type=None,dst_type=None,lrg2sml=None):
         """ 
         Generate mapping file after grid files have been created.
         This routine assumes that the destination is always GLL/np4.
-        For mapping EAM to EAM data this method is overloaded below. 
+        For mapping EAM to EAM data this method is overloaded below.
+        The lrg2sml argument is determined automatically if not specified.
         """
         if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
         if self.do_timers: timer_start = perf_counter()
@@ -477,7 +476,11 @@ class hiccup_data(object):
         if src_type is not None and src_type not in ['FV','GLL']:
             raise ValueError(f'The value of src_type={src_type} is not supported')
         if dst_type is not None and dst_type not in ['FV','GLL']:
-            raise ValueError(f'The value of src_type={src_type} is not supported')
+            raise ValueError(f'The value of dst_type={dst_type} is not supported')
+
+        # Determine whether the grid arguments passed to GenerateOverlapMesh
+        # need to be swapped (i.e. dst grid is finer than the src grid)
+        if lrg2sml is None: lrg2sml = self.check_lrg2sml(verbose=verbose)
 
         # Set the mapping algorithm
         if src_type=='FV' and dst_type=='GLL': alg_flag = '-a fv2se_flx'
@@ -490,7 +493,8 @@ class hiccup_data(object):
         cmd += f' --src_grd={self.src_grid_file}'
         cmd += f' --dst_grd={self.dst_grid_file}'
         cmd += f' --map_file={self.map_file}'
-        if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids 
+        if self.tmp_dir is not None: cmd += f' --tmp_dir={self.tmp_dir}'
+        if lrg2sml: cmd += ' --lrg2sml ' # special flag for "very fine" grids (--a2o, --atm2ocn, --b2l, --big2ltl, --l2s)
         run_cmd(cmd,verbose,shell=True)
 
         if self.do_timers: self.print_timer(timer_start)
@@ -907,7 +911,119 @@ class hiccup_data(object):
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
-        return 
+        return
+    # --------------------------------------------------------------------------
+    def stage_multifile(self,file_dict,verbose=None,target_time=None):
+        """
+        Copy each variable into its own temporary file using the same "multifile"
+        layout as remap_horizontal_multifile(), but without performing any
+        horizontal regridding. Use this in place of remap_horizontal_multifile()
+        when the destination horizontal grid is identical to the source grid
+        (e.g. converting EAM data to EAMxx format on the same mesh) but the data
+        still needs to pass through methods that expect the multifile layout,
+        like surface_adjustment_multifile().
+        """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Staging multi-file data to temporary files (no horizontal remap)...')
+
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
+
+        lat_var = self.atm_var_name_dict['lat'] if 'lat' in self.atm_var_name_dict else None
+        lon_var = self.atm_var_name_dict['lon'] if 'lon' in self.atm_var_name_dict else None
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
+
+        all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
+
+        # Cache time indices per file to avoid repeatedly opening the same file
+        time_idx_cache = {}
+
+        # Copy atmosphere and surface data to individual files (no regridding)
+        for var,tmp_file_name in file_dict.items():
+            in_file = self._var_to_file_map[var]
+            in_var  = all_var_dicts[var]
+            # Remove temporary files if they exist
+            if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
+            with xr.open_dataset(in_file,chunks=self.get_chunks()) as ds:
+                keep_vars = [in_var] + [v for v in [lat_var,lon_var] if v is not None and v in ds.variables]
+                ds_out = ds[keep_vars]
+                if target_time is not None and 'time' in ds_out.dims:
+                    if in_file not in time_idx_cache:
+                        with xr.open_dataset(in_file, decode_times=False) as ds_tmp:
+                            if 'time' in ds_tmp.dims:
+                                times = xr.decode_cf(ds_tmp)['time'].values
+                                time_idx_cache[in_file] = pd.DatetimeIndex(times).get_loc(pd.Timestamp(target_time))
+                    if in_file in time_idx_cache:
+                        ds_out = ds_out.isel(time=[time_idx_cache[in_file]])
+                ds_out.to_netcdf(tmp_file_name,format=xarray_atm_nc_format,mode='w')
+
+        if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
+        return
+    # --------------------------------------------------------------------------
+    def stage_multifile_eam(self,file_dict,verbose=None,target_time=None):
+        """
+        Copy each variable into its own temporary file using the same "multifile"
+        layout as remap_horizontal_multifile_eam(), but without performing any
+        horizontal regridding. Use this in place of remap_horizontal_multifile_eam()
+        when the destination horizontal grid is identical to the source grid
+        (e.g. converting EAM data to EAMxx format on the same mesh) but the data
+        still needs to pass through methods that expect the multifile layout,
+        like surface_adjustment_multifile().
+        """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
+        if self.do_timers: timer_start = perf_counter()
+        if verbose is None: verbose = self.verbose
+        if verbose: print(f'\n{self.verbose_indent}Staging multi-file data to temporary files (no horizontal remap)...')
+
+        if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
+
+        # check that input data has valid _FillValue (i.e. not NaN) and if not
+        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
+        if new_list != self.input_file_list:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
+
+        # Copy atmosphere and surface data to individual files (no regridding)
+        for var,tmp_file_name in file_dict.items():
+            in_var  = var
+            in_file = self._var_to_file_map.get(var, self.input_file_list[0])
+            # Remove temporary files if they exist
+            if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
+            with xr.open_dataset(in_file,chunks=self.get_chunks()) as ds:
+                # always try to carry lat/lon along, since remap_horizontal_multifile_eam
+                # gets these "for free" from the map file regardless of --var_lst
+                keep_vars = [in_var] + [v for v in ['lat','lon'] if v in ds.variables]
+                ds_out = ds[keep_vars]
+                if target_time is not None and 'time' in ds_out.dims:
+                    time_idx = self._get_time_index(in_file,target_time)
+                    ds_out = ds_out.isel(time=[time_idx])
+                ds_out.to_netcdf(tmp_file_name,format=xarray_atm_nc_format,mode='w')
+
+        # get rid of bounds and vertices variables
+        # (mirrors the cleanup in remap_horizontal_multifile_eam)
+        for var,tmp_file_name in file_dict.items():
+            with xr.open_dataset(tmp_file_name) as ds:
+                ds.load()
+                if 'lat' in ds and 'bounds' in ds['lat'].attrs : del ds['lat'].attrs['bounds']
+                if 'lon' in ds and 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
+                if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
+                if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+                ds.to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
+                ds.close()
+            run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
+
+        if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
+        return
     # --------------------------------------------------------------------------
     def surface_adjustment_multifile(self,file_dict,verbose=None,
                                     adj_TS=False,adj_PS=True,adj_T_eam=False):
@@ -950,7 +1066,8 @@ class hiccup_data(object):
         # creating a new temporary file is a good way to do this
         if adj_T_eam and adj_PS:
             ps_file = file_dict[var_dict['PS']]
-            ps_old_file = ps_file.replace(var_dict['PS'],'PS_old')
+            ps_dir, ps_base = os.path.split(ps_file)
+            ps_old_file = os.path.join(ps_dir, f'PS_old_{ps_base}')
             run_cmd(f'cp {ps_file} {ps_old_file} ',verbose,shell=True)
 
         file_list = get_adj_file_list(var_dict.values(),file_dict)
@@ -1259,19 +1376,27 @@ class hiccup_data(object):
         if convert_ozone and self.target_model==self.src_data_name : convert_ozone = False
 
         if convert_ozone:
+            if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
+            if self.do_timers: timer_start_adj = perf_counter()
+            O3_name = None
             if self.src_data_name=='ERA5':
-                if verbose: print(f'\n{self.verbose_indent}Converting Ozone to molecular/volume mixing ratio...')
-                if self.do_timers: timer_start_adj = perf_counter()
                 if self.target_model=='EAM'  : O3_name = 'O3'
                 if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
-                with xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks()) as ds_data:
-                    # Convert mass mixing ratio to molecular/volume mixing ratio
-                    ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
-                    ds_data[O3_name].attrs['units'] = 'mol/mol'
-                    ds_data.to_netcdf(f'{file_dict[O3_name]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
-                    ds_data.close()
-                run_cmd(f'mv {file_dict[O3_name]}.hiccup_tmp {file_dict[O3_name]}',verbose)
-                if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
+            if self.src_data_name=='EAM':
+                if self.target_model=='EAMXX': O3_name = 'o3_volume_mix_ratio'
+            if O3_name is None:
+                raise ValueError(
+                    f'Cannot determine ozone variable for source {self.src_data_name} '
+                    f'and target {self.target_model}'
+                )
+            with xr.open_mfdataset(file_dict[O3_name],combine='by_coords',chunks=self.get_chunks()) as ds_data:
+                # Convert mass mixing ratio to molecular/volume mixing ratio
+                ds_data[O3_name] = ds_data[O3_name] * MW_dryair / MW_ozone
+                ds_data[O3_name].attrs['units'] = 'mol/mol'
+                ds_data.to_netcdf(f'{file_dict[O3_name]}.hiccup_tmp',format=xarray_atm_nc_format,mode='a')
+                ds_data.close()
+            run_cmd(f'mv {file_dict[O3_name]}.hiccup_tmp {file_dict[O3_name]}',verbose)
+            if self.do_timers: self.print_timer(timer_start_adj,caller='convert_ozone')
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
@@ -1585,14 +1710,14 @@ class hiccup_data(object):
             if expected_dim_list is None: expected_dim_list = ['time','lev','ncol']
             if combine_uv is None: combine_uv = False
         if self.target_model=='EAMXX':
-            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            u_name,v_name,uv_name = 'U','V','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None:permute_dim_list = ['time','ncol','lev']
             if expected_dim_list is None: expected_dim_list = permute_dim_list
-            if combine_uv is None: combine_uv = True
+            # if combine_uv is None: combine_uv = True
         if self.target_model=='EAMXX-nudging':
-            u_name,v_name,uv_name = 'horiz_winds_u','horiz_winds_v','horiz_winds'
+            u_name,v_name,uv_name = 'U','V','horiz_winds'
             if use_single_precision is None: use_single_precision = True
             if permute_dimensions is None: permute_dimensions = True
             if permute_dim_list is None: permute_dim_list = ['time','ncol','lev']

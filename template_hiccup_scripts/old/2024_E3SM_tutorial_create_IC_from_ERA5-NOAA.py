@@ -56,7 +56,6 @@ hiccup_data = hdc.create_hiccup_data(name='ERA5'
                                     ,dst_horz_grid=dst_horz_grid
                                     ,dst_vert_grid=dst_vert_grid
                                     ,topo_file=topo_file_name
-                                    ,output_dir=output_root
                                     ,grid_dir=f'{output_root}/files_grid'
                                     ,map_dir=f'{output_root}/files_map'
                                     ,tmp_dir=f'{output_root}/files_tmp'

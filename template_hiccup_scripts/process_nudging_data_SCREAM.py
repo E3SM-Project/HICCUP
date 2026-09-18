@@ -83,7 +83,6 @@ for t in datetime_list:
                                             input_file_list=[src_atm_file,
                                                              src_sfc_file],
                                             topo_file=None,
-                                            output_dir=dst_data_root,
                                             grid_dir=dst_data_root,
                                             map_dir=dst_data_root,
                                             tmp_dir=dst_data_root,

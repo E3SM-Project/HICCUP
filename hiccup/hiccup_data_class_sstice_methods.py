@@ -127,7 +127,7 @@ def sstice_create_dst_grid_file(self,output_grid_spacing=1,force_overwrite=False
     if self.do_timers: self.print_timer(timer_start)
     return
 # ------------------------------------------------------------------------------
-def sstice_create_map_file(self,force_overwrite=False,verbose=None):
+def sstice_create_map_file(self,force_overwrite=False,alg='fv2fv',verbose=None):
     """
     Create a mapping file to be used for SST and sea ice data
     """
@@ -137,12 +137,12 @@ def sstice_create_map_file(self,force_overwrite=False,verbose=None):
     src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
     dst_grid = f'{self.sstice_nlat_dst}x{self.sstice_nlon_dst}'
 
-    self.sstice_map_file = f'{self.map_dir}/map_{src_grid}_to_{dst_grid}_s2n.nc'
+    self.sstice_map_file = f'{self.map_dir}/map_{src_grid}_to_{dst_grid}_s2n_{alg}.nc'
 
     # Generate mapping file
     if force_overwrite or not os.path.isfile(self.sstice_map_file) :
         if verbose : print(self.verbose_indent+f'\nCreating mapping file for SST and sea ice data...')
-        cmd  = f'ncremap -a fv2fv'
+        cmd  = f'ncremap -a {alg}'
         cmd += f' --src_grd={self.sstice_src_grid_file}'
         cmd += f' --dst_grd={self.sstice_dst_grid_file}'
         cmd += f' --map_file={self.sstice_map_file}'
