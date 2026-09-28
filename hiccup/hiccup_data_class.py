@@ -729,9 +729,10 @@ class hiccup_data(object):
         check_dependency('ncks')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        # create a copy with modified metadata; rebuild var-to-file map if paths
+        # changed or if it was never built (e.g. check_input_files=False)
         new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list:
+        if new_list != self.input_file_list or not self._var_to_file_map:
             self.input_file_list = new_list
             self._build_var_to_file_map()
 
@@ -802,9 +803,10 @@ class hiccup_data(object):
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        # create a copy with modified metadata; rebuild var-to-file map if paths
+        # changed or if it was never built (e.g. check_input_files=False)
         new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list:
+        if new_list != self.input_file_list or not self._var_to_file_map:
             self.input_file_list = new_list
             self._build_var_to_file_map()
 
@@ -861,9 +863,10 @@ class hiccup_data(object):
         check_dependency('ncremap')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        # create a copy with modified metadata; rebuild var-to-file map if paths
+        # changed or if it was never built (e.g. check_input_files=False)
         new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list:
+        if new_list != self.input_file_list or not self._var_to_file_map:
             self.input_file_list = new_list
             self._build_var_to_file_map()
 
@@ -934,9 +937,10 @@ class hiccup_data(object):
         lon_var = self.atm_var_name_dict['lon'] if 'lon' in self.atm_var_name_dict else None
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        # create a copy with modified metadata; rebuild var-to-file map if paths
+        # changed or if it was never built (e.g. check_input_files=False)
         new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list:
+        if new_list != self.input_file_list or not self._var_to_file_map:
             self.input_file_list = new_list
             self._build_var_to_file_map()
 
@@ -986,9 +990,10 @@ class hiccup_data(object):
         if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
 
         # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths changed
+        # create a copy with modified metadata; rebuild var-to-file map if paths
+        # changed or if it was never built (e.g. check_input_files=False)
         new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list:
+        if new_list != self.input_file_list or not self._var_to_file_map:
             self.input_file_list = new_list
             self._build_var_to_file_map()
 
