@@ -202,8 +202,8 @@ class ERA5(hiccup_data):
 
         if 'bounds' in ds['lat'].attrs : del ds['lat'].attrs['bounds']
         if 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
-        if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
-        if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+        if 'lat_vertices' in ds.variables: ds = ds.drop_vars('lat_vertices')
+        if 'lon_vertices' in ds.variables: ds = ds.drop_vars('lon_vertices')
 
         # delete lat/lon coordinates attributes, which can be problematic later
         if 'lat' in ds.coords: ds = ds.reset_coords(names='lat', drop=True)

@@ -15,6 +15,27 @@ from hiccup.hiccup_constants import rearth
 from hiccup.hiccup_utilities import print_stat
 from hiccup.hiccup_utilities import chk_finite
 
+#-------------------------------------------------------------------------------
+# Some topo files contain both the physgrid PHIS (on ncol) and the dynamics
+# grid PHIS_d (on ncol_d); prefer PHIS_d/ncol_d for the state adjustments.
+# The physgrid lat/lon (on ncol) are not needed for this calculation, and if
+# left in place they get silently re-attached (by matching dimension name)
+# to the renamed PHIS once ncol_d is renamed to ncol, even though their
+# actual size (the physgrid ncol) no longer matches. That mismatch isn't
+# caught until a later alignment/broadcast, producing a confusing
+# "conflicting sizes for dimension 'ncol'" error, so drop them here instead.
+#-------------------------------------------------------------------------------
+def _use_dynamics_grid_phis( ds_topo ):
+  if 'PHIS_d' in ds_topo.variables :
+    if 'ncol' in ds_topo.variables: ds_topo = ds_topo.drop_vars(['ncol'])
+    if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop_vars(['PHIS'])
+    for c in ['lat','lon']:
+      if c in ds_topo.variables and 'ncol' in ds_topo[c].dims:
+        ds_topo = ds_topo.drop_vars([c])
+    ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
+  return ds_topo
+#-------------------------------------------------------------------------------
+
 T_ref1    = 290.5       # reference temperature for sfc adjustments
 T_ref2    = 255.0       # reference temperature for sfc adjustments
 
@@ -58,10 +79,7 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # topo_min_value = 10.
 
   # Make sure to use PHIS_d if file contains both
-  if 'PHIS_d' in ds_topo.variables : 
-    if 'ncol' in ds_topo.variables: ds_topo = ds_topo.drop(['ncol'])
-    if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
-    ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
+  ds_topo = _use_dynamics_grid_phis(ds_topo)
 
   rename_ncol = False
   if 'ncol_d' in ds_data.dims: ds_data = ds_data.rename({'ncol_d':'ncol'}) ; rename_ncol = True
@@ -104,8 +122,8 @@ def adjust_surface_pressure( ds_data, ds_topo, pressure_var_name='plev',
   # if 'time' not in pressure.dims : pressure = pressure.expand_dims(time=len(ps_tmp['time']),axis=0)
   # if 'ncol' not in pressure.dims : pressure = pressure.expand_dims(ncol=len(ps_tmp['ncol']),axis=2)
   # # If ps_tmp has extra lat/lon coords they will cause an error, so just drop them
-  # if 'lat' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lat')
-  # if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop('lon')
+  # if 'lat' in  ps_tmp.coords : ps_tmp = ps_tmp.drop_vars('lat')
+  # if 'lon' in  ps_tmp.coords : ps_tmp = ps_tmp.drop_vars('lon')
   # pressure_with_ps = xr.concat( [ pressure, ps_tmp ], dim=lev_coord_name )
 
   # # calculate pressure thickness
@@ -247,13 +265,10 @@ def adjust_surface_temperature( ds_data, ds_topo, debug=False,
   if debug: print(f'{verbose_indent}adjust_surface_temperature: DEBUG MODE ENABLED')
 
   # Make sure to use PHIS_d if file contains both
-  if 'PHIS_d' in ds_topo.variables : 
-    if 'ncol' in ds_topo.variables: ds_topo = ds_topo.drop(['ncol'])
-    if 'PHIS' in ds_topo.data_vars: ds_topo = ds_topo.drop(['PHIS'])
-    ds_topo = ds_topo.rename({'PHIS_d':'PHIS','ncol_d':'ncol'})
+  ds_topo = _use_dynamics_grid_phis(ds_topo)
 
   # Check for required variables in input datasets
-  if 'TS'   not in ds_data.variables : 
+  if 'TS'   not in ds_data.variables :
     raise KeyError('sfc temperature (TS) variable is missing from ds_data')
   if 'PHIS' not in ds_data.variables : 
     raise KeyError(f'sfc geopotential (PHIS) variable is missing from ds_data')
