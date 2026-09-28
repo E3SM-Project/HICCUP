@@ -906,8 +906,8 @@ class hiccup_data(object):
                 ds.load()
                 if 'bounds' in ds['lat'].attrs : del ds['lat'].attrs['bounds']
                 if 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
-                if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
-                if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+                if 'lat_vertices' in ds.variables: ds = ds.drop_vars('lat_vertices')
+                if 'lon_vertices' in ds.variables: ds = ds.drop_vars('lon_vertices')
                 ds.to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
                 ds.close()
             run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
@@ -1020,8 +1020,8 @@ class hiccup_data(object):
                 ds.load()
                 if 'lat' in ds and 'bounds' in ds['lat'].attrs : del ds['lat'].attrs['bounds']
                 if 'lon' in ds and 'bounds' in ds['lon'].attrs : del ds['lon'].attrs['bounds']
-                if 'lat_vertices' in ds.variables: ds = ds.drop('lat_vertices')
-                if 'lon_vertices' in ds.variables: ds = ds.drop('lon_vertices')
+                if 'lat_vertices' in ds.variables: ds = ds.drop_vars('lat_vertices')
+                if 'lon_vertices' in ds.variables: ds = ds.drop_vars('lon_vertices')
                 ds.to_netcdf(f'{tmp_file_name}.hiccup_tmp',format=xarray_atm_nc_format,mode='w')
                 ds.close()
             run_cmd(f'mv {tmp_file_name}.hiccup_tmp {tmp_file_name}',verbose)
