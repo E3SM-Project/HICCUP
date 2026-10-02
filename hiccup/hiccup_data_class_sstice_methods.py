@@ -146,6 +146,7 @@ def sstice_create_map_file(self,force_overwrite=False,alg='fv2fv',verbose=None):
         cmd += f' --src_grd={self.sstice_src_grid_file}'
         cmd += f' --dst_grd={self.sstice_dst_grid_file}'
         cmd += f' --map_file={self.sstice_map_file}'
+        if self.tmp_dir is not None: cmd += f' --tmp_dir={self.tmp_dir}'
         run_cmd(cmd,verbose,shell=True,prepend_line=False)
 
     if self.do_timers: self.print_timer(timer_start)
