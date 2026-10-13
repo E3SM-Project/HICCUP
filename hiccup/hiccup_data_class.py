@@ -1839,6 +1839,8 @@ class hiccup_data(object):
         else:
             cmd += f' --fl_fmt={ncremap_file_fmt}'
         cmd+= f' --mk_rec_dmn time'
+        # pad the header so later attribute edits don't force a rewrite of the data
+        cmd+= f' --hdr_pad={hdr_pad}'
         cmd+= f' {output_file_name} {tmp_output_file_name} '
         run_cmd(cmd,verbose,prepend_line=False)
         run_cmd(f'mv {tmp_output_file_name} {output_file_name}',verbose,prepend_line=False)
@@ -1882,18 +1884,19 @@ class hiccup_data(object):
             run_cmd(cmd,verbose,prepend_line=False)
 
         # Remove the attributes listed in global_att_list using ncatted
+        # Note: edit in place with -h (no history) so the header only shrinks,
+        # otherwise ncatted copies the whole file and may need to shift all
+        # the data to fit a larger header, which is very slow for large files
         if method=='nco':
             check_dependency('ncatted')
-            cmd = 'ncatted '
+            cmd = 'ncatted -h -O '
             for att in global_att_list: cmd += f' -a {att},global,d,, '
-            cmd += f' {file_name} {file_name}.ncatted_tmp '
+            cmd += f' {file_name} '
             run_cmd(cmd,verbose)
-            run_cmd(f'mv {file_name}.ncatted_tmp {file_name}',verbose)
 
         # Also reset the history attribute
-        run_cmd(f'ncatted -h -a history,global,o,c, {file_name} {file_name}.ncatted_tmp',
+        run_cmd(f'ncatted -h -O -a history,global,o,c, {file_name}',
                 verbose,prepend_line=False)
-        run_cmd(f'mv {file_name}.ncatted_tmp {file_name}',verbose)
 
         # make sure the final output file inherits the group of the parent directory
         hiccup.hiccup_utilities.inherit_group_from_dir(file_name)
