@@ -9,6 +9,7 @@ from hiccup import hiccup
 # ------------------------------------------------------------------------------
 # Logical flags for controlling what this script will do (comment out to disable)
 # unpack_nc_files = True    # unpack data files (convert short to float)
+fix_FillValue   = True    # create input file copies with valid _FillValue (needed for ERA5)
 create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
 do_sfc_adjust   = True    # perform surface T and P adjustments
@@ -86,6 +87,15 @@ if 'unpack_nc_files' not in locals(): unpack_nc_files = False
 if unpack_nc_files:
 
     hiccup_data.unpack_data_files()
+
+# ------------------------------------------------------------------------------
+# Make sure input files do not have a NaN _FillValue, which ncremap cannot handle
+# (when running many parallel jobs on the same input files, it is better to run
+# hiccup.fix_FillValue_files() on the input files beforehand and disable this)
+if 'fix_FillValue' not in locals(): fix_FillValue = False
+if fix_FillValue:
+
+    hiccup_data.fix_input_FillValue()
 
 # ------------------------------------------------------------------------------
 # Create grid and mapping files
