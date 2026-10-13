@@ -2,7 +2,7 @@
 #===================================================================================================
 # Unit testing for hiccup_utilities module
 #===================================================================================================
-import unittest
+import os, shutil, tempfile, unittest
 from unittest.mock import patch
 import numpy as np
 import xarray as xr
@@ -11,7 +11,10 @@ from hiccup.hiccup_data_class_timer_methods import print_timer
 from hiccup.hiccup_utilities import (tcolor, run_cmd, check_dependency,
                                       suffix_as_tuple, parse_version,
                                       compare_version, check_nco_version,
-                                      print_stat, chk_finite)
+                                      print_stat, chk_finite,
+                                      get_nan_FillValue_vars, file_has_nan_FillValue,
+                                      get_FillValue_fixed_file_name,
+                                      create_FillValue_fixed_file, fix_FillValue_files)
 
 verbose_default = False # local verbosity default
 
@@ -358,6 +361,101 @@ class chk_finite_test_case(unittest.TestCase):
       chk_finite(x, name='my_var')
     self.assertIn('my_var', str(ctx.exception))
     print_timer(timer_start, caller='test_chk_finite_error_message_contains_name')
+  # ----------------------------------------------------------------------------
+
+#===============================================================================
+class FillValue_test_case(unittest.TestCase):
+  """
+  Tests for NaN _FillValue detection and correction routines
+  """
+  # ----------------------------------------------------------------------------
+  def setUp(self):
+    self.tmp_dir = tempfile.mkdtemp()
+    # xarray writes a NaN _FillValue for float types by default
+    ds = xr.Dataset({
+      'var_f': (('x',), np.arange(4, dtype='float32')),
+      'var_d': (('x',), np.arange(4, dtype='float64')),
+      'var_ok':(('x',), np.arange(4, dtype='float64')),
+    })
+    self.nan_file   = os.path.join(self.tmp_dir,'nan_fill.nc')
+    self.clean_file = os.path.join(self.tmp_dir,'clean_fill.nc')
+    ds.to_netcdf(self.nan_file, encoding={'var_ok':{'_FillValue':None}})
+    ds.to_netcdf(self.clean_file, encoding={v:{'_FillValue':None} for v in ds.data_vars})
+  # ----------------------------------------------------------------------------
+  def tearDown(self):
+    shutil.rmtree(self.tmp_dir)
+  # ----------------------------------------------------------------------------
+  def test_get_nan_FillValue_vars(self):
+    """
+    test that NaN _FillValue variables are found along with their type
+    """
+    timer_start = perf_counter()
+    self.assertEqual(get_nan_FillValue_vars(self.nan_file), {'var_f':'f','var_d':'d'})
+    self.assertEqual(get_nan_FillValue_vars(self.clean_file), {})
+    self.assertTrue(file_has_nan_FillValue(self.nan_file))
+    self.assertFalse(file_has_nan_FillValue(self.clean_file))
+    print_timer(timer_start, caller='test_get_nan_FillValue_vars')
+  # ----------------------------------------------------------------------------
+  def test_get_FillValue_fixed_file_name(self):
+    """
+    test that only the file extension is changed in the corrected file name
+    """
+    timer_start = perf_counter()
+    self.assertEqual(get_FillValue_fixed_file_name('/a/b.nc_dir/file.nc'),
+                     '/a/b.nc_dir/file.modified.nc')
+    print_timer(timer_start, caller='test_get_FillValue_fixed_file_name')
+  # ----------------------------------------------------------------------------
+  def test_create_FillValue_fixed_file(self):
+    """
+    test that the corrected file has a valid _FillValue with the original type
+    """
+    timer_start = perf_counter()
+    fixed_file = create_FillValue_fixed_file(self.nan_file)
+    self.assertEqual(fixed_file, get_FillValue_fixed_file_name(self.nan_file))
+    self.assertFalse(file_has_nan_FillValue(fixed_file))
+    with xr.open_dataset(fixed_file, mask_and_scale=False) as ds:
+      self.assertEqual(ds['var_f'].attrs['_FillValue'].dtype, np.float32)
+      self.assertEqual(ds['var_d'].attrs['_FillValue'].dtype, np.float64)
+      self.assertNotIn('_FillValue', ds['var_ok'].attrs)
+    # no temporary files should be left behind
+    self.assertEqual(sorted(os.listdir(self.tmp_dir)),
+                     sorted(['nan_fill.nc','clean_fill.nc','nan_fill.modified.nc']))
+    print_timer(timer_start, caller='test_create_FillValue_fixed_file')
+  # ----------------------------------------------------------------------------
+  def test_create_FillValue_fixed_file_skips_clean_file(self):
+    """
+    test that a file without NaN _FillValue is returned unchanged
+    """
+    timer_start = perf_counter()
+    self.assertEqual(create_FillValue_fixed_file(self.clean_file), self.clean_file)
+    self.assertFalse(os.path.exists(get_FillValue_fixed_file_name(self.clean_file)))
+    print_timer(timer_start, caller='test_create_FillValue_fixed_file_skips_clean_file')
+  # ----------------------------------------------------------------------------
+  def test_create_FillValue_fixed_file_reuses_existing(self):
+    """
+    test that an existing corrected file is reused unless overwrite=True
+    """
+    timer_start = perf_counter()
+    fixed_file = get_FillValue_fixed_file_name(self.nan_file)
+    # use the clean file as a stand-in for the existing corrected file,
+    # which can be distinguished by the lack of a var_f _FillValue
+    shutil.copy(self.clean_file, fixed_file)
+    self.assertEqual(create_FillValue_fixed_file(self.nan_file), fixed_file)
+    with xr.open_dataset(fixed_file, mask_and_scale=False) as ds:
+      self.assertNotIn('_FillValue', ds['var_f'].attrs)
+    create_FillValue_fixed_file(self.nan_file, overwrite=True)
+    with xr.open_dataset(fixed_file, mask_and_scale=False) as ds:
+      self.assertIn('_FillValue', ds['var_f'].attrs)
+    print_timer(timer_start, caller='test_create_FillValue_fixed_file_reuses_existing')
+  # ----------------------------------------------------------------------------
+  def test_fix_FillValue_files(self):
+    """
+    test that fix_FillValue_files returns the list of files to use
+    """
+    timer_start = perf_counter()
+    new_list = fix_FillValue_files([self.nan_file, self.clean_file, None])
+    self.assertEqual(new_list, [get_FillValue_fixed_file_name(self.nan_file), self.clean_file, None])
+    print_timer(timer_start, caller='test_fix_FillValue_files')
   # ----------------------------------------------------------------------------
 
 #===============================================================================
