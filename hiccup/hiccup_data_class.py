@@ -11,6 +11,9 @@ from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_stat
+from hiccup.hiccup_utilities import file_has_nan_FillValue
+from hiccup.hiccup_utilities import get_FillValue_fixed_file_name
+from hiccup.hiccup_utilities import fix_FillValue_files
 from hiccup.hiccup_vertical_remap import remap_vertical_py
 # ------------------------------------------------------------------------------
 # Import timer and memory monitoring methods
@@ -690,28 +693,57 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def check_file_FillValue(self,file_path,verbose=None):
-        """Check for NaN _FillValue; return path to (possibly modified) file."""
-        check_dependency('ncdump')
-        check_dependency('ncatted')
+    def fix_input_FillValue(self,fill_value=1.0e36,overwrite=False,verbose=None):
+        """
+        Create copies of any input files that have a NaN _FillValue with a valid
+        _FillValue and update input_file_list to use the corrected files.
+        This must be done before horizontal remapping if the input data has a
+        NaN _FillValue (e.g. ERA5). For many parallel jobs using the same input
+        files, consider running hiccup.fix_FillValue_files() on the input files
+        beforehand to avoid multiple jobs trying to create the same file.
+        """
+        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
+        if self.do_timers: timer_start = perf_counter()
         if verbose is None: verbose = self.verbose
-        if file_path is None: return file_path
-        # Check if any variable has NaN as _FillValue
-        result = sp.run(f'ncdump -h {file_path}',
-                        shell=True, capture_output=True, check=True, text=True)
-        # Only modify if NaN _FillValue is found
-        if '_FillValue = NaN' in result.stdout:
-            file_modified_name = file_path.replace('.nc','.modified.nc')
-            if verbose:
-                msg  = f'{tcolor.RED}input file contains NaN _FillValue, a modified version will be created{tcolor.ENDC}\n'
-                msg += f'  original =>  {file_path}\n'
-                msg += f'  modified =>  {file_modified_name}\n'
-                print(f'\n{self.verbose_indent}{msg}')
-            # update the _FillValue metadata for all variables
-            run_cmd(f'ncatted -O -a _FillValue,.*,m,f,1.0e36 {file_path} {file_modified_name}',
-                    verbose, prepend_line=False, shell=True,)
-            return file_modified_name
-        return file_path
+        if verbose: print(f'\n{self.verbose_indent}Checking input files for NaN _FillValue...')
+
+        new_list = fix_FillValue_files(self.input_file_list, fill_value=fill_value,
+                                       overwrite=overwrite, verbose=verbose)
+        if new_list != self.input_file_list or not self._var_to_file_map:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
+
+        if self.do_timers: self.print_timer(timer_start)
+        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
+        return
+    # --------------------------------------------------------------------------
+    def _resolve_input_FillValue(self,verbose=None):
+        """
+        Make sure input data does not have a NaN _FillValue without creating any
+        files. Input files with a NaN _FillValue are swapped for an existing
+        corrected copy (see fix_input_FillValue), otherwise an error is raised.
+        Also rebuild the var-to-file map if paths changed or if it was never
+        built (e.g. check_input_files=False)
+        """
+        if verbose is None: verbose = self.verbose
+        new_list = []
+        for file_path in self.input_file_list:
+            if file_path is None or not file_has_nan_FillValue(file_path):
+                new_list.append(file_path)
+                continue
+            fixed_file_path = get_FillValue_fixed_file_name(file_path)
+            if os.path.isfile(fixed_file_path) and not file_has_nan_FillValue(fixed_file_path):
+                if verbose: print(f'\n{self.verbose_indent}  using NaN _FillValue corrected file: {fixed_file_path}')
+                new_list.append(fixed_file_path)
+                continue
+            msg  = f'{tcolor.RED}input file contains NaN _FillValue: {file_path}{tcolor.ENDC}\n'
+            msg += f'  Create a corrected copy before remapping with hiccup_data.fix_input_FillValue()\n'
+            msg += f'  or by running hiccup.fix_FillValue_files() on the input files beforehand'
+            raise ValueError(msg)
+        if new_list != self.input_file_list or not self._var_to_file_map:
+            self.input_file_list = new_list
+            self._build_var_to_file_map()
+        return
     # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None,target_time=None):
         """
@@ -728,13 +760,8 @@ class hiccup_data(object):
         check_dependency('ncremap')
         check_dependency('ncks')
 
-        # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths
-        # changed or if it was never built (e.g. check_input_files=False)
-        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
+        # check that input data does not have a NaN _FillValue
+        self._resolve_input_FillValue(verbose)
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
@@ -802,13 +829,8 @@ class hiccup_data(object):
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
-        # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths
-        # changed or if it was never built (e.g. check_input_files=False)
-        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
+        # check that input data does not have a NaN _FillValue
+        self._resolve_input_FillValue(verbose)
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
@@ -862,13 +884,8 @@ class hiccup_data(object):
 
         check_dependency('ncremap')
 
-        # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths
-        # changed or if it was never built (e.g. check_input_files=False)
-        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
+        # check that input data does not have a NaN _FillValue
+        self._resolve_input_FillValue(verbose)
 
         # Cache time indices per file
         time_idx_cache = {}
@@ -936,13 +953,8 @@ class hiccup_data(object):
         lat_var = self.atm_var_name_dict['lat'] if 'lat' in self.atm_var_name_dict else None
         lon_var = self.atm_var_name_dict['lon'] if 'lon' in self.atm_var_name_dict else None
 
-        # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths
-        # changed or if it was never built (e.g. check_input_files=False)
-        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
+        # check that input data does not have a NaN _FillValue
+        self._resolve_input_FillValue(verbose)
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
@@ -989,13 +1001,8 @@ class hiccup_data(object):
 
         if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
 
-        # check that input data has valid _FillValue (i.e. not NaN) and if not
-        # create a copy with modified metadata; rebuild var-to-file map if paths
-        # changed or if it was never built (e.g. check_input_files=False)
-        new_list = [self.check_file_FillValue(f) for f in self.input_file_list]
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
+        # check that input data does not have a NaN _FillValue
+        self._resolve_input_FillValue(verbose)
 
         # Copy atmosphere and surface data to individual files (no regridding)
         for var,tmp_file_name in file_dict.items():
