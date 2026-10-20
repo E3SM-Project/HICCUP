@@ -8,6 +8,9 @@
 # NOTE: requires cdsapi >= 0.7.0 and updated ~/.cdsapirc with personal access token
 #---------------------------------------------------------------------------------------------------
 import os, cdsapi, datetime, pandas as pd
+# ERA5 data uses a NaN _FillValue, which ncremap cannot handle, so each
+# downloaded file is fixed with a valid _FillValue
+from hiccup.hiccup_utilities import fix_nan_FillValue
 server = cdsapi.Client()
 #---------------------------------------------------------------------------------------------------
 class clr:END,RED,GREEN,MAGENTA,CYAN = '\033[0m','\033[31m','\033[32m','\033[35m','\033[36m'
@@ -95,6 +98,7 @@ for t in datetime_list:
                           ,'specific_cloud_liquid_water_content'
                           ],
       }, output_file_plv)
+      fix_nan_FillValue(output_file_plv)
   #-----------------------------------------------------------------------------
   # surface data
   if get_sfc:
@@ -119,6 +123,7 @@ for t in datetime_list:
                           ,'sea_ice_cover'
                           ],
       }, output_file_sfc)
+      fix_nan_FillValue(output_file_sfc)
   #-----------------------------------------------------------------------------
   # land model data
   if get_lnd:
@@ -147,4 +152,5 @@ for t in datetime_list:
                           ,'volumetric_soil_water_layer_4'
                           ],
       },output_file_lnd)
+      fix_nan_FillValue(output_file_lnd)
   #-----------------------------------------------------------------------------

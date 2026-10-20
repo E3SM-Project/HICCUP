@@ -1,5 +1,5 @@
 # This module contains some useful utility routines used in hiccup_data_class.py
-import os, sys, re, shutil, subprocess as sp
+import os, sys, re, shutil, shlex, subprocess as sp
 import numpy as np
 verbose_default = False # local verbosity default
 # ------------------------------------------------------------------------------
@@ -14,16 +14,20 @@ class tcolor:
 def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False,prefix='  ',suffix=''):
     """
     Method to encapsulate running system commands and checking for failures
+    cmd can be a string or an argv list - use a list when arguments
+    (e.g. file paths) may contain whitespace
     """
     if prepend_line : prefix = '\n'+prefix
     if verbose is None : verbose = verbose_default
-    msg = f'{prefix}{cmd}{suffix}'
+    is_argv = isinstance(cmd,(list,tuple))
+    cmd_str = shlex.join(cmd) if is_argv else cmd
+    msg = f'{prefix}{cmd_str}{suffix}'
     if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
     if verbose : print(msg)
     if shell:
-        sp.check_call(cmd,shell=True)
+        sp.check_call(cmd_str,shell=True)
     else:
-        sp.check_call(cmd.split())
+        sp.check_call(list(cmd) if is_argv else cmd.split())
     return
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -131,4 +135,38 @@ def inherit_group_from_dir(file_path):
     parent_dir = os.path.dirname(os.path.abspath(file_path))
     dir_gid = os.stat(parent_dir).st_gid
     os.chown(file_path, -1, dir_gid)
+# ------------------------------------------------------------------------------
+# Methods for detecting and fixing NaN _FillValue metadata
+# (NaN is not a valid _FillValue for ncremap, so it needs to be replaced
+# before remapping)
+def get_nan_FillValue_vars(file_path):
+    """
+    Return dict of {variable name : ncatted type code} for all variables
+    in file_path that have NaN as the _FillValue (read-only)
+    """
+    check_dependency('ncdump')
+    result = sp.run(['ncdump','-h',file_path], capture_output=True, check=True, text=True)
+    # ncdump prints a float NaN as "NaNf" and a double NaN as "NaN"
+    nan_vars = {}
+    for m in re.finditer(r'^\s*(\S+):_FillValue = NaN(f?) ;', result.stdout, re.MULTILINE):
+        nan_vars[m.group(1)] = 'f' if m.group(2)=='f' else 'd'
+    return nan_vars
+def file_has_nan_FillValue(file_path):
+    """Return True if any variable in file_path has NaN as the _FillValue."""
+    return len(get_nan_FillValue_vars(file_path)) > 0
+def fix_nan_FillValue(file_path, fill_value=1.0e36, verbose=None):
+    """
+    Replace any NaN _FillValue in file_path with fill_value, modifying the
+    file in place. Returns True if any variables were modified.
+    """
+    if verbose is None : verbose = verbose_default
+    check_dependency('ncatted')
+    nan_vars = get_nan_FillValue_vars(file_path)
+    if len(nan_vars)==0: return False
+    # only modify variables with a NaN _FillValue, keeping the variable's type
+    # build an argv list so that paths containing whitespace are preserved
+    att_opts = []
+    for var,typ in nan_vars.items(): att_opts += ['-a',f'_FillValue,{var},m,{typ},{fill_value}']
+    run_cmd(['ncatted','-O',*att_opts,file_path], verbose, prepend_line=False)
+    return True
 # ------------------------------------------------------------------------------

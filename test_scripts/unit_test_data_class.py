@@ -2,13 +2,13 @@
 #===================================================================================================
 # Unit testing for hiccup_data_class module
 #===================================================================================================
-import os, tempfile, unittest
+import os, shutil, tempfile, unittest
 import numpy as np, xarray as xr, pandas as pd
 from time import perf_counter
 from unittest.mock import patch
 from hiccup.hiccup_data_class_timer_methods import print_timer
 from hiccup.hiccup_data_class import _drop_ps, get_adj_file_list
-from hiccup.hiccup_utilities import compare_version, parse_version
+from hiccup.hiccup_utilities import compare_version, parse_version, file_has_nan_FillValue
 from hiccup import hiccup
 
 verbose_default = False # local verbosity default
@@ -276,10 +276,7 @@ class hiccup_data_class_test_case(unittest.TestCase):
     })
     tmp_in = tempfile.NamedTemporaryFile(suffix='.nc', delete=False)
     tmp_in.close()
-    # disable xarray's default NaN _FillValue so check_file_FillValue() doesn't
-    # decide to write a "modified" copy and rebuild _var_to_file_map on us
-    no_fill_encoding = {v: {'_FillValue': None} for v in ds_in.data_vars}
-    ds_in.to_netcdf(tmp_in.name, encoding=no_fill_encoding)
+    ds_in.to_netcdf(tmp_in.name)
 
     file_dict = {'T':  os.path.join(obj.tmp_dir,'stage_eam_test.T.nc'),
                  'PS': os.path.join(obj.tmp_dir,'stage_eam_test.PS.nc')}
@@ -307,6 +304,41 @@ class hiccup_data_class_test_case(unittest.TestCase):
         if os.path.isfile(path): os.remove(path)
 
     print_timer(timer_start,caller='test_hiccup_data_class_stage_multifile_eam')
+  # ----------------------------------------------------------------------------
+  def test_get_remap_input(self):
+    """
+    verify that _get_remap_input() extracts variables with a NaN _FillValue to
+    a temporary file with a valid _FillValue, leaving the input file untouched,
+    and returns input files without a NaN _FillValue unchanged
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    tmp_dir = tempfile.mkdtemp()
+    try:
+      # ERA5 test data has a NaN _FillValue
+      in_file = f'{TEST_DATA}/HICCUP_TEST.ERA5.sfc.low-res.nc'
+      tmp_in_file = os.path.join(tmp_dir,'remap_input.nc')
+      remap_in_file, time_opt = obj._get_remap_input(in_file, ['skt','sp'], None, tmp_in_file)
+      self.assertEqual(remap_in_file, tmp_in_file)
+      self.assertEqual(time_opt, '')
+      self.assertFalse(file_has_nan_FillValue(tmp_in_file))
+      self.assertTrue(file_has_nan_FillValue(in_file))
+      with xr.open_dataset(tmp_in_file) as ds_tmp, xr.open_dataset(in_file) as ds_in:
+        self.assertIn('skt', ds_tmp.data_vars)
+        self.assertIn('sp', ds_tmp.data_vars)
+        self.assertNotIn('sst', ds_tmp.data_vars)
+        np.testing.assert_array_equal(ds_tmp['skt'].values, ds_in['skt'].values)
+      # file without a NaN _FillValue is used directly with the time selection
+      clean_file = os.path.join(tmp_dir,'clean.nc')
+      xr.Dataset({'T':(('x',),np.arange(4.))}).to_netcdf(clean_file, encoding={'T':{'_FillValue':None}})
+      remap_in_file, time_opt = obj._get_remap_input(clean_file, ['T'], 3,
+                                                     os.path.join(tmp_dir,'unused.nc'))
+      self.assertEqual(remap_in_file, clean_file)
+      self.assertEqual(time_opt, ' -d time,3')
+      self.assertFalse(os.path.exists(os.path.join(tmp_dir,'unused.nc')))
+    finally:
+      shutil.rmtree(tmp_dir)
+    print_timer(timer_start,caller='test_get_remap_input')
   # ----------------------------------------------------------------------------
   def test_parse_version(self):
     """
