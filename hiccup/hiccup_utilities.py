@@ -1,5 +1,5 @@
 # This module contains some useful utility routines used in hiccup_data_class.py
-import os, sys, re, shutil, subprocess as sp
+import os, sys, re, shutil, shlex, subprocess as sp
 import numpy as np
 verbose_default = False # local verbosity default
 # ------------------------------------------------------------------------------
@@ -14,16 +14,20 @@ class tcolor:
 def run_cmd(cmd,verbose=None,prepend_line=True,use_color=True,shell=False,prefix='  ',suffix=''):
     """
     Method to encapsulate running system commands and checking for failures
+    cmd can be a string or an argv list - use a list when arguments
+    (e.g. file paths) may contain whitespace
     """
     if prepend_line : prefix = '\n'+prefix
     if verbose is None : verbose = verbose_default
-    msg = f'{prefix}{cmd}{suffix}'
+    is_argv = isinstance(cmd,(list,tuple))
+    cmd_str = shlex.join(cmd) if is_argv else cmd
+    msg = f'{prefix}{cmd_str}{suffix}'
     if use_color : msg = tcolor.GREEN + msg + tcolor.ENDC
     if verbose : print(msg)
     if shell:
-        sp.check_call(cmd,shell=True)
+        sp.check_call(cmd_str,shell=True)
     else:
-        sp.check_call(cmd.split())
+        sp.check_call(list(cmd) if is_argv else cmd.split())
     return
 # ------------------------------------------------------------------------------
 # Method for checking if required software is installed
@@ -178,10 +182,12 @@ def create_FillValue_fixed_file(file_path, fill_value=1.0e36, overwrite=False, v
         msg += f'  modified =>  {fixed_file_path}'
         print(f'\n  {msg}')
     # only modify variables with a NaN _FillValue, keeping the variable's type
-    att_opts = ' '.join(f'-a _FillValue,{var},m,{typ},{fill_value}' for var,typ in nan_vars.items())
+    # build an argv list so that paths containing whitespace are preserved
+    att_opts = []
+    for var,typ in nan_vars.items(): att_opts += ['-a',f'_FillValue,{var},m,{typ},{fill_value}']
     tmp_file_path = f'{fixed_file_path}.hiccup_tmp.{os.getpid()}'
     try:
-        run_cmd(f'ncatted -O {att_opts} {file_path} {tmp_file_path}', verbose, prepend_line=False)
+        run_cmd(['ncatted','-O',*att_opts,file_path,tmp_file_path], verbose, prepend_line=False)
         os.replace(tmp_file_path, fixed_file_path)
     finally:
         if os.path.exists(tmp_file_path): os.remove(tmp_file_path)
