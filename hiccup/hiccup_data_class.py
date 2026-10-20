@@ -13,6 +13,7 @@ from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_stat
 from hiccup.hiccup_utilities import file_has_nan_FillValue
 from hiccup.hiccup_utilities import get_FillValue_fixed_file_name
+from hiccup.hiccup_utilities import create_FillValue_fixed_file
 from hiccup.hiccup_utilities import fix_FillValue_files
 from hiccup.hiccup_vertical_remap import remap_vertical_py
 # ------------------------------------------------------------------------------
@@ -719,11 +720,12 @@ class hiccup_data(object):
     # --------------------------------------------------------------------------
     def _resolve_input_FillValue(self,verbose=None):
         """
-        Make sure input data does not have a NaN _FillValue without creating any
-        files. Input files with a NaN _FillValue are swapped for an existing
-        corrected copy (see fix_input_FillValue), otherwise an error is raised.
-        Also rebuild the var-to-file map if paths changed or if it was never
-        built (e.g. check_input_files=False)
+        Make sure input data does not have a NaN _FillValue. Input files with a
+        NaN _FillValue are swapped for an existing corrected copy, or a corrected
+        copy is created if none exists (calling fix_input_FillValue() beforehand
+        is preferred so parallel jobs don't duplicate this work). Also rebuild
+        the var-to-file map if paths changed or if it was never built
+        (e.g. check_input_files=False)
         """
         if verbose is None: verbose = self.verbose
         new_list = []
@@ -736,10 +738,11 @@ class hiccup_data(object):
                 if verbose: print(f'\n{self.verbose_indent}  using NaN _FillValue corrected file: {fixed_file_path}')
                 new_list.append(fixed_file_path)
                 continue
-            msg  = f'{tcolor.RED}input file contains NaN _FillValue: {file_path}{tcolor.ENDC}\n'
-            msg += f'  Create a corrected copy before remapping with hiccup_data.fix_input_FillValue()\n'
-            msg += f'  or by running hiccup.fix_FillValue_files() on the input files beforehand'
-            raise ValueError(msg)
+            msg  = f'{tcolor.YELLOW}WARNING: input file contains NaN _FillValue: {file_path}{tcolor.ENDC}\n'
+            msg += f'  creating a corrected copy - to avoid duplicate work across parallel jobs call\n'
+            msg += f'  hiccup_data.fix_input_FillValue() or hiccup.fix_FillValue_files() beforehand'
+            print(f'\n{self.verbose_indent}{msg}')
+            new_list.append(create_FillValue_fixed_file(file_path, verbose=verbose))
         if new_list != self.input_file_list or not self._var_to_file_map:
             self.input_file_list = new_list
             self._build_var_to_file_map()

@@ -277,7 +277,7 @@ class hiccup_data_class_test_case(unittest.TestCase):
     tmp_in = tempfile.NamedTemporaryFile(suffix='.nc', delete=False)
     tmp_in.close()
     # disable xarray's default NaN _FillValue so _resolve_input_FillValue()
-    # doesn't raise an error about a missing corrected copy
+    # doesn't need to create a corrected copy
     no_fill_encoding = {v: {'_FillValue': None} for v in ds_in.data_vars}
     ds_in.to_netcdf(tmp_in.name, encoding=no_fill_encoding)
 
@@ -310,9 +310,10 @@ class hiccup_data_class_test_case(unittest.TestCase):
   # ----------------------------------------------------------------------------
   def test_resolve_input_FillValue(self):
     """
-    verify that remapping raises an error for input files with a NaN _FillValue
-    unless a corrected copy exists, and that fix_input_FillValue() creates the
-    corrected copies and updates input_file_list
+    verify that fix_input_FillValue() creates corrected copies of input files
+    with a NaN _FillValue and updates input_file_list, that an existing
+    corrected copy is picked up by _resolve_input_FillValue(), and that
+    _resolve_input_FillValue() creates the copy itself if none exists
     """
     timer_start = perf_counter()
     tmp_dir = tempfile.mkdtemp()
@@ -322,15 +323,11 @@ class hiccup_data_class_test_case(unittest.TestCase):
       for f in ['HICCUP_TEST.ERA5.atm.low-res.nc','HICCUP_TEST.ERA5.sfc.low-res.nc']:
         shutil.copy(f'{TEST_DATA}/{f}', tmp_dir)
         file_list.append(os.path.join(tmp_dir,f))
+      fixed_list = [f.replace('.nc','.modified.nc') for f in file_list]
+      # create corrected copies explicitly
       obj = hiccup.create_hiccup_data(src_data_name='ERA5', input_file_list=file_list,
                                       verbose=False)
-      # no corrected copies exist yet => error
-      with self.assertRaises(ValueError):
-        obj._resolve_input_FillValue()
-      self.assertEqual(obj.input_file_list, file_list)
-      # create corrected copies
       obj.fix_input_FillValue()
-      fixed_list = [f.replace('.nc','.modified.nc') for f in file_list]
       self.assertEqual(obj.input_file_list, fixed_list)
       self.assertTrue(all(os.path.isfile(f) for f in fixed_list))
       self.assertTrue(all(f in fixed_list for f in obj._var_to_file_map.values()))
@@ -339,6 +336,14 @@ class hiccup_data_class_test_case(unittest.TestCase):
                                       verbose=False)
       obj._resolve_input_FillValue()
       self.assertEqual(obj.input_file_list, fixed_list)
+      # without existing corrected copies they should be created automatically
+      for f in fixed_list: os.remove(f)
+      obj = hiccup.create_hiccup_data(src_data_name='ERA5', input_file_list=file_list,
+                                      verbose=False)
+      obj._resolve_input_FillValue()
+      self.assertEqual(obj.input_file_list, fixed_list)
+      self.assertTrue(all(os.path.isfile(f) for f in fixed_list))
+      self.assertTrue(all(f in fixed_list for f in obj._var_to_file_map.values()))
     finally:
       shutil.rmtree(tmp_dir)
     print_timer(timer_start,caller='test_resolve_input_FillValue')
