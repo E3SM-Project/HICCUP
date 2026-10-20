@@ -169,8 +169,9 @@ def create_FillValue_fixed_file(file_path, fill_value=1.0e36, overwrite=False, v
     if len(nan_vars)==0: return file_path
     fixed_file_path = get_FillValue_fixed_file_name(file_path)
     if os.path.isfile(fixed_file_path) and not overwrite:
-        if verbose: print(f'  NaN _FillValue corrected file already exists: {fixed_file_path}')
-        return fixed_file_path
+        if not file_has_nan_FillValue(fixed_file_path):
+            if verbose: print(f'  NaN _FillValue corrected file already exists: {fixed_file_path}')
+            return fixed_file_path
     if verbose:
         msg  = f'{tcolor.RED}input file contains NaN _FillValue, a modified version will be created{tcolor.ENDC}\n'
         msg += f'  original =>  {file_path}\n'
