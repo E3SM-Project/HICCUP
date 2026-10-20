@@ -8,6 +8,9 @@
 # NOTE: requires cdsapi >= 0.7.0 and updated ~/.cdsapirc with personal access token
 #---------------------------------------------------------------------------------------------------
 import os, cdsapi, datetime, pandas as pd
+# ERA5 data uses a NaN _FillValue, which ncremap cannot handle, so each
+# downloaded file is fixed with a valid _FillValue
+from hiccup.hiccup_utilities import fix_nan_FillValue
 server = cdsapi.Client()
 #---------------------------------------------------------------------------------------------------
 class clr:END,RED,GREEN,MAGENTA,CYAN = '\033[0m','\033[31m','\033[32m','\033[35m','\033[36m'
@@ -130,6 +133,7 @@ for t in datetime_list:
             'pressure_level': prs_lev_list[v],
             'variable'      : [prs_era5_list[v]],
         }, output_file_plv_tmp)
+        fix_nan_FillValue(output_file_plv_tmp)
 
     # single-level variables
     for v,var in enumerate(sfc_short_list):
@@ -144,4 +148,5 @@ for t in datetime_list:
             'year'          : [yr],
             'variable'      : [sfc_era5_list[v]],
         }, output_file_sfc_tmp)
+        fix_nan_FillValue(output_file_sfc_tmp)
 # --------------------------------------------------------------------------------------------------

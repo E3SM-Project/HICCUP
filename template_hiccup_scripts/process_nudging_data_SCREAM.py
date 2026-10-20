@@ -28,7 +28,6 @@ ncremap -5 -a trbilin --a2o --src_grd=${SRC_GRID_FILE} --dst_grd=${DST_GRID_FILE
 # Logical flags for controlling what this script will do (comment out to disable)
 verbose = True            # Global verbosity flag
 unpack_nc_files = True    # unpack data files (convert short to float)
-fix_FillValue   = True    # create input file copies with valid _FillValue (needed for ERA5)
 create_map_file = True    # grid and map file creation
 remap_data_horz = True    # horz remap, variable renaming
 remap_data_vert = True    # vertical remap
@@ -109,11 +108,6 @@ for t in datetime_list:
     if 'unpack_nc_files' not in locals(): unpack_nc_files = False
     if unpack_nc_files:
         hiccup_data.unpack_data_files()
-    # --------------------------------------------------------------------------
-    # Make sure input files do not have a NaN _FillValue, which ncremap cannot handle
-    if 'fix_FillValue' not in locals(): fix_FillValue = False
-    if fix_FillValue:
-        hiccup_data.fix_input_FillValue()
     # ------------------------------------------------------------------------------
     # Create grid and mapping files
     if 'create_map_file' not in locals(): create_map_file = False

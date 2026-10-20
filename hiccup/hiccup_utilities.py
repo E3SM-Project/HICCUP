@@ -136,9 +136,9 @@ def inherit_group_from_dir(file_path):
     dir_gid = os.stat(parent_dir).st_gid
     os.chown(file_path, -1, dir_gid)
 # ------------------------------------------------------------------------------
-# Methods for detecting and fixing NaN _FillValue metadata in input files
-# (NaN is not a valid _FillValue for ncremap, so these files need a copy
-# with a valid _FillValue before remapping)
+# Methods for detecting and fixing NaN _FillValue metadata
+# (NaN is not a valid _FillValue for ncremap, so it needs to be replaced
+# before remapping)
 def get_nan_FillValue_vars(file_path):
     """
     Return dict of {variable name : ncatted type code} for all variables
@@ -154,52 +154,19 @@ def get_nan_FillValue_vars(file_path):
 def file_has_nan_FillValue(file_path):
     """Return True if any variable in file_path has NaN as the _FillValue."""
     return len(get_nan_FillValue_vars(file_path)) > 0
-def get_FillValue_fixed_file_name(file_path):
-    """Return the path of the _FillValue corrected copy of file_path."""
-    root, ext = os.path.splitext(file_path)
-    return f'{root}.modified{ext}'
-def create_FillValue_fixed_file(file_path, fill_value=1.0e36, overwrite=False, verbose=None):
+def fix_nan_FillValue(file_path, fill_value=1.0e36, verbose=None):
     """
-    Create a copy of file_path with any NaN _FillValue replaced by fill_value
-    and return the path of the file that should be used for processing.
-    Returns file_path unchanged if no NaN _FillValue is found. An existing
-    corrected file is reused unless overwrite=True. The copy is written to a
-    temporary file and then moved into place, so other processes never see
-    a partially written file.
+    Replace any NaN _FillValue in file_path with fill_value, modifying the
+    file in place. Returns True if any variables were modified.
     """
     if verbose is None : verbose = verbose_default
     check_dependency('ncatted')
     nan_vars = get_nan_FillValue_vars(file_path)
-    if len(nan_vars)==0: return file_path
-    fixed_file_path = get_FillValue_fixed_file_name(file_path)
-    if os.path.isfile(fixed_file_path) and not overwrite:
-        if not file_has_nan_FillValue(fixed_file_path):
-            if verbose: print(f'  NaN _FillValue corrected file already exists: {fixed_file_path}')
-            return fixed_file_path
-    if verbose:
-        msg  = f'{tcolor.RED}input file contains NaN _FillValue, a modified version will be created{tcolor.ENDC}\n'
-        msg += f'  original =>  {file_path}\n'
-        msg += f'  modified =>  {fixed_file_path}'
-        print(f'\n  {msg}')
+    if len(nan_vars)==0: return False
     # only modify variables with a NaN _FillValue, keeping the variable's type
     # build an argv list so that paths containing whitespace are preserved
     att_opts = []
     for var,typ in nan_vars.items(): att_opts += ['-a',f'_FillValue,{var},m,{typ},{fill_value}']
-    tmp_file_path = f'{fixed_file_path}.hiccup_tmp.{os.getpid()}'
-    try:
-        run_cmd(['ncatted','-O',*att_opts,file_path,tmp_file_path], verbose, prepend_line=False)
-        os.replace(tmp_file_path, fixed_file_path)
-    finally:
-        if os.path.exists(tmp_file_path): os.remove(tmp_file_path)
-    return fixed_file_path
-def fix_FillValue_files(file_list, fill_value=1.0e36, overwrite=False, verbose=None):
-    """
-    Create _FillValue corrected copies of any files in file_list that have
-    a NaN _FillValue and return the list of files to use for processing.
-    This can be run on a set of input files before launching parallel
-    jobs to avoid multiple jobs trying to create the same file.
-    """
-    return [ create_FillValue_fixed_file(f, fill_value=fill_value, overwrite=overwrite,
-                                         verbose=verbose) if f is not None else f
-             for f in file_list ]
+    run_cmd(['ncatted','-O',*att_opts,file_path], verbose, prepend_line=False)
+    return True
 # ------------------------------------------------------------------------------

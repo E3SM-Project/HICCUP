@@ -11,10 +11,8 @@ from hiccup.hiccup_utilities import check_dependency
 from hiccup.hiccup_utilities import run_cmd
 from hiccup.hiccup_utilities import tcolor
 from hiccup.hiccup_utilities import print_stat
-from hiccup.hiccup_utilities import file_has_nan_FillValue
-from hiccup.hiccup_utilities import get_FillValue_fixed_file_name
-from hiccup.hiccup_utilities import create_FillValue_fixed_file
-from hiccup.hiccup_utilities import fix_FillValue_files
+from hiccup.hiccup_utilities import get_nan_FillValue_vars
+from hiccup.hiccup_utilities import fix_nan_FillValue
 from hiccup.hiccup_vertical_remap import remap_vertical_py
 # ------------------------------------------------------------------------------
 # Import timer and memory monitoring methods
@@ -694,59 +692,26 @@ class hiccup_data(object):
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
         return
     # --------------------------------------------------------------------------
-    def fix_input_FillValue(self,fill_value=1.0e36,overwrite=False,verbose=None):
+    def _get_remap_input(self,in_file,var_list,time_idx,tmp_in_file,verbose=None):
         """
-        Create copies of any input files that have a NaN _FillValue with a valid
-        _FillValue and update input_file_list to use the corrected files.
-        This must be done before horizontal remapping if the input data has a
-        NaN _FillValue (e.g. ERA5). For many parallel jobs using the same input
-        files, consider running hiccup.fix_FillValue_files() on the input files
-        beforehand to avoid multiple jobs trying to create the same file.
-        """
-        if print_memory_usage: self.print_mem_usage(msg=f'before {sys._getframe(0).f_code.co_name}')
-        if self.do_timers: timer_start = perf_counter()
-        if verbose is None: verbose = self.verbose
-        if verbose: print(f'\n{self.verbose_indent}Checking input files for NaN _FillValue...')
-
-        new_list = fix_FillValue_files(self.input_file_list, fill_value=fill_value,
-                                       overwrite=overwrite, verbose=verbose)
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
-
-        if self.do_timers: self.print_timer(timer_start)
-        if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
-        return
-    # --------------------------------------------------------------------------
-    def _resolve_input_FillValue(self,verbose=None):
-        """
-        Make sure input data does not have a NaN _FillValue. Input files with a
-        NaN _FillValue are swapped for an existing corrected copy, or a corrected
-        copy is created if none exists (calling fix_input_FillValue() beforehand
-        is preferred so parallel jobs don't duplicate this work). Also rebuild
-        the var-to-file map if paths changed or if it was never built
-        (e.g. check_input_files=False)
+        Return the file and time selection option to use for remapping the
+        variables in var_list from in_file. ncremap cannot handle a NaN
+        _FillValue (e.g. ERA5), so if any of these variables have one they are
+        extracted to tmp_in_file and the _FillValue is replaced there, which
+        leaves in_file untouched and avoids conflicts between parallel jobs
         """
         if verbose is None: verbose = self.verbose
-        new_list = []
-        for file_path in self.input_file_list:
-            if file_path is None or not file_has_nan_FillValue(file_path):
-                new_list.append(file_path)
-                continue
-            fixed_file_path = get_FillValue_fixed_file_name(file_path)
-            if os.path.isfile(fixed_file_path) and not file_has_nan_FillValue(fixed_file_path):
-                if verbose: print(f'\n{self.verbose_indent}  using NaN _FillValue corrected file: {fixed_file_path}')
-                new_list.append(fixed_file_path)
-                continue
-            msg  = f'{tcolor.YELLOW}WARNING: input file contains NaN _FillValue: {file_path}{tcolor.ENDC}\n'
-            msg += f'  creating a corrected copy - to avoid duplicate work across parallel jobs call\n'
-            msg += f'  hiccup_data.fix_input_FillValue() or hiccup.fix_FillValue_files() beforehand'
-            print(f'\n{self.verbose_indent}{msg}')
-            new_list.append(create_FillValue_fixed_file(file_path, verbose=verbose))
-        if new_list != self.input_file_list or not self._var_to_file_map:
-            self.input_file_list = new_list
-            self._build_var_to_file_map()
-        return
+        time_opt = '' if time_idx is None else f' -d time,{time_idx}'
+        nan_vars = get_nan_FillValue_vars(in_file)
+        if not any(v in nan_vars for v in var_list): return in_file, time_opt
+        if verbose: print(f'\n{self.verbose_indent}  replacing NaN _FillValue in temporary copy of input data')
+        cmd = ['ncks','-O','--no_tmp_fl']
+        if time_idx is not None: cmd += ['-d',f'time,{time_idx}']
+        cmd += ['-v',','.join(var_list),in_file,tmp_in_file]
+        run_cmd(cmd,verbose,prepend_line=False)
+        fix_nan_FillValue(tmp_in_file,verbose=verbose)
+        # time selection was already applied to the temporary file
+        return tmp_in_file, ''
     # --------------------------------------------------------------------------
     def remap_horizontal(self,output_file_name,verbose=None,target_time=None):
         """
@@ -763,8 +728,8 @@ class hiccup_data(object):
         check_dependency('ncremap')
         check_dependency('ncks')
 
-        # check that input data does not have a NaN _FillValue
-        self._resolve_input_FillValue(verbose)
+        # build the var-to-file map if it was never built (e.g. check_input_files=False)
+        if not self._var_to_file_map: self._build_var_to_file_map()
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
@@ -785,21 +750,24 @@ class hiccup_data(object):
             if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name} ',verbose)
             tmp_files.append(tmp_file_name)
             var_list = ','.join(src_vars)
-            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}'
+            t_idx = None
             if target_time is not None:
                 ds_tmp = xr.open_dataset(in_file, decode_times=False)
                 if 'time' in ds_tmp.dims:
                     t_idx = self._get_time_index(in_file, target_time)
-                    nco_opt += f' -d time,{t_idx}'
                 ds_tmp.close()
+            remap_in_file, time_opt = self._get_remap_input(in_file, src_vars, t_idx,
+                                                            f'{tmp_file_name}.input.nc', verbose)
+            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}{time_opt}'
             cmd  = f'ncremap'
             cmd += f" --nco_opt='{nco_opt}' "
             cmd += f' --map_file={self.map_file} '
-            cmd += f' --in_file={in_file} '
+            cmd += f' --in_file={remap_in_file} '
             cmd += f' --out_file={tmp_file_name} '
             cmd += f' --var_lst={var_list} '
             cmd += f' --fl_fmt={ncremap_file_fmt} '
             run_cmd(cmd,verbose,shell=True)
+            if remap_in_file != in_file: os.remove(remap_in_file)
 
         if verbose: print(f'\n{self.verbose_indent}Combining temporary remapped files...')
 
@@ -832,8 +800,8 @@ class hiccup_data(object):
         if 'lat' in self.atm_var_name_dict: lat_var = self.atm_var_name_dict['lat']
         if 'lon' in self.atm_var_name_dict: lon_var = self.atm_var_name_dict['lon']
 
-        # check that input data does not have a NaN _FillValue
-        self._resolve_input_FillValue(verbose)
+        # build the var-to-file map if it was never built (e.g. check_input_files=False)
+        if not self._var_to_file_map: self._build_var_to_file_map()
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
@@ -847,26 +815,28 @@ class hiccup_data(object):
             # Remove temporary files if they exist
             if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
             # Remap the data
-            in_var_list = f'{in_var}'
-            if 'lat' in self.atm_var_name_dict: in_var_list += f',{lat_var}'
-            if 'lon' in self.atm_var_name_dict: in_var_list += f',{lon_var}'
-            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}'
+            in_var_list = [in_var]
+            if 'lat' in self.atm_var_name_dict: in_var_list.append(lat_var)
+            if 'lon' in self.atm_var_name_dict: in_var_list.append(lon_var)
             if target_time is not None:
                 if in_file not in time_idx_cache:
                     ds_tmp = xr.open_dataset(in_file, decode_times=False)
                     if 'time' in ds_tmp.dims:
                         time_idx_cache[in_file] = self._get_time_index(in_file, target_time)
                     ds_tmp.close()
-                if in_file in time_idx_cache:
-                    nco_opt += f' -d time,{time_idx_cache[in_file]}'
+            remap_in_file, time_opt = self._get_remap_input(in_file, in_var_list,
+                                                            time_idx_cache.get(in_file),
+                                                            f'{tmp_file_name}.input.nc', verbose)
+            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}{time_opt}'
             cmd  = f'ncremap'
             cmd += f" --nco_opt='{nco_opt}' "
             cmd += f' --map_file={self.map_file}'
-            cmd += f' --in_file={in_file}'
+            cmd += f' --in_file={remap_in_file}'
             cmd += f' --out_file={tmp_file_name}'
-            cmd += f' --var_lst={in_var_list}'
+            cmd += f' --var_lst={",".join(in_var_list)}'
             cmd += f' --fl_fmt={ncremap_file_fmt}'
             run_cmd(cmd,verbose,shell=True)
+            if remap_in_file != in_file: os.remove(remap_in_file)
 
         if self.do_timers: self.print_timer(timer_start)
         if print_memory_usage: self.print_mem_usage(msg=f'after {sys._getframe(0).f_code.co_name}')
@@ -887,8 +857,8 @@ class hiccup_data(object):
 
         check_dependency('ncremap')
 
-        # check that input data does not have a NaN _FillValue
-        self._resolve_input_FillValue(verbose)
+        # build the var-to-file map if it was never built (e.g. check_input_files=False)
+        if not self._var_to_file_map: self._build_var_to_file_map()
 
         # Cache time indices per file
         time_idx_cache = {}
@@ -900,24 +870,25 @@ class hiccup_data(object):
             # Remove temporary files if they exist
             if os.path.isfile(tmp_file_name): run_cmd(f'rm {tmp_file_name}',verbose)
             # Remap the data
-            in_var_list = f'{in_var}'
-            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}'
             if target_time is not None:
                 if in_file not in time_idx_cache:
                     ds_tmp = xr.open_dataset(in_file, decode_times=False)
                     if 'time' in ds_tmp.dims:
                         time_idx_cache[in_file] = self._get_time_index(in_file, target_time)
                     ds_tmp.close()
-                if in_file in time_idx_cache:
-                    nco_opt += f' -d time,{time_idx_cache[in_file]}'
+            remap_in_file, time_opt = self._get_remap_input(in_file, [in_var],
+                                                            time_idx_cache.get(in_file),
+                                                            f'{tmp_file_name}.input.nc', verbose)
+            nco_opt = f'-O --no_tmp_fl --hdr_pad={hdr_pad}{time_opt}'
             cmd  = f'ncremap'
             cmd += f" --nco_opt='{nco_opt}' "
             cmd += f' --map_file={self.map_file}'
-            cmd += f' --in_file={in_file}'
+            cmd += f' --in_file={remap_in_file}'
             cmd += f' --out_file={tmp_file_name}'
-            cmd += f' --var_lst={in_var_list}'
+            cmd += f' --var_lst={in_var}'
             cmd += f' --fl_fmt={ncremap_file_fmt}'
             run_cmd(cmd,verbose,shell=True)
+            if remap_in_file != in_file: os.remove(remap_in_file)
 
         # get rid of bounds and vertices variables
         # (normally done in rename_vars_special for non-EAM cases)
@@ -956,8 +927,8 @@ class hiccup_data(object):
         lat_var = self.atm_var_name_dict['lat'] if 'lat' in self.atm_var_name_dict else None
         lon_var = self.atm_var_name_dict['lon'] if 'lon' in self.atm_var_name_dict else None
 
-        # check that input data does not have a NaN _FillValue
-        self._resolve_input_FillValue(verbose)
+        # build the var-to-file map if it was never built (e.g. check_input_files=False)
+        if not self._var_to_file_map: self._build_var_to_file_map()
 
         all_var_dicts = {**self.atm_var_name_dict, **self.sfc_var_name_dict}
 
@@ -1004,8 +975,8 @@ class hiccup_data(object):
 
         if len(self.input_file_list) == 0: raise ValueError('input_file_list cannot be empty!')
 
-        # check that input data does not have a NaN _FillValue
-        self._resolve_input_FillValue(verbose)
+        # build the var-to-file map if it was never built (e.g. check_input_files=False)
+        if not self._var_to_file_map: self._build_var_to_file_map()
 
         # Copy atmosphere and surface data to individual files (no regridding)
         for var,tmp_file_name in file_dict.items():
