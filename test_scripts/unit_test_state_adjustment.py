@@ -323,6 +323,16 @@ class state_adjustment_test_case(unittest.TestCase):
     self.assertTrue( corr_near > 0.3 )
     self.assertTrue( corr_near > corr_far )
 
+    # relative_amplitude => multiplicative perturbation with that relative std-dev
+    rel_amp = 1e-6/np.sqrt(3.)
+    ds3 = hsa.apply_correlated_perturbations( make_ds(), var_list=['T']
+                                            , corr_length_km=corr_length_km, seed=123
+                                            , relative_amplitude=rel_amp )
+    rel_pert = ds3['T'].values/base - 1.
+    self.assertTrue( np.abs( rel_pert.std()/rel_amp - 1. ) < 1e-3 )
+    # same underlying noise pattern as the default amplitude case
+    self.assertTrue( np.corrcoef(rel_pert,pert1)[0,1] > 0.999 )
+
     print_timer(timer_start,caller='test_apply_correlated_perturbations')
   # ----------------------------------------------------------------------------
   def test_create_perturbed_file(self):
