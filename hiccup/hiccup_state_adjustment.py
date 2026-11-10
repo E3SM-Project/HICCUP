@@ -457,9 +457,16 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None, verbose_inden
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 def apply_random_perturbations( ds, var_list=None, seed=None,
-                                verbose=None, verbose_indent='' ):
+                                verbose=None, verbose_indent='',
+                                relative_amplitude=None ):
   """
   Apply random perturbations to the final remapped state variables
+
+  relative_amplitude : if None (default) the perturbation std-dev is 1% of each
+                       variable's std-dev; otherwise the perturbation is
+                       multiplicative, var*(1+relative_amplitude*noise) with
+                       unit-std noise, analogous to the EAM pertlim namelist
+                       option (pertlim => relative_amplitude=pertlim/sqrt(3))
   """
   if verbose is None : verbose = verbose_default
   if verbose: print(f'\n{verbose_indent}Applying random perturbation...')
@@ -482,8 +489,12 @@ def apply_random_perturbations( ds, var_list=None, seed=None,
 
   # apply perturbations
   for var in var_list:
-    # use "small" perturbations => 1% of std-dev
-    ds[var] = ds[var] + rng.standard_normal( ds[var].shape ) * ds[var].std().values * 0.01
+    noise = rng.standard_normal( ds[var].shape )
+    if relative_amplitude is None:
+      # use "small" perturbations => 1% of std-dev
+      ds[var] = ds[var] + noise * ds[var].std().values * 0.01
+    else:
+      ds[var] = ds[var] * ( 1. + noise * relative_amplitude )
 
   return ds
 
@@ -550,7 +561,8 @@ def build_gaussian_smoother( lat, lon, corr_length_km, ncol_name='ncol',
 #-------------------------------------------------------------------------------
 def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
                                     seed=None, smoother=None, ncol_name='ncol',
-                                    n_sigma=3., verbose=None, verbose_indent='' ):
+                                    n_sigma=3., verbose=None, verbose_indent='',
+                                    relative_amplitude=None ):
   """
   Apply spatially correlated random perturbations to the final remapped state
   variables on an unstructured (ncol) grid. As with apply_random_perturbations
@@ -565,6 +577,11 @@ def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
   smoother       : optional prebuilt matrix from build_gaussian_smoother() to
                    reuse across calls (e.g. when generating many ensemble
                    members); built from the grid coordinates when None
+  relative_amplitude : if None (default) the perturbation std-dev is 1% of each
+                   variable's std-dev; otherwise the perturbation is
+                   multiplicative, var*(1+relative_amplitude*noise) with
+                   unit-std noise, analogous to the EAM pertlim namelist
+                   option (pertlim => relative_amplitude=pertlim/sqrt(3))
   """
   if verbose is None : verbose = verbose_default
   if verbose: print(f'\n{verbose_indent}Applying spatially correlated random '
@@ -623,9 +640,13 @@ def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
     noise_std = noise.std(axis=1,keepdims=True)
     noise_std[noise_std==0.] = 1.
     noise = noise/noise_std
-    # scale to 1% of the variable std-dev, matching apply_random_perturbations
-    noise = noise.reshape((*lead_shape,ncol)) * ds[var].std().values * 0.01
-    ds[var].values = ds[var].values + np.moveaxis( noise, -1, axis )
+    noise = np.moveaxis( noise.reshape((*lead_shape,ncol)), -1, axis )
+    if relative_amplitude is None:
+      # scale to 1% of the variable std-dev, matching apply_random_perturbations
+      ds[var].values = ds[var].values + noise * ds[var].std().values * 0.01
+    else:
+      # multiplicative perturbation, analogous to EAM pertlim
+      ds[var].values = ds[var].values * ( 1. + noise * relative_amplitude )
 
   return ds
 
@@ -634,7 +655,8 @@ def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
 def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
                            spatially_correlated=True, corr_length_km=1000.,
                            seed=None, smoother=None, ncol_name='ncol', n_sigma=3.,
-                           clobber=False, verbose=None, verbose_indent='' ):
+                           clobber=False, verbose=None, verbose_indent='',
+                           relative_amplitude=None ):
   """
   Write a copy of input_file with random perturbations applied to var_list.
 
@@ -651,6 +673,9 @@ def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
   smoother             : optional prebuilt matrix from build_gaussian_smoother()
                          to avoid rebuilding it on each call; the (possibly
                          newly built) smoother is returned so it can be reused
+  relative_amplitude   : None => perturbation std-dev is 1% of each variable's
+                         std-dev; otherwise multiplicative perturbations with
+                         this relative std-dev (EAM pertlim/sqrt(3) equivalent)
 
   Returns the smoothing matrix when spatially_correlated is True (or when a
   smoother was supplied) so that it can be passed back in to avoid rebuilding
@@ -702,10 +727,13 @@ def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
     ds = apply_correlated_perturbations( ds, var_list=present,
                                          corr_length_km=corr_length_km, seed=seed,
                                          smoother=smoother, ncol_name=ncol_name,
-                                         n_sigma=n_sigma, verbose=False,
+                                         n_sigma=n_sigma,
+                                         relative_amplitude=relative_amplitude,
+                                         verbose=False,
                                          verbose_indent=verbose_indent )
   else:
     ds = apply_random_perturbations( ds, var_list=present, seed=seed,
+                                     relative_amplitude=relative_amplitude,
                                      verbose=False, verbose_indent=verbose_indent )
 
   # write the perturbed variable values back into the copy in place
