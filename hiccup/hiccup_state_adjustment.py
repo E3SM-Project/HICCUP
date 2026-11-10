@@ -655,8 +655,8 @@ def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
 def create_perturbed_file( input_file, output_file, var_list=['T','PS','U','V'],
                            spatially_correlated=True, corr_length_km=1000.,
                            seed=None, smoother=None, ncol_name='ncol', n_sigma=3.,
-                           relative_amplitude=None,
-                           clobber=False, verbose=None, verbose_indent='' ):
+                           clobber=False, verbose=None, verbose_indent='',
+                           relative_amplitude=None ):
   """
   Write a copy of input_file with random perturbations applied to var_list.
 
