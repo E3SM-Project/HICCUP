@@ -561,8 +561,8 @@ def build_gaussian_smoother( lat, lon, corr_length_km, ncol_name='ncol',
 #-------------------------------------------------------------------------------
 def apply_correlated_perturbations( ds, var_list=None, corr_length_km=1000.,
                                     seed=None, smoother=None, ncol_name='ncol',
-                                    n_sigma=3., relative_amplitude=None,
-                                    verbose=None, verbose_indent='' ):
+                                    n_sigma=3., verbose=None, verbose_indent='',
+                                    relative_amplitude=None ):
   """
   Apply spatially correlated random perturbations to the final remapped state
   variables on an unstructured (ncol) grid. As with apply_random_perturbations
