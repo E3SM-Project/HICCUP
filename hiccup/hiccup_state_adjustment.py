@@ -457,8 +457,8 @@ def adjust_cloud_fraction( ds, frac_var_name='FRAC', verbose=None, verbose_inden
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 def apply_random_perturbations( ds, var_list=None, seed=None,
-                                relative_amplitude=None,
-                                verbose=None, verbose_indent='' ):
+                                verbose=None, verbose_indent='',
+                                relative_amplitude=None ):
   """
   Apply random perturbations to the final remapped state variables
 
