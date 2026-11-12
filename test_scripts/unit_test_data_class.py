@@ -689,6 +689,34 @@ class hiccup_data_class_test_case(unittest.TestCase):
                                                       f'{TEST_DATA}/HICCUP_TEST.ERA5.sfc.low-res.nc'])
     self.assertEqual(obj.target_model, 'EAMXX-nudging')
     print_timer(timer_start, caller='test_create_hiccup_data_accepts_eamxx_nudging')
+  # ----------------------------------------------------------------------------
+  def test_sstice_create_src_grid_file_lat_typ(self):
+    """
+    SST/ice src grid must put cell centers on the poles for ERA5 (cap)
+    and offset from the poles for NOAA (uni)
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    tmp_dir = tempfile.mkdtemp()
+    orig = (obj.sstice_name, obj.grid_dir, obj.tmp_dir)
+    try:
+      obj.grid_dir, obj.tmp_dir = tmp_dir, tmp_dir
+      # (sstice_name, nlat, expected first/last cell center lat)
+      for sstice_name, nlat, lat_beg, lat_end in [('ERA5',181, 90.0,-90.0),
+                                                  ('NOAA',180,-89.5, 89.5)]:
+        obj.sstice_name = sstice_name
+        obj.sstice_create_src_grid_file(diagnose_grid=False, nlat=nlat, nlon=360,
+                                        force_overwrite=True)
+        with xr.open_dataset(obj.sstice_src_grid_file) as ds:
+          clat = ds['grid_center_lat'].values
+        self.assertAlmostEqual(float(clat[0]),  lat_beg, places=6,
+                               msg=f'first center lat wrong for sstice_name={sstice_name}')
+        self.assertAlmostEqual(float(clat[-1]), lat_end, places=6,
+                               msg=f'last center lat wrong for sstice_name={sstice_name}')
+    finally:
+      obj.sstice_name, obj.grid_dir, obj.tmp_dir = orig
+      shutil.rmtree(tmp_dir)
+    print_timer(timer_start, caller='test_sstice_create_src_grid_file_lat_typ')
 #===============================================================================
 if __name__ == '__main__':
     unittest.main()

@@ -50,8 +50,13 @@ def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None,
 
     src_grid = f'{self.sstice_nlat_src}x{self.sstice_nlon_src}'
 
+    # NOAA OISST uses cell centers offset from the poles, while ERA5
+    # includes grid points on the poles (e.g. 721 lats at 0.25 deg)
+    lat_typ = 'cap' if self.sstice_name=='ERA5' else 'uni'
+
     # Define the source grid file to be created
-    self.sstice_src_grid_file = f'{self.grid_dir}/scrip_{src_grid}.nc'
+    # (include lat_typ so a cached file of the other grid type is never reused)
+    self.sstice_src_grid_file = f'{self.grid_dir}/scrip_{src_grid}_{lat_typ}.nc'
 
     # Create the source grid file
     if force_overwrite or not os.path.isfile(self.sstice_src_grid_file) :
@@ -60,7 +65,7 @@ def sstice_create_src_grid_file(self,diagnose_grid=True,nlat=None,nlon=None,
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {src_grid}\'' 
         cmd += f'#latlon={self.sstice_nlat_src},{self.sstice_nlon_src}'
-        cmd +=  '#lat_typ=uni'
+        cmd += f'#lat_typ={lat_typ}'
         cmd +=  '#lon_typ=grn_ctr'
         if self.sstice_name=='NOAA': cmd += '#lat_drc=s2n'
         if self.sstice_name=='ERA5': cmd += '#lat_drc=n2s'
