@@ -29,8 +29,6 @@ if get_atm:
     with open(os.getenv('HOME')+'/.adsapirc', 'r') as f: credentials = yaml.safe_load(f)
     ads_server = cdsapi.Client(url=credentials['url'], key=credentials['key'])
     ads_server.retrieve('cams-global-reanalysis-eac4',{
-        'type'          : 'an',
-        'stream'        : 'oper',
         'data_format'   : 'netcdf',
         'grid'          : [0.75, 0.75],
         'pressure_level': lev,

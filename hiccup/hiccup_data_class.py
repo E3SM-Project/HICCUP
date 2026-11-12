@@ -133,6 +133,7 @@ class hiccup_data(object):
         self.sstice_combined_file = sstice_combined_file
         self.sstice_nlat_src = None
         self.sstice_nlon_src = None
+        self.sstice_src_lat_typ = None
         self.sstice_nlat_dst = None
         self.sstice_nlon_dst = None
         self._var_to_file_map = {}

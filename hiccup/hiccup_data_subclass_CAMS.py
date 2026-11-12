@@ -51,8 +51,16 @@ class CAMS(hiccup_data):
                         )
 
         self.src_data_name = 'CAMS'
-        self.lev_name = 'level'
         self.new_lev_name = 'plev'
+        # set vertical coordinate name to accommodate old and new names from ADS upgrade
+        self.lev_name = None
+        for fp in self.input_file_list:
+            ds = xr.open_dataset(fp, decode_times=False)
+            if 'pressure_level' in ds.coords: self.lev_name = 'pressure_level'; ds.close(); break
+            if 'level'          in ds.coords: self.lev_name = 'level';           ds.close(); break
+            ds.close()
+        if len(self.input_file_list) > 0 and self.lev_name is None:
+            raise ValueError('CAMS subclass: lev_name cannot be set from input data coordinates')
 
         if self.target_model=='EAM':
             self.atm_var_name_dict.update({'lat':'latitude'})
@@ -112,7 +120,7 @@ class CAMS(hiccup_data):
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_horz_grid}\''
         cmd += f'#latlon={self.src_nlat},{self.src_nlon}'
-        cmd +=  '#lat_typ=uni#lat_drc=n2s#lon_typ=grn_ctr '
+        cmd +=  '#lat_typ=cap#lat_drc=n2s#lon_typ=grn_ctr '
         cmd += f' -g {self.src_grid_file} '
         run_cmd(cmd,verbose,shell=True)
 
