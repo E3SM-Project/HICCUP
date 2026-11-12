@@ -112,7 +112,7 @@ class CAMS(hiccup_data):
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_horz_grid}\''
         cmd += f'#latlon={self.src_nlat},{self.src_nlon}'
-        cmd +=  '#lat_typ=uni#lat_drc=n2s#lon_typ=grn_ctr '
+        cmd +=  '#lat_typ=cap#lat_drc=n2s#lon_typ=grn_ctr '
         cmd += f' -g {self.src_grid_file} '
         run_cmd(cmd,verbose,shell=True)
 

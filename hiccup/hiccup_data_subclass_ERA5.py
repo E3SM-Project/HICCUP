@@ -169,7 +169,7 @@ class ERA5(hiccup_data):
         cmd += f' --tmp_dir={self.tmp_dir}'
         cmd += f' -G ttl=\'Equi-Angular grid {self.src_horz_grid}\'' 
         cmd += f'#latlon={self.src_nlat},{self.src_nlon}'                    
-        cmd +=  '#lat_typ=uni'
+        cmd +=  '#lat_typ=cap'
         cmd +=  '#lat_drc=n2s'
         cmd +=  '#lon_typ=grn_ctr '
         cmd += f' -g {self.src_grid_file} '
