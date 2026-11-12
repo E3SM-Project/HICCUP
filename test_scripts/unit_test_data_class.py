@@ -717,6 +717,36 @@ class hiccup_data_class_test_case(unittest.TestCase):
       obj.sstice_name, obj.grid_dir, obj.tmp_dir = orig
       shutil.rmtree(tmp_dir)
     print_timer(timer_start, caller='test_sstice_create_src_grid_file_lat_typ')
+  # ----------------------------------------------------------------------------
+  def test_sstice_map_file_name_includes_src_lat_typ(self):
+    """
+    cached SST/ice grid and map files must differ between cap and uni source
+    grids of the same size, so stale weights are never silently reused
+    """
+    timer_start = perf_counter()
+    obj = self.hiccup_data_ERA5
+    orig = (obj.sstice_name, obj.sstice_nlat_dst, obj.sstice_nlon_dst)
+    grid_files, map_files = {}, {}
+    try:
+      obj.sstice_nlat_dst, obj.sstice_nlon_dst = 180, 360
+      obj.sstice_dst_grid_file = 'dummy_dst_grid.nc'
+      # mock run_cmd so no grid or map files are actually generated
+      with patch('hiccup.hiccup_data_class_sstice_methods.run_cmd'):
+        for sstice_name in ['ERA5','NOAA']:
+          obj.sstice_name = sstice_name
+          obj.sstice_create_src_grid_file(diagnose_grid=False, nlat=181, nlon=360,
+                                          force_overwrite=True)
+          obj.sstice_create_map_file(force_overwrite=True)
+          grid_files[sstice_name] = obj.sstice_src_grid_file
+          map_files[sstice_name]  = obj.sstice_map_file
+    finally:
+      obj.sstice_name, obj.sstice_nlat_dst, obj.sstice_nlon_dst = orig
+    self.assertIn('_cap', os.path.basename(grid_files['ERA5']))
+    self.assertIn('_uni', os.path.basename(grid_files['NOAA']))
+    self.assertIn('_cap', os.path.basename(map_files['ERA5']))
+    self.assertIn('_uni', os.path.basename(map_files['NOAA']))
+    self.assertNotEqual(map_files['ERA5'], map_files['NOAA'])
+    print_timer(timer_start, caller='test_sstice_map_file_name_includes_src_lat_typ')
 #===============================================================================
 if __name__ == '__main__':
     unittest.main()
