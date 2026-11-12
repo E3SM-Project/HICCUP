@@ -16,14 +16,18 @@ atm_dst_file_name = 'test_data/HICCUP_TEST.CAMS.atm.low-res.nc'
 
 # ------------------------------------------------------------------------------
 nlat_src,nlon_src = 241,480
-nlat_dst,nlon_dst =  90,180
+nlat_dst,nlon_dst =  91,180
 
 src_grid_file = f'{pwd}/files_grid/scrip_{nlat_src}x{nlon_src}.nc'
 dst_grid_file = f'{pwd}/files_grid/scrip_{nlat_dst}x{nlon_dst}.nc'
 
-all_grid_opts = 'lat_typ=uni#lat_drc=n2s#lon_typ=grn_ctr'
+all_grid_opts = 'lat_typ=cap#lat_drc=n2s#lon_typ=grn_ctr'
 src_grid_opts = f'-G ttl=\'Equi-Angular grid {nlat_src}x{nlon_src}\'#latlon={nlat_src},{nlon_src}#{all_grid_opts}'
 dst_grid_opts = f'-G ttl=\'Equi-Angular grid {nlat_dst}x{nlon_dst}\'#latlon={nlat_dst},{nlon_dst}#{all_grid_opts}'
+
+# write output coords as latitude/longitude directly - renaming lat->latitude afterwards
+# with ncrename wipes the coordinate values (netCDF-4 rename onto an existing dim name)
+rgr_opts = '-R \'--rgr lat_nm_out=latitude --rgr lon_nm_out=longitude\''
 
 map_file = f'{pwd}/files_map/map_{nlat_src}x{nlon_src}_to_{nlat_dst}x{nlon_dst}.nc'
 
@@ -81,11 +85,9 @@ if create_map:
 # ------------------------------------------------------------------------------
 if regrid_data:
     # remap the 2D "surface" data
-    run_cmd(f'ncremap -m {map_file} -i {sfc_src_file_name} -o {sfc_dst_file_name}  ')
-    run_cmd(f'ncrename -v lat,latitude -v lon,longitude {sfc_dst_file_name} ')
+    run_cmd(f'ncremap {rgr_opts} -m {map_file} -i {sfc_src_file_name} -o {sfc_dst_file_name}  ')
     # remap the 3D atmosphere data
-    run_cmd(f'ncremap -m {map_file} -i {atm_src_file_name} -o {atm_dst_file_name}  ')
-    run_cmd(f'ncrename -v lat,latitude -v lon,longitude {atm_dst_file_name} ')
+    run_cmd(f'ncremap {rgr_opts} -m {map_file} -i {atm_src_file_name} -o {atm_dst_file_name}  ')
 # ------------------------------------------------------------------------------
 print()
 print(f'sfc data:  {sfc_src_file_name}  >  {sfc_dst_file_name}')
